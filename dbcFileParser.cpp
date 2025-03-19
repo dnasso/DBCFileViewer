@@ -101,10 +101,11 @@ void canPrint(std::string message) {
 }
 
 
-void canMessageLoader(canMessage* Message) {
+void canMessageLoader(canMessage* CAN, std::string message) {
     int iter = 0;
     int end = 0; 
-    
+    std::string name;
+
     // Skip First bit
     end = message.find(' ', iter);
     iter = end;
@@ -115,7 +116,7 @@ void canMessageLoader(canMessage* Message) {
     }
     end = message.find(' ', iter);
     std::bitset<32> ID(message.substr(iter, end-iter));  
-    Message.CAN_ID = ID;
+    CAN->CAN_ID = ID;
     iter = end;
 
     // Name
@@ -123,8 +124,8 @@ void canMessageLoader(canMessage* Message) {
         iter += 1;
     }
     end = message.find(' ', iter);
-    std::string name = message.substr(iter, (end-iter)-1);  
-    Message.name = name;
+    name = message.substr(iter, (end-iter)-1);  
+    CAN->name = name;
     iter = end;
 
     // Name
@@ -132,15 +133,17 @@ void canMessageLoader(canMessage* Message) {
         iter += 1;
     }
     end = message.find(' ', iter);
-    std::string name = message.substr(iter, end-iter);  
-    Message.name = name;
+    name = message.substr(iter, end-iter);  
+    CAN->name = name;
     iter = end;
 
 }
 
+/*
 struct canMessage {
     std::bitset<32> CAN_ID;
     std::string name;
     int length;
     std::string sender;
 };
+*/
