@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(DBC_Parser VERSION 0.1 LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Quick)
@@ -10,6 +11,7 @@ qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(appDBC_Parser
     main.cpp
+    DbcParser.cpp
 )
 
 qt_add_qml_module(appDBC_Parser
@@ -17,8 +19,9 @@ qt_add_qml_module(appDBC_Parser
     VERSION 1.0
     QML_FILES
         Main.qml
-        SOURCES DbcParser.h
-        SOURCES DbcParser.cpp
+    SOURCES 
+        DbcParser.h
+        DbcParser.cpp
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -42,3 +45,5 @@ install(TARGETS appDBC_Parser
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2)
+target_link_libraries(appDBC_Parser PRIVATE Qt6::QuickControls2)
