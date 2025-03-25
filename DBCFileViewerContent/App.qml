@@ -21,7 +21,9 @@ Window {
     FileDialog {
         id: fileDialog
         title: "Select a file"
-        currentFolder: StandardPaths.standardLocations(StandardPaths.DocumentsLocation)[0]
+        selectedNameFilter.index: 1
+        nameFilters: ["DBC files (*.dbc)"]
+        currentFolder: StandardPaths.standardLocations(StandardPaths.DownloadLocation)[0]
         onAccepted: {
             filePath.text = "Selected file: " + fileDialog.fileUrl
         }

@@ -86,6 +86,13 @@ Rectangle {
         x: 772
         y: 277
         text: qsTr("Save DBC")
+
+        Connections {
+            target: saveDBCButton
+            function onClicked() {
+                fileDialog.save()
+            } //not implemented yet
+        }
     }
 
     GroupBox {
@@ -95,24 +102,6 @@ Rectangle {
         width: 1031
         height: 251
         title: qsTr("CAN Messages")
-
-        TextField {
-            id: textField
-            x: 45
-            y: 62
-            width: 164
-            height: 26
-            placeholderText: qsTr("Text Field")
-        }
-
-        TextField {
-            id: textField2
-            x: 243
-            y: 60
-            width: 164
-            height: 26
-            placeholderText: qsTr("Text Field")
-        }
 
         TextField {
             id: textField3
@@ -178,7 +167,7 @@ Rectangle {
         }
 
         Text {
-            id: _text1
+            id: canIdText
             x: 243
             y: 30
             width: 60
@@ -205,14 +194,6 @@ Rectangle {
 
         ComboBox {
             id: comboBox3
-            x: 443
-            y: 94
-            width: 120
-            height: 26
-        }
-
-        ComboBox {
-            id: comboBox4
             x: 443
             y: 126
             width: 120
@@ -281,18 +262,6 @@ Rectangle {
             height: 92
 
             RadioButton {
-                id: radioButton
-                checked: true
-                x: 0
-                y: 60
-                width: 28
-                height: 28
-                text: ""
-                state: ""
-                //text: qsTr("Radio Button")
-            }
-
-            RadioButton {
                 id: radioButton1
                 x: 0
                 y: 94
@@ -312,19 +281,53 @@ Rectangle {
                 //text: qsTr("Radio Button")
             }
         }
-    }
 
-    TextField {
-        id: textField1
-        x: 12
-        y: 37
-        width: 120
-        height: 28
-        placeholderText: qsTr("Text Field")
+        Column {
+            id: column1
+            x: -64
+            y: -100
+            width: 716
+            height: 400
+
+            Repeater {
+                id: repeater
+
+                Row {
+                    id: row
+                    width: 200
+                    height: 400
+                    visible: true
+
+                    RadioButton {
+                        id: radioButton
+                        checked: true
+                        width: 28
+                        height: 28
+                        text: ""
+                        state: ""
+                        //text: qsTr("Radio Button")
+                    }
+
+                    TextField {
+                        id: textField
+                        width: 164
+                        height: 26
+                        placeholderText: qsTr("Text Field")
+                    }
+
+                    TextField {
+                        id: textField2
+                        width: 164
+                        height: 26
+                        placeholderText: qsTr("Text Field")
+                    }
+                }
+            }
+        }
     }
 
     Text {
-        id: _text
+        id: cmNameText
         x: 688
         y: 374
         width: 57
@@ -334,7 +337,7 @@ Rectangle {
     }
 
     Text {
-        id: _text2
+        id: cmTypeText
         x: 1088
         y: 375
         width: 57
@@ -344,7 +347,7 @@ Rectangle {
     }
 
     ComboBox {
-        id: comboBox
+        id: hexComboBox
         x: 950
         y: 371
         width: 90
@@ -354,7 +357,7 @@ Rectangle {
     }
 
     Text {
-        id: _text3
+        id: cmDLCText
         x: 1247
         y: 375
         width: 57
@@ -364,7 +367,7 @@ Rectangle {
     }
 
     Text {
-        id: _text4
+        id: cmCommentText
         x: 1433
         y: 375
         width: 95
@@ -472,7 +475,7 @@ Rectangle {
         }
 
         ComboBox {
-            id: comboBox5
+            id: comboBox4
             x: 443
             y: 62
             width: 120
@@ -480,23 +483,15 @@ Rectangle {
         }
 
         ComboBox {
+            id: comboBox5
+            x: 443
+            y: 94
+            width: 120
+            height: 26
+        }
+
+        ComboBox {
             id: comboBox6
-            x: 443
-            y: 94
-            width: 120
-            height: 26
-        }
-
-        ComboBox {
-            id: comboBox7
-            x: 443
-            y: 94
-            width: 120
-            height: 26
-        }
-
-        ComboBox {
-            id: comboBox8
             x: 443
             y: 126
             width: 120
