@@ -6,10 +6,14 @@ It is supposed to be strictly declarative and only uses a subset of QML. If you 
 this file manually, you might introduce QML code that is not supported by Qt Design Studio.
 Check out https://doc.qt.io/qtcreator/creator-quick-ui-forms.html for details on .ui.qml files.
 */
+import QtCore
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import DBCFileViewer
 
+//notes display mode, send mode
+//permissions system
 Rectangle {
     id: rectangle
     width: Constants.width
@@ -66,14 +70,22 @@ Rectangle {
         id: loadDBCButton
         x: 640
         y: 277
-        text: qsTr("LoadDBC")
+        text: qsTr("Load DBC")
+        flat: false
+
+        Connections {
+            target: loadDBCButton
+            function onClicked() {
+                fileDialog.open()
+            }
+        }
     }
 
     Button {
         id: saveDBCButton
         x: 772
         y: 277
-        text: qsTr("SaveDBC")
+        text: qsTr("Save DBC")
     }
 
     GroupBox {
@@ -260,6 +272,46 @@ Rectangle {
             height: 30
             text: ""
         }
+
+        Column {
+            id: column
+            x: 0
+            y: 68
+            width: 28
+            height: 92
+
+            RadioButton {
+                id: radioButton
+                checked: true
+                x: 0
+                y: 60
+                width: 28
+                height: 28
+                text: ""
+                state: ""
+                //text: qsTr("Radio Button")
+            }
+
+            RadioButton {
+                id: radioButton1
+                x: 0
+                y: 94
+                width: 28
+                height: 28
+                text: ""
+                //text: qsTr("Radio Button")
+            }
+
+            RadioButton {
+                id: radioButton2
+                x: 0
+                y: 128
+                width: 28
+                height: 28
+                text: ""
+                //text: qsTr("Radio Button")
+            }
+        }
     }
 
     TextField {
@@ -297,47 +349,8 @@ Rectangle {
         y: 371
         width: 90
         height: 29
+        displayText: "Hex"
         model: ["Hex", "Dec"]
-    }
-
-    Column {
-        id: column
-        x: 650
-        y: 403
-        width: 28
-        height: 116
-
-        RadioButton {
-            id: radioButton
-            checked: true
-            x: 0
-            y: 60
-            width: 28
-            height: 28
-            text: ""
-            state: ""
-            //text: qsTr("Radio Button")
-        }
-
-        RadioButton {
-            id: radioButton1
-            x: 0
-            y: 94
-            width: 28
-            height: 28
-            text: ""
-            //text: qsTr("Radio Button")
-        }
-
-        RadioButton {
-            id: radioButton2
-            x: 0
-            y: 126
-            width: 30
-            height: 30
-            text: ""
-            //text: qsTr("Radio Button")
-        }
     }
 
     Text {
@@ -572,7 +585,7 @@ Rectangle {
         y: 250
         width: 218
         height: 25
-        text: qsTr("Available Messages:")
+        text: qsTr("Available Message Presets:")
         font.pixelSize: 16
     }
     states: [
