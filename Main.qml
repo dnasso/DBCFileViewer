@@ -108,27 +108,32 @@ ApplicationWindow {
                 border.width: 1
                 radius: 4
             }
-            
-            ListView {
-                id: messageListView
+
+            ScrollView {
                 anchors.fill: parent
                 clip: true
-                model: dbcParser.messageModel
-                
-                delegate: ItemDelegate {
-                    width: parent.width
-                    height: 40
-                    text: modelData
-                    highlighted: ListView.isCurrentItem
-                    
-                    background: Rectangle {
-                        color: highlighted ? "#E3F2FD" : (index % 2 == 0 ? "#F5F5F5" : "white")
-                        radius: 2
-                    }
-                    
-                    onClicked: {
-                        messageListView.currentIndex = index
-                        dbcParser.selectMessage(modelData)
+
+                ListView {
+                    id: messageListView
+                    anchors.fill: parent
+                    clip: true
+                    model: dbcParser.messageModel
+
+                    delegate: ItemDelegate {
+                        width: parent.width
+                        height: 40
+                        text: modelData
+                        highlighted: ListView.isCurrentItem
+
+                        background: Rectangle {
+                            color: highlighted ? "#E3F2FD" : (index % 2 == 0 ? "#F5F5F5" : "white")
+                            radius: 2
+                        }
+
+                        onClicked: {
+                            messageListView.currentIndex = index
+                            dbcParser.selectMessage(modelData)
+                        }
                     }
                 }
             }
@@ -214,6 +219,50 @@ ApplicationWindow {
                                     Text { text: "Range:"; font.pixelSize: 12 }
                                     Text { text: modelData.min + " to " + modelData.max + " " + modelData.unit; font.pixelSize: 12 }
                                 }
+
+                                // Offset Controls
+                                Text {
+                                    text: "Offset:"
+                                    font.pixelSize: 14
+                                    topPadding: 10
+                                }
+                                Row {
+                                    width: parent.width
+                                    spacing: 10
+
+                                    SpinBox {
+                                        //id: valueSpinBox
+                                        from: -999999
+                                        to: 999999
+                                        value: modelData.offset
+                                        editable: true
+                                        stepSize: 1
+                                        //onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
+                                        // We need backend for this
+                                    }
+                                }
+
+                                // Factor Controls
+                                Text {
+                                    text: "Factor:"
+                                    font.pixelSize: 14
+                                    topPadding: 10
+                                }
+                                Row {
+                                    width: parent.width
+                                    spacing: 10
+
+                                    SpinBox {
+                                        //id: valueSpinBox
+                                        from: -999999
+                                        to: 999999
+                                        value: modelData.factor
+                                        editable: true
+                                        stepSize: 1
+                                        //onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
+                                        // We need backend for this
+                                    }
+                                }
                                 
                                 // Value controls
                                 Text {
@@ -221,7 +270,6 @@ ApplicationWindow {
                                     font.pixelSize: 14
                                     topPadding: 10
                                 }
-                                
                                 Row {
                                     width: parent.width
                                     spacing: 10
