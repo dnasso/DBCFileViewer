@@ -16,6 +16,8 @@ Window {
 
     Screen01 {
         id: mainScreen
+        x: -56
+        y: 493
     }
 
     FileDialog {
