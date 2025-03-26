@@ -96,201 +96,228 @@ ApplicationWindow {
         anchors.margins: 10
         spacing: 10
         
-        // CAN Messages section
-        GroupBox {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 200
-            title: "CAN Messages"
-            
-            background: Rectangle {
-                color: "white"
-                border.color: "#E0E0E0"
-                border.width: 1
-                radius: 4
-            }
+        Row {
+            Column {
+                // CAN Messages section
+                GroupBox {
+                    //Layout.fillWidth: true
+                    //Layout.preferredWidth: 150
+                    width: 300
+                    height: 300
+                    //Layout.preferredHeight: 80
+                    title: "CAN Messages"
 
-            ScrollView {
-                anchors.fill: parent
-                clip: true
+                    background: Rectangle {
+                        color: "white"
+                        border.color: "#E0E0E0"
+                        border.width: 1
+                        radius: 4
+                    }
 
-                ListView {
-                    id: messageListView
-                    anchors.fill: parent
-                    clip: true
-                    model: dbcParser.messageModel
+                    ScrollView {
+                        anchors.fill: parent
+                        clip: true
 
-                    delegate: ItemDelegate {
-                        width: parent.width
-                        height: 40
-                        text: modelData
-                        highlighted: ListView.isCurrentItem
+                        ListView {
+                            id: messageListView
+                            anchors.fill: parent
+                            clip: true
+                            model: dbcParser.messageModel
 
-                        background: Rectangle {
-                            color: highlighted ? "#E3F2FD" : (index % 2 == 0 ? "#F5F5F5" : "white")
-                            radius: 2
-                        }
+                            delegate: ItemDelegate {
+                                width: parent.width
+                                height: 40
+                                text: modelData
+                                highlighted: ListView.isCurrentItem
 
-                        onClicked: {
-                            messageListView.currentIndex = index
-                            dbcParser.selectMessage(modelData)
+                                background: Rectangle {
+                                    color: highlighted ? "#E3F2FD" : (index % 2 == 0 ? "#F5F5F5" : "white")
+                                    radius: 2
+                                }
+
+                                onClicked: {
+                                    messageListView.currentIndex = index
+                                    dbcParser.selectMessage(modelData)
+                                }
+                            }
+
                         }
                     }
                 }
+
+                // Show all signals checkbox
+                CheckBox {
+                    id: showAllSignals
+                    text: "Show all signals"
+                    onCheckedChanged: dbcParser.setShowAllSignals(checked)
+                }
             }
-        }
-        
-        // Show all signals checkbox
-        CheckBox {
-            id: showAllSignals
-            text: "Show all signals"
-            onCheckedChanged: dbcParser.setShowAllSignals(checked)
-        }
-        
-        // Signal Details section
-        GroupBox {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            title: "Signal Details"
-            
-            background: Rectangle {
-                color: "white"
-                border.color: "#E0E0E0"
-                border.width: 1
-                radius: 4
-            }
-            
-            ScrollView {
-                anchors.fill: parent
-                clip: true
-                
-                Column {
-                    width: parent.width
-                    spacing: 10
-                    
-                    Repeater {
-                        id: signalDataRepeater
-                        model: dbcParser.signalModel
-                        
-                        delegate: Rectangle {
-                            width: parent.width
-                            height: signalColumn.height + 20
-                            color: "#F9F9F9"
-                            border.color: "#E0E0E0"
-                            border.width: 1
-                            radius: 4
-                            
-                            Column {
-                                id: signalColumn
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.margins: 10
-                                spacing: 5
-                                
-                                // Signal name and basic info
-                                Text {
-                                    text: modelData.name
-                                    font.bold: true
-                                    font.pixelSize: 16
-                                    color: "#2196F3"
-                                }
-                                
-                                // Signal properties in a grid
-                                Grid {
-                                    columns: 4
-                                    spacing: 10
-                                    width: parent.width
-                                    
-                                    Text { text: "Start Bit:"; font.pixelSize: 12 }
-                                    Text { text: modelData.startBit; font.pixelSize: 12 }
-                                    
-                                    Text { text: "Length:"; font.pixelSize: 12 }
-                                    Text { text: modelData.length + " bits"; font.pixelSize: 12 }
-                                    
-                                    Text { text: "Endian:"; font.pixelSize: 12 }
-                                    Text { text: modelData.littleEndian ? "Little" : "Big"; font.pixelSize: 12 }
-                                    
-                                    Text { text: "Factor:"; font.pixelSize: 12 }
-                                    Text { text: modelData.factor; font.pixelSize: 12 }
-                                    
-                                    Text { text: "Offset:"; font.pixelSize: 12 }
-                                    Text { text: modelData.offset; font.pixelSize: 12 }
-                                    
-                                    Text { text: "Range:"; font.pixelSize: 12 }
-                                    Text { text: modelData.min + " to " + modelData.max + " " + modelData.unit; font.pixelSize: 12 }
-                                }
 
-                                // Offset Controls
-                                Text {
-                                    text: "Offset:"
-                                    font.pixelSize: 14
-                                    topPadding: 10
-                                }
-                                Row {
-                                    width: parent.width
-                                    spacing: 10
+            // Signal Details section
+            GroupBox {
+                //Layout.fillWidth: true
+                width: 580
+                height: 300
+                //Layout.fillHeight: true
+                title: "Signal Details"
 
-                                    SpinBox {
-                                        //id: valueSpinBox
-                                        from: -999999
-                                        to: 999999
-                                        value: modelData.offset
-                                        editable: true
-                                        stepSize: 1
-                                        //onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
-                                        // We need backend for this
+                background: Rectangle {
+                    color: "white"
+                    border.color: "#E0E0E0"
+                    border.width: 1
+                    radius: 4
+                }
+
+                ScrollView {
+                    anchors.fill: parent
+                    clip: true
+
+                    Column {
+                        width: parent.width
+                        spacing: 10
+
+                        Repeater {
+                            id: signalDataRepeater
+                            model: dbcParser.signalModel
+
+                            delegate: Rectangle {
+                                width: parent.width
+                                height: signalColumn.height + 20
+                                color: "#F9F9F9"
+                                border.color: "#E0E0E0"
+                                border.width: 1
+                                radius: 4
+
+                                Column {
+                                    id: signalColumn
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.margins: 10
+                                    spacing: 5
+
+                                    // Signal name and basic info
+                                    Text {
+                                        text: modelData.name
+                                        font.bold: true
+                                        font.pixelSize: 16
+                                        color: "#2196F3"
                                     }
-                                }
 
-                                // Factor Controls
-                                Text {
-                                    text: "Factor:"
-                                    font.pixelSize: 14
-                                    topPadding: 10
-                                }
-                                Row {
-                                    width: parent.width
-                                    spacing: 10
+                                    // Signal properties in a grid
+                                    Grid {
+                                        columns: 4
+                                        spacing: 10
+                                        width: parent.width
 
-                                    SpinBox {
-                                        //id: valueSpinBox
-                                        from: -999999
-                                        to: 999999
-                                        value: modelData.factor
-                                        editable: true
-                                        stepSize: 1
-                                        //onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
-                                        // We need backend for this
+                                        Text { text: "Start Bit:"; font.pixelSize: 12 }
+                                        Text { text: modelData.startBit; font.pixelSize: 12 }
+
+                                        Text { text: "Length:"; font.pixelSize: 12 }
+                                        Text { text: modelData.length + " bits"; font.pixelSize: 12 }
+
+                                        Text { text: "Endian:"; font.pixelSize: 12 }
+                                        Text { text: modelData.littleEndian ? "Little" : "Big"; font.pixelSize: 12 }
+
+                                        Text { text: "Factor:"; font.pixelSize: 12 }
+                                        Text { text: modelData.factor; font.pixelSize: 12 }
+
+                                        Text { text: "Offset:"; font.pixelSize: 12 }
+                                        Text { text: modelData.offset; font.pixelSize: 12 }
+
+                                        Text { text: "Range:"; font.pixelSize: 12 }
+                                        Text { text: modelData.min + " to " + modelData.max + " " + modelData.unit; font.pixelSize: 12 }
                                     }
-                                }
-                                
-                                // Value controls
-                                Text {
-                                    text: "Value:"
-                                    font.pixelSize: 14
-                                    topPadding: 10
-                                }
-                                Row {
-                                    width: parent.width
-                                    spacing: 10
-                                    
-                                    SpinBox {
-                                        id: valueSpinBox
-                                        from: modelData.min !== modelData.max ? modelData.min : -999999
-                                        to: modelData.min !== modelData.max ? modelData.max : 999999
-                                        value: modelData.value
-                                        editable: true
-                                        stepSize: 1
-                                        onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
-                                    }
-                                    
-                                    Slider {
-                                        width: parent.width - valueSpinBox.width - 20
-                                        from: valueSpinBox.from
-                                        to: valueSpinBox.to
-                                        value: valueSpinBox.value
-                                        onMoved: valueSpinBox.value = value
-                                        visible: modelData.min !== modelData.max
+
+                                    // Interactables
+                                    Row {
+                                        width: parent.width
+                                        spacing: 10
+                                        // Offset Controls
+                                        Column {
+                                            width: parent.width/3
+                                            Text {
+                                                text: "Offset:"
+                                                font.pixelSize: 14
+                                                topPadding: 10
+                                            }
+                                            Row {
+                                                width: parent.width
+                                                spacing: 10
+
+                                                SpinBox {
+                                                    //width: 10
+                                                    //height: 10
+                                                    //id: valueSpinBox
+                                                    from: -999999
+                                                    to: 999999
+                                                    value: modelData.offset
+                                                    editable: true
+                                                    stepSize: 1
+                                                    //onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
+                                                    // We need backend for this
+                                                }
+                                            }
+                                        }
+
+                                        // Factor Controls
+                                        Column {
+                                            width: parent.width/3
+                                            Text {
+                                                text: "Factor:"
+                                                font.pixelSize: 14
+                                                topPadding: 10
+                                            }
+                                            Row {
+                                                width: parent.width
+                                                spacing: 10
+
+                                                SpinBox {
+                                                    //id: valueSpinBox
+                                                    from: -999999
+                                                    to: 999999
+                                                    value: modelData.factor
+                                                    editable: true
+                                                    stepSize: 1
+                                                    //onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
+                                                    // We need backend for this
+                                                }
+                                            }
+                                        }
+
+                                        // Value controls
+                                        Column {
+                                            width: parent.width/3
+                                            Text {
+                                                text: "Value:"
+                                                font.pixelSize: 14
+                                                topPadding: 10
+                                            }
+                                            Row {
+                                                width: parent.width
+                                                spacing: 10
+
+                                                SpinBox {
+                                                    id: valueSpinBox
+                                                    from: modelData.min !== modelData.max ? modelData.min : -999999
+                                                    to: modelData.min !== modelData.max ? modelData.max : 999999
+                                                    value: modelData.value
+                                                    editable: true
+                                                    stepSize: 1
+                                                    onValueChanged: dbcParser.updateSignalValue(modelData.name, value)
+                                                }
+                                                /*
+                                                Slider {
+                                                    width: parent.width - valueSpinBox.width - 20
+                                                    from: valueSpinBox.from
+                                                    to: valueSpinBox.to
+                                                    value: valueSpinBox.value
+                                                    onMoved: valueSpinBox.value = value
+                                                    visible: modelData.min !== modelData.max
+                                                }
+                                                */
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -299,7 +326,6 @@ ApplicationWindow {
                 }
             }
         }
-        
         // Generated CAN Frame section
         GroupBox {
             Layout.fillWidth: true
