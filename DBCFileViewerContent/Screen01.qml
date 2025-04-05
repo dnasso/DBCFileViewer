@@ -11,6 +11,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import DBCFileViewer
+//import
 
 //notes display mode, send mode
 //permissions system
