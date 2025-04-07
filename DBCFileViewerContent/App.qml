@@ -6,18 +6,26 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import DBCFileViewer
+//import "DbcParser.cpp"
+//import QtQuick.Window
+
 
 Window {
-    width: mainScreen.width
-    height: mainScreen.height
+    width: 1046
+    height: 788
+
+    id: rootWindow
+    // Set initial size based on the primary screen's available geometry
+    // (availableGeometry excludes things like taskbars)
+    //width: Screen.primaryScreen.availableWidth * 0.8 // 80% of available width
+    //height: Screen.primaryScreen.availableHeight * 0.8 // 80% of available height
 
     visible: true
     title: "DBCFileViewer"
 
     Screen01 {
         id: mainScreen
-        x: -56
-        y: 493
+        anchors.fill: parent
     }
 
     FileDialog {
@@ -36,7 +44,10 @@ Window {
 
     Connections {
         target: fileDialog
-        function onAccepted() { console.log("clicked") }
+        function onAccepted() {
+            //backend.parseFile(fileDialog.selectedFile)
+            console.log("clicked")
+        }
     }
 
 }

@@ -2,7 +2,7 @@ import QmlProject
 
 Project {
     mainFile: "DBCFileViewerContent/App.qml"
-    mainUiFile: "DBCFileViewerContent/Screen01.ui.qml"
+    mainUiFile: "DBCFileViewerContent/Screen01.qml"
 
     /* Include .qml, .js, and image files from current directory and subdirectories */
     QmlFiles {

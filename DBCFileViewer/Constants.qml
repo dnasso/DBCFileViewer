@@ -1,6 +1,6 @@
 pragma Singleton
 import QtQuick
-//import QtQuick.Studio.Application
+import QtQuick.Studio.Application
 
 QtObject {
     readonly property int width: 1920
@@ -21,9 +21,9 @@ QtObject {
     readonly property color backgroundColor: "#EAEAEA"
 
 
-    /*
+
     property StudioApplication application: StudioApplication {
         fontPath: Qt.resolvedUrl("../DBCFileViewerContent/" + relativeFontDirectory)
     }
-    */
+
 }

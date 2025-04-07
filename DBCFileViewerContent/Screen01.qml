@@ -11,15 +11,15 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import DBCFileViewer
-//import
 
 //notes display mode, send mode
 //permissions system
 import QtQuick.Layouts
+
 Rectangle {
     id: rectangle
-    width: Constants.width
-    height: Constants.height
+    width: 1046
+    height: 788
 
     color: Constants.backgroundColor
 
@@ -68,50 +68,16 @@ Rectangle {
         }
     }
 
-    Button {
-        id: loadDBCButton
-        text: qsTr("Load DBC")
-        anchors.right: canMessagesBox.left
-        anchors.bottom: canMessagesBox.top
-        anchors.rightMargin: -107
-        anchors.bottomMargin: 16
-        flat: false
-
-        Connections {
-            target: loadDBCButton
-            function onClicked() {
-                fileDialog.open()
-            }
-        }
-    }
-
-    Button {
-        id: saveDBCButton
-        width: 108
-        text: qsTr("Save DBC")
-        anchors.right: canMessagesBox.left
-        anchors.bottom: canMessagesBox.top
-        anchors.rightMargin: -239
-        anchors.bottomMargin: 16
-
-        Connections {
-            target: saveDBCButton
-            function onClicked() {
-                fileDialog.save()
-            } //not implemented yet
-        }
-    }
-
     GroupBox {
         id: canMessagesBox
-        x: 197
-        y: 165
-        width: 1030
+        width: 961
         height: 285
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.leftMargin: 41
+        anchors.topMargin: 159
         font.pointSize: 11
         title: qsTr("CAN Messages")
-
-
 
         Column {
             id: cmColumn
@@ -132,8 +98,7 @@ Rectangle {
                     ListElement {
                         //name: "New Message Row"
                     }
-                    function createListElement() {
-                    }
+                    function createListElement() {}
                 }
 
                 Rectangle {
@@ -191,8 +156,6 @@ Rectangle {
                             anchors.bottomMargin: 7
                         }
 
-
-
                         TextField {
                             id: cmDLCField
                             width: 100
@@ -210,141 +173,211 @@ Rectangle {
                             anchors.bottom: parent.bottom
                             anchors.topMargin: 7
                             anchors.bottomMargin: 7
-                            placeholderText: qsTr("Text Field")
                         }
                     }
                 }
             }
         }
 
-
-        RowLayout {
-            id: cmHeaderRow
-            x: 32
-            width: 857
-            height: 33
-            visible: true
-            anchors.top: parent.top
-            anchors.topMargin: 26
-            Text {
-                id: cmNameText
-                height: 24
-                text: qsTr("Name")
-                font.pixelSize: 16
-                horizontalAlignment: Text.AlignLeft
-                Layout.leftMargin: 10
-                Layout.rightMargin: 3
-                Layout.preferredWidth: 57
-                Layout.preferredHeight: 23
-            }
-
-            Rectangle {
-                id: cmCanIdRectangle
-                width: 170
-                height: 30
-                opacity: 1
-                color: "#00ffffff"
-                Layout.fillHeight: true
-
-                Text {
-                    id: canIdText
-                    x: 8
-                    text: qsTr("CAN ID")
-                    anchors.verticalCenter: parent.verticalCenter
-                    font.pixelSize: 16
-                    Layout.preferredWidth: 57
-                    Layout.preferredHeight: 24
-                }
-
-                ComboBox {
-                    id: hexComboBox
-                    x: 71
-                    width: 91
-                    height: 30
-                    anchors.verticalCenter: parent.verticalCenter
-                    font.pointSize: 13
-                    model: ["Hex", "Dec"]
-                    displayText: "Hex"
-                    Layout.preferredWidth: 90
-                    Layout.preferredHeight: 29
-                }
-            }
-
-            Text {
-                id: cmTypeText
-                height: 24
-                text: qsTr("Type")
-                font.pixelSize: 16
-                Layout.margins: 0
-                Layout.leftMargin: 17
-                Layout.rightMargin: 0
-                Layout.preferredWidth: 57
-                Layout.preferredHeight: 22
-            }
-
-            Text {
-                id: cmDLCText
-                height: 24
-                text: qsTr("DLC")
-                font.pixelSize: 16
-                Layout.preferredWidth: 57
-                Layout.preferredHeight: 22
-            }
-
-            Text {
-                id: cmCommentText
-                height: 24
-                text: qsTr("Comment")
-                font.pixelSize: 16
-                Layout.preferredWidth: 95
-                Layout.preferredHeight: 24
-            }
-
-        }
-
         Button {
             id: cmPlusButton
             x: 134
-            width: 28
+            width: 41
+            height: 37
             text: qsTr("+")
             anchors.top: parent.top
-            anchors.bottom: cmHeaderRow.top
-            anchors.topMargin: -1
+            anchors.topMargin: -10
             anchors.bottomMargin: -1
+            rightPadding: 15
+            display: AbstractButton.TextOnly
             bottomPadding: 16
             topPadding: 10
             font.bold: true
-            leftPadding: 14
-            font.pointSize: 18
+            leftPadding: 15
+            font.pointSize: 20
 
             Connections {
                 target: cmPlusButton
-                function onClicked() { cmListModel.append(cmListModel.createListElement()) }
+                onClicked: {
+                    cmListModel.append(cmListModel.createListElement())
+                }
             }
         }
 
         Button {
             id: cmMinusButton
-            x: 176
-            width: 28
+            x: 187
+            width: 41
+            height: 37
             text: qsTr("-")
             anchors.top: parent.top
-            anchors.bottom: cmHeaderRow.top
-            anchors.topMargin: -1
+            anchors.topMargin: -10
             anchors.bottomMargin: -1
+            rightPadding: 15
+            display: AbstractButton.TextOnly
             font.bold: true
-            bottomPadding: 16
+            bottomPadding: 18
             topPadding: 8
-            leftPadding: 14
-            font.pointSize: 20
+            leftPadding: 15
+            font.pointSize: 30
+        }
+
+        Button {
+            id: saveDBCButton
+            y: -68
+            height: 52
+            text: qsTr("Save DBC")
+            anchors.left: parent.left
+            anchors.right: parent.left
+            anchors.bottom: canMessagesBox.top
+            anchors.leftMargin: 125
+            anchors.rightMargin: -243
+            anchors.bottomMargin: 16
+
+            Connections {
+                target: saveDBCButton
+                function onClicked() {
+                    fileDialog.save()
+                } //not implemented yet
+            }
+        }
+
+        Button {
+            id: loadDBCButton
+            x: 0
+            y: -68
+            text: qsTr("Load DBC")
+            anchors.right: canMessagesBox.left
+            anchors.bottom: canMessagesBox.top
+            anchors.rightMargin: -114
+            anchors.bottomMargin: 16
+            flat: false
+
+            Connections {
+                target: loadDBCButton
+                function onClicked() {
+                    fileDialog.open()
+                }
+            }
+        }
+
+        ComboBox {
+            id: messagePresetsComboBox
+            y: -68
+            height: 56
+            anchors.left: saveDBCButton.right
+            anchors.right: parent.right
+            anchors.bottom: canMessagesBox.top
+            anchors.leftMargin: 37
+            anchors.rightMargin: 8
+            anchors.bottomMargin: 12
+        }
+
+        Text {
+            id: presetsText
+            y: -99
+            width: 218
+            height: 25
+            text: qsTr("Available Message Presets:")
+            anchors.left: saveDBCButton.right
+            anchors.bottom: canMessagesBox.top
+            anchors.leftMargin: 37
+            anchors.bottomMargin: 74
+            font.pixelSize: 16
+        }
+
+        Text {
+            id: cmNameText
+            x: 40
+            y: 30
+            height: 24
+            text: qsTr("Name")
+            font.pixelSize: 16
+            horizontalAlignment: Text.AlignLeft
+            Layout.leftMargin: 10
+            Layout.rightMargin: 3
+            Layout.preferredWidth: 57
+            Layout.preferredHeight: 23
+        }
+
+        Rectangle {
+            id: cmCanIdRectangle
+            x: 5
+            y: 76
+            width: 170
+            height: 30
+            opacity: 1
+            color: "#00ffffff"
+            Layout.fillHeight: true
+
+            Text {
+                id: canIdText
+                x: 166
+                text: qsTr("CAN ID")
+                anchors.verticalCenter: parent.verticalCenter
+                font.pixelSize: 16
+                anchors.verticalCenterOffset: -48
+                Layout.preferredWidth: 57
+                Layout.preferredHeight: 24
+            }
+
+            ComboBox {
+                id: hexComboBox
+                x: 211
+                width: 85
+                height: 30
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -49
+                font.pointSize: 13
+                model: ["Hex", "Dec"]
+                displayText: "Hex"
+                Layout.preferredWidth: 90
+                Layout.preferredHeight: 29
+            }
+        }
+
+        Text {
+            id: cmTypeText
+            x: 303
+            y: 32
+            height: 24
+            text: qsTr("Type")
+            font.pixelSize: 16
+            Layout.margins: 0
+            Layout.leftMargin: 0
+            Layout.rightMargin: 0
+            Layout.preferredWidth: 57
+            Layout.preferredHeight: 22
+        }
+
+        Text {
+            id: cmDLCText
+            x: 574
+            y: 32
+            height: 24
+            text: qsTr("DLC")
+            font.pixelSize: 16
+            Layout.preferredWidth: 57
+            Layout.preferredHeight: 22
+        }
+
+        Text {
+            id: cmCommentText
+            x: 685
+            y: 30
+            height: 24
+            text: qsTr("Comment")
+            font.pixelSize: 16
+            Layout.preferredWidth: 95
+            Layout.preferredHeight: 24
         }
     }
 
     GroupBox {
         id: canSignalsBox
-        x: 640
-        y: 617
-        width: 1031
+        x: 41
+        y: 458
+        width: 961
         height: 251
         title: qsTr("CAN Signals (EEC1)")
         TextField {
@@ -557,26 +590,25 @@ Rectangle {
         }
     }
 
-    ComboBox {
-        id: messagePresetsComboBox
-        width: 642
-        height: 56
-        anchors.left: canMessagesBox.right
-        anchors.bottom: canMessagesBox.top
-        anchors.leftMargin: -726
-        anchors.bottomMargin: 8
+    Text {
+        id: text1
+        x: 449
+        width: 169
+        height: 48
+        text: qsTr("DBC Parser")
+        anchors.top: parent.top
+        anchors.topMargin: 8
+        font.pixelSize: 34
     }
 
-    Text {
-        id: presetsText
-        width: 218
-        height: 25
-        text: qsTr("Available Message Presets:")
-        anchors.right: messagePresetsComboBox.left
-        anchors.bottom: messagePresetsComboBox.top
-        anchors.rightMargin: -218
-        anchors.bottomMargin: 6
-        font.pixelSize: 16
+    TextField {
+        id: outputTextField
+        x: 41
+        y: 715
+        width: 961
+        height: 56
+        //text: backend.output
+        placeholderText: qsTr("")
     }
 
     states: [
