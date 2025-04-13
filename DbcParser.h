@@ -1,6 +1,5 @@
 #ifndef DBCPARSER_H
 #define DBCPARSER_H
-
 #include <QObject>
 #include <QUrl>
 #include <QString>
@@ -50,11 +49,32 @@ public:
     Q_INVOKABLE void setEndian(const QString &endian);
     Q_INVOKABLE void updateSignalValue(const QString &signalName, double value);
     Q_INVOKABLE QString generateCanFrame();
+    
+    // New methods for signal bit visualization and editing
+    Q_INVOKABLE double calculateRawValue(const QString &signalName, double physicalValue);
+    Q_INVOKABLE double calculatePhysicalValue(const QString &signalName, double rawValue);
+    Q_INVOKABLE bool setBit(const QString &signalName, int byteIndex, int bitIndex, bool value);
+    Q_INVOKABLE bool getBit(const QString &signalName, int byteIndex, int bitIndex);
+    Q_INVOKABLE QString getSignalBitMask(const QString &signalName);
+    Q_INVOKABLE void updateSignalFromRawValue(const QString &signalName, uint64_t rawValue);
+    Q_INVOKABLE QString formatPhysicalValueCalculation(const QString &signalName, double rawValue);
+    Q_INVOKABLE void initializePreviewDialog(const QString &signalName, QVariantList &bitValues, double &rawValue);
+    Q_INVOKABLE QString getFrameDataHex(const QString &signalName, double rawValue);
+    Q_INVOKABLE QString getFrameDataBin(const QString &signalName, double rawValue);
+    
+    // New methods for updating signal parameters from UI
+    Q_INVOKABLE bool updateSignalParameter(const QString &signalName, const QString &paramName, const QVariant &value);
+    Q_INVOKABLE bool isBitPartOfSignal(const QString &signalName, int byteIndex, int bitIndex);
 
+    Q_INVOKABLE QString getOriginalDbcText() const;
+    Q_INVOKABLE QString getModifiedDbcText() const;
+    Q_INVOKABLE bool saveModifiedDbcToFile(const QUrl &saveUrl);
+    Q_INVOKABLE QStringList getDbcDiffLines();
     // Property getters
     QStringList messageModel() const;
     QVariantList signalModel() const;
     QString generatedCanFrame() const;
+    
 
 signals:
     void messageModelChanged();
@@ -65,12 +85,20 @@ private:
     void parseDBC(const QString &filePath);
     QString buildCanFrame();
     std::string trim(const std::string& s);
+    
+    // Helper methods for bit manipulation
+    bool isBitPartOfSignal(int bitPosition, int startBit, int length, bool littleEndian);
+    int getBitIndexInRawValue(int bitPosition, int startBit, bool littleEndian);
+    uint64_t calculateRawValueFromBits(const QString &signalName, const QVariantList &bitValues);
 
     std::vector<canMessage> messages;
     int selectedMessageIndex;
     bool showAllSignals;
     QString currentEndian;
     QString m_generatedCanFrame;
+    QString originalDbcText;
+
+    
 };
 
 #endif // DBCPARSER_H
