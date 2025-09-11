@@ -80,8 +80,7 @@ CMakeLists.txt.user*
 .rcc/
 .uic/
 /build*/
-DBCClient/output/client
-DBCClient/output/client.conf
-DBCClient/output/server
-DBCClient/output/server.conf
-DBCClient/output/server.log
+/output/
+/.vscode/
+/DBCClient/.vscode/
+/DBCClient/output/
