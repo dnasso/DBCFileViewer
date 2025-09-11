@@ -22,6 +22,9 @@ qt_add_qml_module(appDBC_Parser
     SOURCES 
         DbcParser.h
         DbcParser.cpp
+        QML_FILES AddMessageDialog.qml
+        QML_FILES AddSignalDialog.qml
+        QML_FILES SendMessageDialog.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

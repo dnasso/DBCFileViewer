@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <bitset>
 #include <cmath>
+#include <set>
 
 DbcParser::DbcParser(QObject *parent)
     : QObject(parent), selectedMessageIndex(-1), showAllSignals(false), currentEndian("little")
@@ -286,6 +287,20 @@ void DbcParser::updateSignalValue(const QString &signalName, double value)
             }
         }
     }
+}
+
+double DbcParser::getSignalValue(const QString &signalName)
+{
+    if (selectedMessageIndex >= 0 && selectedMessageIndex < static_cast<int>(messages.size())) {
+        auto& msg = messages[selectedMessageIndex];
+        
+        for (const auto& sig : msg.signalList) {
+            if (QString::fromStdString(sig.name) == signalName) {
+                return sig.value;
+            }
+        }
+    }
+    return 0.0; // Default value if signal not found
 }
 
 QString DbcParser::generateCanFrame()
@@ -1089,4 +1104,599 @@ QStringList DbcParser::getDbcDiffLines() {
 
     return diff;
 }
+// Add these implementations to DbcParser.cpp
 
+bool DbcParser::addMessage(const QString &name, unsigned long id, int length)
+{
+    // Check if message with same name or ID already exists
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == name || msg.id == id) {
+            qWarning() << "Message with name" << name << "or ID" << id << "already exists";
+            return false;
+        }
+    }
+
+    // Create new message
+    canMessage newMessage;
+    newMessage.name = name.toStdString();
+    newMessage.id = id;
+    newMessage.length = length;
+    newMessage.signalList.clear();
+
+    // Add to messages vector
+    messages.push_back(newMessage);
+
+    // Notify QML
+    emit messageModelChanged();
+
+    return true;
+}
+
+bool DbcParser::removeMessage(const QString &messageName)
+{
+    for (auto it = messages.begin(); it != messages.end(); ++it) {
+        if (QString::fromStdString(it->name) == messageName) {
+            // If this message is currently selected, reset selection
+            if (selectedMessageIndex == std::distance(messages.begin(), it)) {
+                selectedMessageIndex = -1;
+                emit signalModelChanged();
+            }
+
+            messages.erase(it);
+            emit messageModelChanged();
+            emit generatedCanFrameChanged();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool DbcParser::addSignal(const QString &messageName, const QString &signalName,
+                          int startBit, int length, bool littleEndian,
+                          double factor, double offset, double min, double max,
+                          const QString &unit)
+{
+    // Find the message
+    for (auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            // Check if signal with same name already exists in this message
+            for (const auto& sig : msg.signalList) {
+                if (QString::fromStdString(sig.name) == signalName) {
+                    qWarning() << "Signal" << signalName << "already exists in message" << messageName;
+                    return false;
+                }
+            }
+
+            // Check if bits would overlap with existing signals
+            for (const auto& sig : msg.signalList) {
+                bool overlap = false;
+                
+                if (littleEndian && sig.littleEndian) {
+                    // Both little endian
+                    int newEndBit = startBit + length - 1;
+                    int existingEndBit = sig.startBit + sig.length - 1;
+                    overlap = !(newEndBit < sig.startBit || startBit > existingEndBit);
+                }
+                else if (!littleEndian && !sig.littleEndian) {
+                    // Both big endian (Motorola format)
+                    // For Motorola, startBit is MSB, need to calculate bit ranges
+                    int newMsb = startBit;
+                    int newLsb = getMotorolaLsb(startBit, length);
+                    int existingMsb = sig.startBit;
+                    int existingLsb = getMotorolaLsb(sig.startBit, sig.length);
+                    
+                    overlap = !(newLsb > existingMsb || newMsb < existingLsb);
+                }
+                else {
+                    // Mixed endianness - convert to absolute bit positions for comparison
+                    std::set<int> newBits = getSignalBitPositions(startBit, length, littleEndian);
+                    std::set<int> existingBits = getSignalBitPositions(sig.startBit, sig.length, sig.littleEndian);
+                    
+                    // Check for intersection
+                    for (int bit : newBits) {
+                        if (existingBits.count(bit) > 0) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (overlap) {
+                    qWarning() << "Signal bits would overlap with existing signal" << QString::fromStdString(sig.name);
+                    return false;
+                }
+            }
+
+            // Create new signal
+            canSignal newSignal;
+            newSignal.name = signalName.toStdString();
+            newSignal.startBit = startBit;
+            newSignal.length = length;
+            newSignal.littleEndian = littleEndian;
+            newSignal.factor = factor;
+            newSignal.offset = offset;
+            newSignal.min = min;
+            newSignal.max = max;
+            newSignal.unit = unit.toStdString();
+            newSignal.value = 0.0; // Initialize with default value
+
+            // Add to signal list
+            msg.signalList.push_back(newSignal);
+
+            // Always emit signal model changed if we're adding to any message
+            // This ensures the UI updates properly
+            emit signalModelChanged();
+            emit generatedCanFrameChanged();
+
+            return true;
+        }
+    }
+
+    qWarning() << "Message" << messageName << "not found";
+    return false;
+}
+
+bool DbcParser::removeSignal(const QString &messageName, const QString &signalName)
+{
+    for (auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            for (auto it = msg.signalList.begin(); it != msg.signalList.end(); ++it) {
+                if (QString::fromStdString(it->name) == signalName) {
+                    msg.signalList.erase(it);
+
+                    // If this message is currently selected, update the signal model
+                    if (selectedMessageIndex >= 0 &&
+                        selectedMessageIndex < static_cast<int>(messages.size()) &&
+                        QString::fromStdString(messages[selectedMessageIndex].name) == messageName) {
+                        emit signalModelChanged();
+                        emit generatedCanFrameChanged();
+                    }
+
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+bool DbcParser::messageExists(const QString &messageName)
+{
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool DbcParser::signalExists(const QString &messageName, const QString &signalName)
+{
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            for (const auto& sig : msg.signalList) {
+                if (QString::fromStdString(sig.name) == signalName) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+bool DbcParser::isValidMessageId(unsigned long id)
+{
+    // Check if ID is within valid CAN ID range
+    // Standard CAN: 0x000 to 0x7FF (11-bit)
+    // Extended CAN: 0x00000000 to 0x1FFFFFFF (29-bit)
+    if (id > 0x1FFFFFFF) {
+        return false;
+    }
+
+    // Check if ID is already in use
+    for (const auto& msg : messages) {
+        if (msg.id == id) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool DbcParser::isValidSignalPosition(const QString &messageName, int startBit, int length, bool littleEndian)
+{
+    // Find the message
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            // Check if signal fits within message length
+            if (littleEndian) {
+                if ((startBit + length) > (msg.length * 8)) {
+                    return false;
+                }
+            } else {
+                // For big endian, need different calculation
+                int byteIndex = startBit / 8;
+                if (byteIndex >= msg.length) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Enhanced validation methods with detailed error messages
+QString DbcParser::validateMessageData(const QString &name, unsigned long id, int length)
+{
+    // Check name
+    if (name.trimmed().isEmpty()) {
+        return "Message name cannot be empty";
+    }
+    
+    // Check if name already exists
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == name) {
+            return "Message name '" + name + "' already exists";
+        }
+    }
+    
+    // Check ID range
+    if (id > 0x1FFFFFFF) {
+        return "Message ID 0x" + QString::number(id, 16).toUpper() + " exceeds maximum CAN ID (0x1FFFFFFF)";
+    }
+    
+    // Check if ID already exists
+    for (const auto& msg : messages) {
+        if (msg.id == id) {
+            return "Message ID 0x" + QString::number(id, 16).toUpper() + " already exists in message '" + QString::fromStdString(msg.name) + "'";
+        }
+    }
+    
+    // Check length
+    if (length < 1 || length > 8) {
+        return "Message length must be between 1 and 8 bytes";
+    }
+    
+    return ""; // No errors
+}
+
+QString DbcParser::validateSignalData(const QString &messageName, const QString &signalName,
+                                      int startBit, int length, bool littleEndian)
+{
+    // Check signal name
+    if (signalName.trimmed().isEmpty()) {
+        return "Signal name cannot be empty";
+    }
+    
+    // Find the message
+    const canMessage* targetMessage = nullptr;
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            targetMessage = &msg;
+            break;
+        }
+    }
+    
+    if (!targetMessage) {
+        return "Message '" + messageName + "' not found";
+    }
+    
+    // Check if signal name already exists in this message
+    for (const auto& sig : targetMessage->signalList) {
+        if (QString::fromStdString(sig.name) == signalName) {
+            return "Signal name '" + signalName + "' already exists in message '" + messageName + "'";
+        }
+    }
+    
+    // Check length
+    if (length < 1 || length > 64) {
+        return "Signal length must be between 1 and 64 bits";
+    }
+    
+    // Check if signal fits within message
+    if (littleEndian) {
+        if ((startBit + length) > (targetMessage->length * 8)) {
+            return "Signal extends beyond message boundary (bit " + QString::number(startBit + length - 1) + " > " + QString::number(targetMessage->length * 8 - 1) + ")";
+        }
+    } else {
+        // For Motorola format, startBit is MSB
+        int byteIndex = startBit / 8;
+        if (byteIndex >= targetMessage->length) {
+            return "Signal start bit is beyond message boundary";
+        }
+        
+        // Check if signal extends below bit 0
+        int lsb = getMotorolaLsb(startBit, length);
+        if (lsb < 0) {
+            return "Signal extends below bit 0 in Motorola format";
+        }
+    }
+    
+    // Check for overlaps with existing signals
+    for (const auto& sig : targetMessage->signalList) {
+        bool overlap = false;
+        QString conflictingSignal = QString::fromStdString(sig.name);
+        
+        if (littleEndian && sig.littleEndian) {
+            // Both little endian
+            int newEndBit = startBit + length - 1;
+            int existingEndBit = sig.startBit + sig.length - 1;
+            overlap = !(newEndBit < sig.startBit || startBit > existingEndBit);
+        }
+        else if (!littleEndian && !sig.littleEndian) {
+            // Both big endian
+            int newMsb = startBit;
+            int newLsb = getMotorolaLsb(startBit, length);
+            int existingMsb = sig.startBit;
+            int existingLsb = getMotorolaLsb(sig.startBit, sig.length);
+            
+            overlap = !(newLsb > existingMsb || newMsb < existingLsb);
+        }
+        else {
+            // Mixed endianness - use bit position sets
+            std::set<int> newBits = getSignalBitPositions(startBit, length, littleEndian);
+            std::set<int> existingBits = getSignalBitPositions(sig.startBit, sig.length, sig.littleEndian);
+            
+            // Check for intersection
+            for (int bit : newBits) {
+                if (existingBits.count(bit) > 0) {
+                    overlap = true;
+                    break;
+                }
+            }
+        }
+        
+        if (overlap) {
+            return "Signal bits overlap with existing signal '" + conflictingSignal + "' (start bit " + QString::number(sig.startBit) + ", length " + QString::number(sig.length) + ")";
+        }
+    }
+    
+    return ""; // No errors
+}
+
+bool DbcParser::checkSignalOverlap(const QString &messageName, int startBit, int length, bool littleEndian)
+{
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            for (const auto& sig : msg.signalList) {
+                bool overlap = false;
+                
+                if (littleEndian && sig.littleEndian) {
+                    // Both little endian
+                    int newEndBit = startBit + length - 1;
+                    int existingEndBit = sig.startBit + sig.length - 1;
+                    overlap = !(newEndBit < sig.startBit || startBit > existingEndBit);
+                }
+                else if (!littleEndian && !sig.littleEndian) {
+                    // Both big endian
+                    int newMsb = startBit;
+                    int newLsb = getMotorolaLsb(startBit, length);
+                    int existingMsb = sig.startBit;
+                    int existingLsb = getMotorolaLsb(sig.startBit, sig.length);
+                    
+                    overlap = !(newLsb > existingMsb || newMsb < existingLsb);
+                }
+                else {
+                    // Mixed endianness
+                    std::set<int> newBits = getSignalBitPositions(startBit, length, littleEndian);
+                    std::set<int> existingBits = getSignalBitPositions(sig.startBit, sig.length, sig.littleEndian);
+                    
+                    for (int bit : newBits) {
+                        if (existingBits.count(bit) > 0) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (overlap) {
+                    return true;
+                }
+            }
+            break;
+        }
+    }
+    return false;
+}
+
+// Helper function to calculate LSB for Motorola format
+int DbcParser::getMotorolaLsb(int msb, int length)
+{
+    int msbByte = msb / 8;
+    int msbBitInByte = msb % 8;
+    
+    // Calculate absolute MSB position
+    int absoluteMsb = msbByte * 8 + (7 - msbBitInByte);
+    
+    // LSB is length-1 bits away
+    int absoluteLsb = absoluteMsb - (length - 1);
+    
+    return absoluteLsb;
+}
+
+// Helper function to get all bit positions occupied by a signal
+std::set<int> DbcParser::getSignalBitPositions(int startBit, int length, bool littleEndian)
+{
+    std::set<int> bitPositions;
+    
+    if (littleEndian) {
+        // Intel format: consecutive bits from startBit
+        for (int i = 0; i < length; i++) {
+            bitPositions.insert(startBit + i);
+        }
+    } else {
+        // Motorola format: startBit is MSB
+        int msb = startBit;
+        for (int i = 0; i < length; i++) {
+            int byteIndex = msb / 8;
+            int bitIndex = msb % 8;
+            int absolutePosition = byteIndex * 8 + (7 - bitIndex);
+            bitPositions.insert(absolutePosition);
+            msb--;
+            if (msb < 0) break;
+        }
+    }
+    
+    return bitPositions;
+}
+// Add these method implementations to your DbcParser.cpp file:
+
+QString DbcParser::prepareCanMessage(const QString &messageName)
+{
+    // Extract the message name without the ID part
+    int parenthesisPos = messageName.indexOf(" (");
+    QString name = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
+
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == name) {
+            // Get the message ID
+            unsigned long canId = msg.id;
+
+            // Generate the hex data for this message
+            QString hexData = getMessageHexData(messageName);
+
+            // Format: "CANID|HEX_DATA|RATE" (rate will be added by the dialog)
+            return QString("0x%1|%2").arg(canId, 0, 16).arg(hexData);
+        }
+    }
+
+    return QString();
+}
+
+QString DbcParser::getMessageHexData(const QString &messageName)
+{
+    // Extract the message name without the ID part
+    int parenthesisPos = messageName.indexOf(" (");
+    QString name = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
+
+    // Find the message index
+    int messageIndex = -1;
+    for (size_t i = 0; i < messages.size(); i++) {
+        if (QString::fromStdString(messages[i].name) == name) {
+            messageIndex = static_cast<int>(i);
+            break;
+        }
+    }
+
+    if (messageIndex < 0 || messageIndex >= static_cast<int>(messages.size())) {
+        return QString("00 00 00 00 00 00 00 00");
+    }
+
+    const auto& msg = messages[messageIndex];
+
+    // Create a buffer of zeros for the CAN frame data
+    std::vector<uint8_t> frameData(msg.length, 0);
+
+    // For each signal, pack its value into the frame
+    for (const auto& sig : msg.signalList) {
+        // Convert the physical value to raw value
+        double rawValue = (sig.value - sig.offset) / sig.factor;
+
+        // Clamp to min/max if defined
+        if (sig.min != sig.max) {
+            rawValue = std::max(sig.min, std::min(rawValue, sig.max));
+        }
+
+        // Round to integer
+        uint64_t intValue = static_cast<uint64_t>(std::round(rawValue));
+
+        // Apply bit mask based on signal length
+        uint64_t mask = (1ULL << sig.length) - 1;
+        intValue &= mask;
+
+        // Pack the value into the frame based on endianness
+        int startBit = sig.startBit;
+
+        if (sig.littleEndian) {
+            // Little endian (Intel format)
+            for (int i = 0; i < sig.length; i++) {
+                int byteIndex = startBit / 8;
+                int bitIndex = startBit % 8;
+
+                if (byteIndex < msg.length) {
+                    // Set or clear bit
+                    if (intValue & (1ULL << i)) {
+                        frameData[byteIndex] |= (1 << bitIndex);
+                    } else {
+                        frameData[byteIndex] &= ~(1 << bitIndex);
+                    }
+                }
+
+                startBit++;
+            }
+        } else {
+            // Big endian (Motorola format)
+            int msb = startBit;
+            for (int i = 0; i < sig.length; i++) {
+                int byteIndex = msb / 8;
+                int bitIndex = 7 - (msb % 8);
+
+                if (byteIndex < msg.length) {
+                    // Set or clear bit
+                    if (intValue & (1ULL << (sig.length - 1 - i))) {
+                        frameData[byteIndex] |= (1 << bitIndex);
+                    } else {
+                        frameData[byteIndex] &= ~(1 << bitIndex);
+                    }
+                }
+
+                // Decrement for Motorola format
+                msb--;
+                if (msb < 0) break;
+            }
+        }
+    }
+
+    // Format the frame data as a hex string without "Data: " prefix
+    std::stringstream ss;
+    for (size_t i = 0; i < frameData.size(); i++) {
+        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(frameData[i]);
+        if (i < frameData.size() - 1) {
+            ss << " ";
+        }
+    }
+
+    return QString::fromStdString(ss.str());
+}
+
+unsigned long DbcParser::getMessageId(const QString &messageName)
+{
+    // Extract the message name without the ID part
+    int parenthesisPos = messageName.indexOf(" (");
+    QString name = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
+
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == name) {
+            return msg.id;
+        }
+    }
+
+    return 0;
+}
+
+bool DbcParser::sendCanMessage(const QString &messageName, int rateMs)
+{
+    // For now, just prepare the message and log it
+    // Later this will connect to your server
+
+    QString messageData = prepareCanMessage(messageName);
+    if (messageData.isEmpty()) {
+        qWarning() << "Failed to prepare message:" << messageName;
+        return false;
+    }
+
+    // Add the rate to complete the format: "CANID|HEX_DATA|RATE"
+    QString completeMessage = messageData + "|" + QString::number(rateMs);
+
+    // For now, just log the message that would be sent
+    qDebug() << "Would send CAN message:" << completeMessage;
+
+    // TODO: Add actual server communication here
+    // Example: tcpSocket->write(completeMessage.toUtf8());
+
+    return true;
+}

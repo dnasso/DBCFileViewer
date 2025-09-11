@@ -5,6 +5,7 @@ import QtQuick.Dialogs
 import QtQuick.Controls.Material
 
 ApplicationWindow {
+
     id: window
     visible: true
     width: 1920
@@ -131,22 +132,124 @@ ApplicationWindow {
                         anchors.fill: parent
                         spacing: 0
                         
-                        // Panel header
+                        // Panel header with buttons - FIXED ALIGNMENT
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 40
-                            color: "white"
-                            
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "CAN Messages"
-                                font.pixelSize: 16
-                                font.bold: true
-                                color: "#4CAF50"
+                            height: 45
+                            color: "#FAFAFA"
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 15
+                                anchors.rightMargin: 15
+                                spacing: 10
+
+                                // Add button with icon
+                                Button {
+                                    id: addMessageBtn
+                                    Layout.preferredWidth: 32
+                                    Layout.preferredHeight: 32
+
+                                    contentItem: Text {
+                                        text: "+"
+                                        color: "#4CAF50"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 20
+                                        font.weight: Font.Medium
+                                        anchors.centerIn: parent
+                                    }
+
+                                    background: Rectangle {
+                                        radius: 16
+                                        color: parent.pressed ? "#E8F5E9" : (parent.hovered ? "#F1F8E9" : "transparent")
+                                        border.color: parent.hovered ? "#4CAF50" : "transparent"
+                                        border.width: parent.hovered ? 1 : 0
+                                        anchors.fill: parent
+                                    }
+
+                                    ToolTip {
+                                        visible: parent.hovered
+                                        text: "Add new CAN message"
+                                        delay: 500
+                                        background: Rectangle {
+                                            color: "#424242"
+                                            radius: 4
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            font.pixelSize: 12
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        addMessageDialog.open()
+                                    }
+                                }
+
+                                Text {
+                                    text: "CAN Messages"
+                                    font.pixelSize: 15
+                                    font.weight: Font.DemiBold
+                                    color: "#2E7D32"
+                                    // REMOVED: Layout.fillWidth: true
+                                }
+
+                                Item { Layout.fillWidth: true } // ← ADDED THIS
+
+                                // Remove button with icon
+                                Button {
+                                    id: removeMessageBtn
+                                    Layout.preferredWidth: 32
+                                    Layout.preferredHeight: 32
+                                    enabled: messageListView.currentIndex >= 0
+                                    opacity: enabled ? 1.0 : 0.5
+
+                                    contentItem: Text {
+                                        text: "−"
+                                        color: "#F44336"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 20
+                                        font.weight: Font.Medium
+                                        anchors.centerIn: parent
+                                    }
+
+                                    background: Rectangle {
+                                        radius: 16
+                                        color: parent.pressed ? "#FFEBEE" : (parent.hovered && parent.enabled ? "#FFF3E0" : "transparent")
+                                        border.color: parent.hovered && parent.enabled ? "#F44336" : "transparent"
+                                        border.width: parent.hovered && parent.enabled ? 1 : 0
+                                        anchors.fill: parent
+                                    }
+
+                                    ToolTip {
+                                        visible: parent.hovered && parent.enabled
+                                        text: "Remove selected message"
+                                        delay: 500
+                                        background: Rectangle {
+                                            color: "#424242"
+                                            radius: 4
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            font.pixelSize: 12
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        if (messageListView.currentIndex >= 0) {
+                                            var selectedMsg = dbcParser.messageModel[messageListView.currentIndex]
+                                            var msgName = selectedMsg.split(" (")[0]
+                                            removeMessageConfirmDialog.messageName = msgName
+                                            removeMessageConfirmDialog.open()
+                                        }
+                                    }
+                                }
                             }
-                            
+
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 width: parent.width
@@ -163,19 +266,92 @@ ApplicationWindow {
                             clip: true
                             model: dbcParser.messageModel
                             
-                            delegate: ItemDelegate {
+                            delegate: Rectangle {
                                 width: parent.width
-                                height: 40
-                                text: modelData
-                                highlighted: ListView.isCurrentItem
-                                
-                                background: Rectangle {
-                                    color: highlighted ? "#E8F5E9" : (index % 2 == 0 ? "#F5F5F5" : "white")
+                                height: 50 // Increased height to accommodate send button
+                                color: highlighted ? "#E8F5E9" : (index % 2 == 0 ? "#F5F5F5" : "white")
+
+                                property bool highlighted: ListView.isCurrentItem
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 10
+                                    anchors.rightMargin: 10
+                                    spacing: 10
+
+                                    // Message text (takes most of the space)
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData
+                                        verticalAlignment: Text.AlignVCenter
+                                        color: highlighted ? "#2E7D32" : "#424242"
+                                        font.weight: highlighted ? Font.Medium : Font.Normal
+                                        elide: Text.ElideRight
+                                    }
+
+                                    // Send button
+                                    Button {
+                                        id: sendMessageBtn
+                                        Layout.preferredWidth: 60
+                                        Layout.preferredHeight: 32
+                                        text: "Send"
+
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "#4CAF50"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 11
+                                            font.weight: Font.Medium
+                                        }
+
+                                        background: Rectangle {
+                                            color: parent.pressed ? "#E8F5E9" :
+                                                   (parent.hovered ? "#F1F8E9" : "transparent")
+                                            border.color: "#4CAF50"
+                                            border.width: 1
+                                            radius: 4
+
+                                            Behavior on color {
+                                                ColorAnimation { duration: 100 }
+                                            }
+                                        }
+
+                                        ToolTip {
+                                            visible: parent.hovered
+                                            text: "Send this CAN message"
+                                            delay: 500
+                                            background: Rectangle {
+                                                color: "#424242"
+                                                radius: 4
+                                            }
+                                            contentItem: Text {
+                                                text: parent.text
+                                                color: "white"
+                                                font.pixelSize: 12
+                                            }
+                                        }
+
+                                        onClicked: {
+                                            // Set the current message as selected
+                                            messageListView.currentIndex = index
+                                            dbcParser.selectMessage(modelData)
+
+                                            // Open the send message dialog
+                                            sendMessageDialog.messageName = modelData
+                                            sendMessageDialog.open()
+                                        }
+                                    }
                                 }
-                                
-                                onClicked: {
-                                    messageListView.currentIndex = index
-                                    dbcParser.selectMessage(modelData)
+
+                                // Click handler for the entire delegate (excluding the send button)
+                                MouseArea {
+                                    anchors.fill: parent
+                                    anchors.rightMargin: 70 // Don't overlap with the send button
+                                    onClicked: {
+                                        messageListView.currentIndex = index
+                                        dbcParser.selectMessage(modelData)
+                                    }
                                 }
                             }
                         }
@@ -188,27 +364,140 @@ ApplicationWindow {
                     SplitView.fillWidth: true
                     SplitView.minimumWidth: 600
                     color: "white"
-                    
+
                     ColumnLayout {
                         anchors.fill: parent
                         spacing: 0
-                        
-                        // Panel header
+
+                        // Panel header with buttons - FIXED ALIGNMENT
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 40
-                            color: "white"
-                            
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "Signal Details"
-                                font.pixelSize: 16
-                                font.bold: true
-                                color: "#4CAF50"
+                            height: 45
+                            color: "#FAFAFA"
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 15
+                                anchors.rightMargin: 15
+                                spacing: 10
+
+                                // Add button
+                                Button {
+                                    id: addSignalBtn
+                                    Layout.preferredWidth: 32
+                                    Layout.preferredHeight: 32
+                                    enabled: messageListView.currentIndex >= 0
+                                    opacity: enabled ? 1.0 : 0.5
+
+                                    contentItem: Text {
+                                        text: "+"
+                                        color: "#4CAF50"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 20
+                                        font.weight: Font.Medium
+                                        anchors.centerIn: parent
+                                    }
+
+                                    background: Rectangle {
+                                        radius: 16
+                                        color: parent.pressed && parent.enabled ? "#E8F5E9" :
+                                               (parent.hovered && parent.enabled ? "#F1F8E9" : "transparent")
+                                        border.color: parent.hovered && parent.enabled ? "#4CAF50" : "transparent"
+                                        border.width: parent.hovered && parent.enabled ? 1 : 0
+                                        anchors.fill: parent
+                                    }
+
+                                    ToolTip {
+                                        visible: parent.hovered && parent.enabled
+                                        text: "Add new signal to selected message"
+                                        delay: 500
+                                        background: Rectangle {
+                                            color: "#424242"
+                                            radius: 4
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            font.pixelSize: 12
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        if (messageListView.currentIndex >= 0) {
+                                            var selectedMsg = dbcParser.messageModel[messageListView.currentIndex]
+                                            var msgName = selectedMsg.split(" (")[0]
+                                            addSignalDialog.currentMessageName = msgName
+                                            addSignalDialog.open()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: "Signal Details"
+                                    font.pixelSize: 15
+                                    font.weight: Font.DemiBold
+                                    color: "#2E7D32"
+                                    // REMOVED: Layout.fillWidth: true
+                                }
+
+                                Item { Layout.fillWidth: true } // ← ADDED THIS
+
+                                // Remove button
+                                Button {
+                                    id: removeSignalBtn
+                                    Layout.preferredWidth: 32
+                                    Layout.preferredHeight: 32
+                                    enabled: signalListView.currentIndex >= 0 && messageListView.currentIndex >= 0
+                                    opacity: enabled ? 1.0 : 0.5
+
+                                    contentItem: Text {
+                                        text: "−"
+                                        color: "#F44336"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 20
+                                        font.weight: Font.Medium
+                                        anchors.centerIn: parent
+                                    }
+
+                                    background: Rectangle {
+                                        radius: 16
+                                        color: parent.pressed && parent.enabled ? "#FFEBEE" :
+                                               (parent.hovered && parent.enabled ? "#FFF3E0" : "transparent")
+                                        border.color: parent.hovered && parent.enabled ? "#F44336" : "transparent"
+                                        border.width: parent.hovered && parent.enabled ? 1 : 0
+                                        anchors.fill: parent
+                                    }
+
+                                    ToolTip {
+                                        visible: parent.hovered && parent.enabled
+                                        text: "Remove selected signal"
+                                        delay: 500
+                                        background: Rectangle {
+                                            color: "#424242"
+                                            radius: 4
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            font.pixelSize: 12
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        if (signalListView.currentIndex >= 0 && messageListView.currentIndex >= 0) {
+                                            var selectedMsg = dbcParser.messageModel[messageListView.currentIndex]
+                                            var msgName = selectedMsg.split(" (")[0]
+                                            var signalData = dbcParser.signalModel[signalListView.currentIndex]
+                                            removeSignalConfirmDialog.messageName = msgName
+                                            removeSignalConfirmDialog.signalName = signalData.name
+                                            removeSignalConfirmDialog.open()
+                                        }
+                                    }
+                                }
                             }
-                            
+
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 width: parent.width
@@ -597,27 +886,36 @@ ApplicationWindow {
                                                     }
                                                     
                                                     Button {
-                                                        Layout.preferredWidth: 60
-                                                        Layout.fillHeight: true
+                                                        Layout.preferredWidth: 50
+                                                        Layout.preferredHeight: 28
                                                         text: "Bits"
-                                                        
+
                                                         contentItem: Text {
                                                             text: parent.text
-                                                            color: "white"
+                                                            color: parent.enabled ? "#4CAF50" : "#CCCCCC"
                                                             horizontalAlignment: Text.AlignHCenter
                                                             verticalAlignment: Text.AlignVCenter
-                                                            font.pixelSize: 10
+                                                            font.pixelSize: 11
+                                                            font.weight: Font.Medium
                                                         }
-                                                        
+
                                                         background: Rectangle {
-                                                            color: parent.hovered ? Qt.lighter("#4CAF50", 1.1) : "#4CAF50"
-                                                            radius: 2
+                                                            color: parent.pressed ? "#E8F5E9" :
+                                                                   (parent.hovered ? "#F1F8E9" : "transparent")
+                                                            border.color: parent.enabled ? "#4CAF50" : "#CCCCCC"
+                                                            border.width: 1
+                                                            radius: 4
+
+                                                            Behavior on color {
+                                                                ColorAnimation { duration: 100 }
+                                                            }
                                                         }
-                                                        
+
                                                         onClicked: {
                                                             signalListView.currentIndex = index
                                                             bitsSection.signalName = modelData.name
-                                                            bitsSection.signalValue = modelData.value
+                                                            // Get the current value from the backend instead of cached modelData
+                                                            bitsSection.signalValue = dbcParser.getSignalValue(modelData.name)
                                                             bitsSection.signalStartBit = modelData.startBit
                                                             bitsSection.signalLength = modelData.length
                                                             bitsSection.signalLittleEndian = modelData.littleEndian
@@ -1159,4 +1457,141 @@ ApplicationWindow {
         }
     }
 }
+    // Dialog instances
+        AddMessageDialog {
+            id: addMessageDialog
+        }
+
+        AddSignalDialog {
+            id: addSignalDialog
+        }
+        // Send Message Dialog
+        SendMessageDialog {
+            id: sendMessageDialog
+        }
+
+
+        // Confirmation dialog for removing signals
+        Dialog {
+            id: removeSignalConfirmDialog
+            title: "Confirm Deletion"
+            property string messageName: ""
+            property string signalName: ""
+            modal: true
+            anchors.centerIn: parent
+            width: 400
+
+            contentItem: ColumnLayout {
+                spacing: 20
+
+                Label {
+                    text: "Are you sure you want to delete signal '" + removeSignalConfirmDialog.signalName + "'?"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+
+            standardButtons: Dialog.Yes | Dialog.No
+
+            onAccepted: {
+                dbcParser.removeSignal(messageName, signalName)
+            }
+        }
+        // Confirmation dialog for removing messages
+        Dialog {
+            id: removeMessageConfirmDialog
+            title: "Confirm Deletion"
+            property string messageName: ""
+            modal: true
+            anchors.centerIn: parent
+            width: 420
+
+            background: Rectangle {
+                color: "white"
+                radius: 8
+                border.color: "#E0E0E0"
+                border.width: 1
+            }
+
+            header: Rectangle {
+                height: 50
+                color: "#F5F5F5"
+                radius: 8
+
+                Text {
+                    anchors.centerIn: parent
+                    text: removeMessageConfirmDialog.title
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
+                    color: "#424242"
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: "#E0E0E0"
+                }
+            }
+
+            contentItem: ColumnLayout {
+                spacing: 20
+
+                Item { height: 10 }
+
+                Label {
+                    text: "Are you sure you want to delete message '" + removeMessageConfirmDialog.messageName + "' and all its signals?"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 20
+                    Layout.rightMargin: 20
+                    font.pixelSize: 14
+                    color: "#616161"
+                }
+
+                Item { height: 10 }
+            }
+
+            footer: DialogButtonBox {
+                padding: 20
+
+                background: Rectangle {
+                    color: "#FAFAFA"
+                    radius: 8
+                }
+
+                Button {
+                    text: "Cancel"
+                    DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+
+                    background: Rectangle {
+                        color: parent.pressed ? "#E0E0E0" :
+                               (parent.hovered ? "#F5F5F5" : "transparent")
+                        border.color: "#BDBDBD"
+                        border.width: 1
+                        radius: 4
+                    }
+                }
+
+                Button {
+                    text: "Delete"
+                    DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        color: parent.pressed ? "#D32F2F" :
+                               (parent.hovered ? "#E53935" : "#F44336")
+                        radius: 4
+                    }
+                }
+            }
+        }
+
+        // Similar styling for removeSignalConfirmDialog...
 }
