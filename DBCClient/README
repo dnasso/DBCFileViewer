@@ -1,0 +1,10 @@
+README
+
+Instructions:
+Compile the server and client using the Makefile.
+Configure the server.conf and client.conf files with the appropriate port number and server IP address.
+Run the server application.
+Run the client application.
+
+
+
