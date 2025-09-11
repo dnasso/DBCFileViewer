@@ -23,6 +23,9 @@ qt_add_qml_module(appDBC_Parser
         DbcParser.h
         DbcParser.cpp
         SOURCES DBCClient/client.cpp
+SOURCES DBCClient/server.cpp
+RESOURCES DBCClient/Makefile DBCClient/README DBCClient/server.conf
+SOURCES DBCClient/server.cpp
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
