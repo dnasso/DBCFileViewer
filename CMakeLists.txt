@@ -22,6 +22,11 @@ qt_add_qml_module(appDBC_Parser
     SOURCES 
         DbcParser.h
         DbcParser.cpp
+
+        SOURCES DBCClient/client.cpp
+SOURCES DBCClient/server.cpp
+RESOURCES DBCClient/Makefile DBCClient/README DBCClient/server.conf
+SOURCES DBCClient/server.cpp
         QML_FILES AddMessageDialog.qml
         QML_FILES AddSignalDialog.qml
         QML_FILES SendMessageDialog.qml
