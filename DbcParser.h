@@ -10,6 +10,7 @@
 #include <QTextStream>
 #include <vector>
 #include <string>
+#include <set>
 
 // Data structures for CAN messages and signals (from your original code)
 struct canSignal {
@@ -48,6 +49,7 @@ public:
     Q_INVOKABLE void setShowAllSignals(bool show);
     Q_INVOKABLE void setEndian(const QString &endian);
     Q_INVOKABLE void updateSignalValue(const QString &signalName, double value);
+    Q_INVOKABLE double getSignalValue(const QString &signalName);
     Q_INVOKABLE QString generateCanFrame();
     
     // New methods for signal bit visualization and editing
@@ -70,6 +72,31 @@ public:
     Q_INVOKABLE QString getModifiedDbcText() const;
     Q_INVOKABLE bool saveModifiedDbcToFile(const QUrl &saveUrl);
     Q_INVOKABLE QStringList getDbcDiffLines();
+
+    // Methods for adding/removing messages and signals
+    Q_INVOKABLE bool addMessage(const QString &name, unsigned long id, int length);
+    Q_INVOKABLE bool removeMessage(const QString &messageName);
+    Q_INVOKABLE bool addSignal(const QString &messageName, const QString &signalName,
+                               int startBit, int length, bool littleEndian,
+                               double factor, double offset, double min, double max,
+                               const QString &unit);
+    Q_INVOKABLE bool removeSignal(const QString &messageName, const QString &signalName);
+    Q_INVOKABLE bool messageExists(const QString &messageName);
+    Q_INVOKABLE bool signalExists(const QString &messageName, const QString &signalName);
+    Q_INVOKABLE bool isValidMessageId(unsigned long id);
+    Q_INVOKABLE bool isValidSignalPosition(const QString &messageName, int startBit, int length, bool littleEndian);
+    
+    // Enhanced validation methods with detailed error messages
+    Q_INVOKABLE QString validateMessageData(const QString &name, unsigned long id, int length);
+    Q_INVOKABLE QString validateSignalData(const QString &messageName, const QString &signalName,
+                                          int startBit, int length, bool littleEndian);
+    Q_INVOKABLE bool checkSignalOverlap(const QString &messageName, int startBit, int length, bool littleEndian);
+
+    Q_INVOKABLE QString prepareCanMessage(const QString &messageName);
+    Q_INVOKABLE QString getMessageHexData(const QString &messageName);
+    Q_INVOKABLE unsigned long getMessageId(const QString &messageName);
+    Q_INVOKABLE bool sendCanMessage(const QString &messageName, int rateMs);
+
     // Property getters
     QStringList messageModel() const;
     QVariantList signalModel() const;
@@ -90,6 +117,10 @@ private:
     bool isBitPartOfSignal(int bitPosition, int startBit, int length, bool littleEndian);
     int getBitIndexInRawValue(int bitPosition, int startBit, bool littleEndian);
     uint64_t calculateRawValueFromBits(const QString &signalName, const QVariantList &bitValues);
+    
+    // Helper methods for signal validation
+    int getMotorolaLsb(int msb, int length);
+    std::set<int> getSignalBitPositions(int startBit, int length, bool littleEndian);
 
     std::vector<canMessage> messages;
     int selectedMessageIndex;
