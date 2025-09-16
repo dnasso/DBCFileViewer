@@ -1,7 +1,7 @@
 /*
 DBCFileViewer_Client - Team QT (cute) Devs
 arm_client.cpp
-Todo: add license stuff, maybe add candump-like features to report to frontend
+Todo: add license stuff, logging with levels, maybe add candump-like features
 check if threads are registering 
 //add toggle for message. pauses sending but keeps the thread alive
 //update frontend info "message"
@@ -51,6 +51,7 @@ enqueue without deadline (existing behavior): pool.enqueue(0, []{ work });
 #include <condition_variable>
 #include <atomic>
 #include <sstream>
+#include <unordered_map>
 
 #define BACKLOG 10
 #define MAXDATASIZE 10000
@@ -419,25 +420,127 @@ int main(int argc, char* argv[]) {
             std::string canInterface; //can0, vcan1, etc.
             std::string canIdStr; //CAN ID and data in hex
             std::vector<pid_t> clientPids;  // Track PIDs of spawned processes
+            std::unordered_map<std::string, std::shared_ptr<bool>> taskPauses;  // Per-task pause flags
+            std::unordered_map<std::string, std::string> taskDetails;  // Task details for status
+            std::atomic<int> taskCounter{0};  // For unique task IDs
+            std::unordered_map<std::string, std::function<void(const std::string& receivedMsg)>> commandMap;
 
-            auto setupRecurringCansend = [&](const std::string& cmd, int ct, int priority, ThreadPool& pool, std::vector<pid_t>& clientPids) {
+            commandMap["SHUTDOWN"] = [&](const std::string& msg) {
+                logEvent(INFO, "Received SHUTDOWN command from " + std::string(s));
+                niceShutdown = true;
+            };
+
+            commandMap["KILL_ALL"] = [&](const std::string& msg) {
+                logEvent(INFO, "Received KILL_ALL command from " + std::string(s));
+                for (auto pid : clientPids) {
+                    if (kill(pid, SIGTERM) == -1) {
+                        logEvent(WARNING, "Failed to kill PID " + std::to_string(pid) + ": " + std::string(strerror(errno)));
+                    }
+                }
+                clientPids.clear();
+                send(new_fd, "All processes killed.\n", 48, 0);
+            };
+
+            commandMap["LIST_THREADS"] = [&](const std::string& msg) {
+                logEvent(INFO, "Received LIST_THREADS command from " + std::string(s));
+                send(new_fd, registry.toString().c_str(), registry.toString().size(), 0);
+            };
+
+            commandMap["RESTART"] = [&](const std::string& msg) {
+                logEvent(INFO, "Received RESTART command from " + std::string(s));
+                send(new_fd, "Server restart not implemented yet.\n", 36, 0);
+            };
+
+            commandMap["KILL_THREAD "] = [&](const std::string& msg) {
+                std::string threadIdStr = msg.substr(12);
+                try {
+                    std::thread::id threadId = std::thread::id(std::stoull(threadIdStr));
+                    registry.remove(threadId);
+                    logEvent(INFO, "Removed thread " + threadIdStr + " as per request from " + std::string(s));
+                    send(new_fd, "Thread removed\n", 16, 0);
+                } catch (const std::exception& e) {
+                    logEvent(ERROR, "Invalid thread ID in KILL_THREAD command from " + std::string(s));
+                    send(new_fd, "Invalid thread ID\n", 18, 0);
+                }
+            };
+
+            commandMap["SET_LOG_LEVEL "] = [&](const std::string& msg) {
+                std::string levelStr = msg.substr(14);
+                if (levelStr == "DEBUG") {
+                    log_level = DEBUG;
+                    log_level_str = "DEBUG";
+                } else if (levelStr == "INFO") {
+                    log_level = INFO;
+                    log_level_str = "INFO";
+                } else if (levelStr == "WARNING") {
+                    log_level = WARNING;
+                    log_level_str = "WARNING";
+                } else if (levelStr == "ERROR") {
+                    log_level = ERROR;
+                    log_level_str = "ERROR";
+                } else {
+                    logEvent(ERROR, "Invalid log level in SET_LOG_LEVEL command from " + std::string(s));
+                    send(new_fd, "Invalid log level\n", 18, 0);
+                    return;
+                }
+                logEvent(INFO, "Log level set to " + log_level_str + " as per request from " + std::string(s));
+                send(new_fd, ("Log level set to " + log_level_str + "\n").c_str(), log_level_str.size() + 16, 0);
+            };
+
+            commandMap["PAUSE "] = [&](const std::string& msg) {
+                std::string taskId = msg.substr(6);
+                if (taskPauses.count(taskId)) {
+                    *taskPauses[taskId] = true;
+                    send(new_fd, ("Paused " + taskId + "\n").c_str(), ("Paused " + taskId + "\n").size(), 0);
+                    // maybe send msg and log if already paused
+                } else {
+                    send(new_fd, "Task not found\n", 15, 0);
+                }
+            };
+
+            commandMap["RESUME "] = [&](const std::string& msg) {
+                std::string taskId = msg.substr(7);
+                if (taskPauses.count(taskId)) {
+                    *taskPauses[taskId] = false;
+                    send(new_fd, ("Resumed " + taskId + "\n").c_str(), ("Resumed " + taskId + "\n").size(), 0);
+                    //maybe send msg and log if already running
+                } else {
+                    send(new_fd, "Task not found\n", 15, 0);
+                }
+            };
+
+            commandMap["LIST_TASKS"] = [&](const std::string& msg) {
+                std::string response = "Active tasks:\n";
+                for (const auto& [id, detail] : taskDetails) {
+                    std::string status = *taskPauses[id] ? "paused" : "running";
+                    response += id + ": " + detail + " (" + status + ")\n";
+                }
+                send(new_fd, response.c_str(), response.size(), 0);
+            };
+
+            auto setupRecurringCansend = [&](const std::string& cmd, int ct, int priority, ThreadPool& pool, std::vector<pid_t>& clientPids, std::unordered_map<std::string, std::shared_ptr<bool>>& taskPauses, std::unordered_map<std::string, std::string>& taskDetails, std::atomic<int>& taskCounter) {
+                std::string taskId = "task_" + std::to_string(taskCounter++);
+                taskPauses[taskId] = std::make_shared<bool>(false);
+                taskDetails[taskId] = cmd + " every " + std::to_string(ct) + "ms priority " + std::to_string(priority);
                 // create a self-rescheduling task that repeatedly runs the same command every canTime ms
                 auto recurring = std::make_shared<std::function<void()>>();
                 std::string m = cmd; // snapshot the command
                 int interval = ct; // snapshot the interval
 
-                *recurring = [recurring, m, interval, &pool, priority, &clientPids]() mutable {
-                    // Replace system() with fork()/execl() to track PID
-                    pid_t pid = fork();
-                    if (pid == 0) {
-                        // Child process
-                        execl("/bin/sh", "sh", "-c", m.c_str(), NULL);
-                        _exit(1);  // Exit if exec fails
-                    } else if (pid > 0) {
-                        // Parent process: store PID
-                        clientPids.push_back(pid);
-                    } else {
-                        logEvent(ERROR, "fork() failed: " + std::string(strerror(errno)));
+                *recurring = [recurring, m, interval, &pool, priority, &clientPids, taskId, taskPauses]() mutable {
+                    if (!*taskPauses[taskId]) {  // Check per-task pause
+                        // Replace system() with fork()/execl() to track PID
+                        pid_t pid = fork();
+                        if (pid == 0) {
+                            // Child process
+                            execl("/bin/sh", "sh", "-c", m.c_str(), NULL);
+                            _exit(1);  // Exit if exec fails
+                        } else if (pid > 0) {
+                            // Parent process: store PID
+                            clientPids.push_back(pid);
+                        } else {
+                            logEvent(ERROR, "fork() failed: " + std::string(strerror(errno)));
+                        }
                     }
                     // schedule next run interval ms from now
                     pool.enqueue_deadline(std::chrono::steady_clock::now() + std::chrono::milliseconds(interval),
@@ -479,112 +582,75 @@ int main(int argc, char* argv[]) {
                 std::string receivedMsg(buf.data(), static_cast<size_t>(numbytes));
                 logEvent(DEBUG, "Received from " + std::string(s) + ": " + receivedMsg);
 
-                //make command parsing function here for separating values in receivedMsg, shutdown, polling thread list, killing threads, etc.
-                if (receivedMsg == "SHUTDOWN") {
-                    logEvent(INFO, "Received SHUTDOWN command from " + std::string(s));
-                    niceShutdown = true;
-                    continue;
-                } 
-                else if (receivedMsg == "KILL_ALL") {
-                    logEvent(INFO, "Received KILL_ALL command from " + std::string(s));
-                    for (auto pid : clientPids) {
-                        if (kill(pid, SIGTERM) == -1) {  // Send SIGTERM to each process
-                            logEvent(WARNING, "Failed to kill PID " + std::to_string(pid) + ": " + std::string(strerror(errno)));
-                        }
+                bool handled = false;
+                for (const auto& pair : commandMap) {
+                    if (receivedMsg.rfind(pair.first, 0) == 0) {
+                        pair.second(receivedMsg);
+                        handled = true;
+                        break;
                     }
-                    clientPids.clear();  // Clear the list
-                    send(new_fd, "All processes killed.\n", 48, 0);
-                    continue;
                 }
-                else if (receivedMsg.rfind("cansend ", 0) == 0) { // parse "cansend <if> <id#data> <time>". priority and drop_if_missed are not implemented yet
-                    std::string payload = receivedMsg.substr(8);
-                    // trim leading whitespace. might need to trim more (or more types) if errors occur
-                    while (!payload.empty() && (payload.front() == ' ' || payload.front() == '\t')) payload.erase(payload.begin());
+                if (!handled) {
+                    if (receivedMsg.rfind("cansend ", 0) == 0) {
+                        std::string payload = receivedMsg.substr(8);
+                        // trim leading whitespace
+                        while (!payload.empty() && (payload.front() == ' ' || payload.front() == '\t')) payload.erase(payload.begin());
 
-                    auto p1 = payload.find(' ');
-                    if (p1 == std::string::npos) {
-                        logEvent(ERROR, "Invalid cansend syntax from " + std::string(s));
-                        send(new_fd, "ERROR: Invalid cansend syntax. Usage: cansend <interface> <id#data> <time>\n", 80, 0);
-                    } 
-                    else {
-                        canInterface = payload.substr(0, p1);
-                        auto p2 = payload.find(' ', p1 + 1);
-                        if (p2 == std::string::npos) {
+                        auto p1 = payload.find(' ');
+                        if (p1 == std::string::npos) {
                             logEvent(ERROR, "Invalid cansend syntax from " + std::string(s));
-                            send(new_fd, "ERROR: Invalid cansend syntax. Usage: cansend <interface> <id#data> <time>\n", 80, 0);
+                            send(new_fd, "ERROR: Invalid cansend syntax. Usage: cansend <interface> <id#data> <time> [priority 0-9]\n", 90, 0);
                         } 
                         else {
-                            canIdStr = payload.substr(p1 + 1, p2 - (p1 + 1));
-                            std::string timeStr = payload.substr(p2 + 1);
-                            // trim timeStr
-                            while (!timeStr.empty() && (timeStr.back() == '\r' || timeStr.back() == '\n' || timeStr.back() == ' ' || timeStr.back() == '\t')) timeStr.pop_back();
-                            while (!timeStr.empty() && (timeStr.front() == ' ' || timeStr.front() == '\t')) timeStr.erase(timeStr.begin());
+                            canInterface = payload.substr(0, p1);
+                            auto p2 = payload.find(' ', p1 + 1);
+                            if (p2 == std::string::npos) {
+                                logEvent(ERROR, "Invalid cansend syntax from " + std::string(s));
+                                send(new_fd, "ERROR: Invalid cansend syntax. Usage: cansend <interface> <id#data> <time> [priority 0-9]\n", 90, 0);
+                            } 
+                            else {
+                                canIdStr = payload.substr(p1 + 1, p2 - (p1 + 1));
+                                std::string timeStr = payload.substr(p2 + 1);
+                                // trim timeStr
+                                while (!timeStr.empty() && (timeStr.back() == '\r' || timeStr.back() == '\n' || timeStr.back() == ' ' || timeStr.back() == '\t')) timeStr.pop_back();
+                                while (!timeStr.empty() && (timeStr.front() == ' ' || timeStr.front() == '\t')) timeStr.erase(timeStr.begin());
 
-                            try {
-                                canTime = std::stoi(timeStr);
-                                logEvent(INFO, "Parsed cansend: " + canInterface + " " + canIdStr + " every " + std::to_string(canTime) + "ms from " + std::string(s));
-                                // Submit to thread pool
-                                std::string cmd = ("cansend " + canInterface + " " + canIdStr); // + " > /dev/null 2>&1" temp remove for debugging
-                                setupRecurringCansend(cmd, canTime, priority, pool, clientPids);  // Pass clientPids
-                                send(new_fd, "OK: Cansend scheduled\n", 23, 0);
-                            }
-                            catch (...) {
-                                logEvent(ERROR, "Invalid cansend time from " + std::string(s));
-                                send(new_fd, "ERROR: Invalid time value\n", 26, 0);
+                                int parsedPriority = 5; // default
+                                auto spacePos = timeStr.find(' ');
+                                if (spacePos != std::string::npos) {
+                                    std::string priorityStr = timeStr.substr(spacePos + 1);
+                                    // trim priorityStr
+                                    while (!priorityStr.empty() && (priorityStr.back() == '\r' || priorityStr.back() == '\n' || priorityStr.back() == ' ' || priorityStr.back() == '\t')) priorityStr.pop_back();
+                                    while (!priorityStr.empty() && (priorityStr.front() == ' ' || priorityStr.front() == '\t')) priorityStr.erase(priorityStr.begin());
+                                    if (priorityStr.size() == 1 && priorityStr[0] >= '0' && priorityStr[0] <= '9') {
+                                        parsedPriority = priorityStr[0] - '0';
+                                        timeStr = timeStr.substr(0, spacePos);
+                                        // trim timeStr again if needed
+                                        while (!timeStr.empty() && (timeStr.back() == '\r' || timeStr.back() == '\n' || timeStr.back() == ' ' || timeStr.back() == '\t')) timeStr.pop_back();
+                                    } else {
+                                        // invalid priority, use default
+                                    }
+                                }
+
+                                try {
+                                    canTime = std::stoi(timeStr);
+                                    logEvent(INFO, "Parsed cansend: " + canInterface + " " + canIdStr + " every " + std::to_string(canTime) + "ms priority " + std::to_string(parsedPriority) + " from " + std::string(s));
+                                    // Submit to thread pool
+                                    std::string cmd = ("cansend " + canInterface + " " + canIdStr); // + " > /dev/null 2>&1" temp remove for debugging
+                                    setupRecurringCansend(cmd, canTime, parsedPriority, pool, clientPids, taskPauses, taskDetails, taskCounter);  // Pass parsedPriority
+                                    send(new_fd, "OK: Cansend scheduled\n", 23, 0);
+                                }
+                                catch (...) {
+                                    logEvent(ERROR, "Invalid cansend time from " + std::string(s));
+                                    send(new_fd, "ERROR: Invalid time value\n", 26, 0);
+                                }
                             }
                         }
-                    }
-
-                } else if (receivedMsg == "LIST_THREADS") { // for sending to the ui for info. probably will send every few seconds or on demand
-                    logEvent(INFO, "Received LIST_THREADS command from " + std::string(s));
-                    send(new_fd, registry.toString().c_str(), registry.toString().size(), 0);
-                    continue;
-
-                } else if (receivedMsg.rfind("KILL_THREAD ", 0) == 0) { //client needs to get thread id from LIST_THREADS data
-                    std::string threadIdStr = receivedMsg.substr(12);
-                    try {
-                        std::thread::id threadId = std::thread::id(std::stoull(threadIdStr));
-                        registry.remove(threadId);
-                        logEvent(INFO, "Removed thread " + threadIdStr + " as per request from " + std::string(s));
-                        send(new_fd, "Thread removed\n", 16, 0);
-                    } catch (const std::exception& e) {
-                        logEvent(ERROR, "Invalid thread ID in KILL_THREAD command from " + std::string(s));
-                        send(new_fd, "Invalid thread ID\n", 18, 0);
-                    }
-                    continue;
-
-                } else if (receivedMsg.rfind("SET_LOG_LEVEL ", 0) == 0) { // add an interface in the UI to show the log file to make this useful
-                    std::string levelStr = receivedMsg.substr(14);
-                    if (levelStr == "DEBUG") {
-                        log_level = DEBUG;
-                        log_level_str = "DEBUG";
-                    } else if (levelStr == "INFO") {
-                        log_level = INFO;
-                        log_level_str = "INFO";
-                    } else if (levelStr == "WARNING") {
-                        log_level = WARNING;
-                        log_level_str = "WARNING";
-                    } else if (levelStr == "ERROR") {
-                        log_level = ERROR;
-                        log_level_str = "ERROR";
                     } else {
-                        logEvent(ERROR, "Invalid log level in SET_LOG_LEVEL command from " + std::string(s));
-                        send(new_fd, "Invalid log level\n", 18, 0);
-                        continue;
+                        logEvent(WARNING, "Unknown command from " + std::string(s) + ": " + receivedMsg);
+                        std::string response = "Unknown command: " + receivedMsg;
+                        send(new_fd, response.c_str(), response.size(), 0);
                     }
-                    logEvent(INFO, "Log level set to " + log_level_str + " as per request from " + std::string(s));
-                    send(new_fd, ("Log level set to " + log_level_str + "\n").c_str(), log_level_str.size() + 16, 0);
-                    continue;
-                }
-                else if (receivedMsg == "RESTART") { //restart the server. not implemented yet
-                    logEvent(INFO, "Received RESTART command from " + std::string(s));
-                    // Implement restart logic here
-                    send(new_fd, "Server restart not implemented yet.\n", 36, 0);
-                }
-                else {
-                    logEvent(WARNING, "Unknown command from " + std::string(s) + ": " + receivedMsg);
-                    std::string response = "Unknown command: " + receivedMsg;
-                    send(new_fd, response.c_str(), response.size(), 0);
                 }
             }
 
