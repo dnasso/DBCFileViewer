@@ -71,8 +71,7 @@ qt_add_qml_module(appDBC_Parser
     SOURCES
         DbcParser.h
         DbcParser.cpp
-        # Add Qtclient.h if it exists
-        # DBCClient/Qtclient.h
+        DBCClient/Qtclient.h
     RESOURCES
         DBCClient/Makefile
         DBCClient/README
