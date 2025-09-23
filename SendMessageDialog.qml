@@ -16,6 +16,41 @@ Dialog {
     property string hexData: ""
     property int transmissionRate: 100 // Default rate in milliseconds
     property bool isSending: false
+    property string lastStatusMessage: ""
+
+    // Connection to handle message send status
+    Connections {
+        target: dbcParser
+        function onMessageSendStatus(messageName, success, statusMessage) {
+            if (messageName === sendMessageDialog.messageName) {
+                statusText.text = statusMessage
+                statusText.isSuccess = success
+                sendMessageDialog.lastStatusMessage = statusMessage
+                
+                // Auto-hide success messages after 3 seconds
+                if (success && statusMessage !== "Sending message...") {
+                    statusHideTimer.start()
+                }
+                
+                // Stop the sending state for non-"sending" messages
+                if (statusMessage !== "Sending message...") {
+                    sendMessageDialog.isSending = false
+                }
+            }
+        }
+    }
+
+    // Timer to auto-hide status messages
+    Timer {
+        id: statusHideTimer
+        interval: 3000
+        repeat: false
+        onTriggered: {
+            if (statusText.isSuccess) {
+                statusText.text = ""
+            }
+        }
+    }
 
     Material.theme: Material.Light
     Material.accent: Material.Green
@@ -40,9 +75,8 @@ Dialog {
             Column {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.alignment: Qt.AlignVCenter
                 spacing: 6
-
-                anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     text: "Send CAN Message"
@@ -84,6 +118,17 @@ Dialog {
             messageId = "0x" + dbcParser.getMessageId(messageName).toString(16).toUpperCase()
             hexData = dbcParser.getMessageHexData(messageName)
         }
+        
+        // Update connection status
+        updateConnectionStatus()
+    }
+    
+    // Function to update connection status
+    function updateConnectionStatus() {
+        connectionStatusText.text = dbcParser.isConnectedToServer ? 
+            "Connected to server" : "Not connected to server"
+        connectionStatusText.color = dbcParser.isConnectedToServer ? 
+            "#4CAF50" : "#F44336"
     }
 
     contentItem: ScrollView {
@@ -191,6 +236,81 @@ Dialog {
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
                             }
+                        }
+                    }
+                }
+            }
+
+            // Status message area (moved to top for immediate visibility)
+            Rectangle {
+                id: statusArea
+                Layout.fillWidth: true
+                Layout.preferredHeight: statusText.hasMessage ? 50 : 0
+                Layout.leftMargin: 25
+                Layout.rightMargin: 25
+                color: statusText.isSuccess ? "#E8F5E8" : "#FFEBEE"
+                border.color: statusText.isSuccess ? "#4CAF50" : "#F44336"
+                border.width: statusText.hasMessage ? 1 : 0
+                radius: 8
+                visible: statusText.hasMessage
+
+                Behavior on Layout.preferredHeight {
+                    NumberAnimation { duration: 200 }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 10
+
+                    Rectangle {
+                        Layout.preferredWidth: 24
+                        Layout.preferredHeight: 24
+                        radius: 12
+                        color: statusText.isSuccess ? "#4CAF50" : "#F44336"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: statusText.isSuccess ? "✓" : "✗"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    Text {
+                        id: statusText
+                        Layout.fillWidth: true
+                        text: ""
+                        font.pixelSize: 13
+                        color: isSuccess ? "#2E7D32" : "#C62828"
+                        wrapMode: Text.WordWrap
+
+                        property bool hasMessage: text !== ""
+                        property bool isSuccess: false
+                    }
+
+                    Button {
+                        text: "×"
+                        Layout.preferredWidth: 30
+                        Layout.preferredHeight: 30
+                        visible: statusText.hasMessage
+                        
+                        background: Rectangle {
+                            color: parent.pressed ? "#FFCDD2" : (parent.hovered ? "#FFEBEE" : "transparent")
+                            radius: 15
+                        }
+                        
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#666"
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            statusText.text = ""
                         }
                     }
                 }
@@ -384,6 +504,82 @@ Dialog {
                 }
             }
 
+            // Server Connection Section
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 100
+                Layout.leftMargin: 25
+                Layout.rightMargin: 25
+                color: "#E3F2FD"
+                radius: 8
+                border.color: "#2196F3"
+                border.width: 2
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 20
+                    spacing: 10
+
+                    Text {
+                        text: "Server Connection"
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
+                        color: "#1976D2"
+                        Layout.alignment: Qt.AlignLeft
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 15
+
+                        Text {
+                            id: connectionStatusText
+                            text: "Not connected to server"
+                            font.pixelSize: 13
+                            color: "#F44336"
+                            Layout.fillWidth: true
+                        }
+
+                        Button {
+                            text: dbcParser.isConnectedToServer ? "Disconnect" : "Connect"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 32
+                            enabled: !sendMessageDialog.isSending
+
+                            background: Rectangle {
+                                color: parent.pressed ? "#E3F2FD" : (parent.hovered ? "#F3E5F5" : "white")
+                                border.color: "#2196F3"
+                                border.width: 1
+                                radius: 4
+                            }
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#2196F3" : "#CCCCCC"
+                                font.pixelSize: 12
+                                font.weight: Font.Medium
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                if (dbcParser.isConnectedToServer) {
+                                    dbcParser.disconnectFromServer()
+                                } else {
+                                    // Try to connect with default values
+                                    if (dbcParser.connectToServer("127.0.0.1", "8080")) {
+                                        console.log("Connected to server successfully")
+                                    } else {
+                                        console.log("Failed to connect to server")
+                                    }
+                                }
+                                updateConnectionStatus()
+                            }
+                        }
+                    }
+                }
+            }
+
             // Message Preview Section
             Rectangle {
                 Layout.fillWidth: true
@@ -427,7 +623,7 @@ Dialog {
                         Text {
                             anchors.fill: parent
                             anchors.margins: 12
-                            text: sendMessageDialog.messageId + " | " + sendMessageDialog.hexData + " | " + sendMessageDialog.transmissionRate + "ms"
+                            text: sendMessageDialog.messageId + " # " + sendMessageDialog.hexData + " # " + sendMessageDialog.transmissionRate + "ms"
                             font.family: "Monospace"
                             font.pixelSize: 13
                             font.weight: Font.Medium
@@ -438,7 +634,7 @@ Dialog {
                     }
 
                     Text {
-                        text: "Format: CAN_ID | HEX_DATA | RATE_MS"
+                        text: "Format: CAN_ID # HEX_DATA # RATE_MS"
                         font.pixelSize: 10
                         color: "#8D6E63"
                         font.italic: true
@@ -524,7 +720,7 @@ Dialog {
                 Layout.preferredWidth: 120
                 Layout.preferredHeight: 36
                 Layout.alignment: Qt.AlignVCenter
-                enabled: !sendMessageDialog.isSending
+                enabled: !sendMessageDialog.isSending && dbcParser.isConnectedToServer
 
                 contentItem: Text {
                     text: parent.text
@@ -547,32 +743,30 @@ Dialog {
                 }
 
                 onClicked: {
+                    // Check if connected to server first
+                    if (!dbcParser.isConnectedToServer) {
+                        statusText.text = "Error: Not connected to server. Please connect first."
+                        statusText.isSuccess = false
+                        console.log("Not connected to server. Please connect first.")
+                        return
+                    }
+
+                    // Clear previous status and show sending state
+                    statusText.text = "Sending message..."
+                    statusText.isSuccess = true
+                    sendMessageDialog.isSending = true
+
                     // Call the backend method to send the message
-                    if (dbcParser.sendCanMessage(sendMessageDialog.messageName, sendMessageDialog.transmissionRate)) {
-                        sendMessageDialog.isSending = true
-
-                        // For demo purposes, automatically stop after 5 seconds
-                        // Remove this timer when you implement real server communication
-                        Qt.callLater(function() {
-                            demoTimer.start()
-                        })
-
-                        console.log("Started sending message:", sendMessageDialog.messageName, "at rate:", sendMessageDialog.transmissionRate, "ms")
+                    var success = dbcParser.sendCanMessage(sendMessageDialog.messageName, sendMessageDialog.transmissionRate)
+                    
+                    if (success) {
+                        console.log("Message send initiated:", sendMessageDialog.messageName, "at rate:", sendMessageDialog.transmissionRate, "ms")
                     } else {
-                        console.log("Failed to send message:", sendMessageDialog.messageName)
+                        console.log("Failed to initiate message send:", sendMessageDialog.messageName)
+                        sendMessageDialog.isSending = false
                     }
                 }
             }
-        }
-    }
-
-    // Demo timer to simulate stopping transmission (remove this when implementing real server)
-    Timer {
-        id: demoTimer
-        interval: 5000 // 5 seconds
-        repeat: false
-        onTriggered: {
-            sendMessageDialog.isSending = false
         }
     }
 }

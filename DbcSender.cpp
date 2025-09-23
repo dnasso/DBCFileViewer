@@ -3,87 +3,86 @@
 #include <iostream>
 #include <QGuiApplication>
 
+DbcSender::DbcSender(QObject *parent) : QObject(parent)
+{
+}
+
 // Send CAN Message
 // Initiate Connection
 
 qint8 DbcSender::sendCANMessage(QString message)
 {
-    // Undefined for now
-    // sendCANMessage() called
-    //QString message;
+    // Check if socket is connected
+    if (socket.state() != QTcpSocket::ConnectedState) {
+        std::cerr << "Socket not connected. Current state: " << socket.state() << std::endl;
+        return 1; // Not connected
+    }
+
     std::string c_message = message.toStdString();
+    std::cout << "Sending message: " << c_message << std::endl;
+    
     qint64 bytesWritten = socket.write(c_message.c_str(), c_message.size());
     if (bytesWritten == -1) {
-        //perror("send");
-        return 1; // Failure to Write?
+        std::cerr << "Failed to write to socket: " << socket.errorString().toStdString() << std::endl;
+        return 1; // Failure to Write
     }
-    socket.flush(); //Non-blocking? Is this bad?
-    QTimer sendTimer;
-    sendTimer.setSingleShot(true);
-    sendTimer.start(5000); // 5 second timeout for write
-    while (socket.bytesToWrite() > 0 && sendTimer.isActive()) {
-        QGuiApplication::processEvents();
+    
+    if (!socket.flush()) {
+        std::cerr << "Failed to flush socket" << std::endl;
+        return 2; // Flush failed
     }
-    if (socket.bytesToWrite() > 0) {
-        std::cerr << "Send timeout\n";
+
+    // Wait for write to complete
+    if (!socket.waitForBytesWritten(5000)) {
+        std::cerr << "Send timeout or error: " << socket.errorString().toStdString() << std::endl;
         return 2; // Timeout
     }
 
-    QTimer recvTimer;
-    recvTimer.setSingleShot(true);
-    recvTimer.start(5000); // 5 second timeout for read
-    QByteArray response;
-    // Blocking Solution - Could be bad - Fails on Windows
-    while (socket.waitForReadyRead(100) && recvTimer.isActive()) {
-        response += socket.readAll();
-        // Do we need to check input size here?
-    }
-    if (response.isEmpty() && recvTimer.isActive()) {
-        std::cout << "Server closed the connection.\n";
-        return 0; // Is this an error?
-    } else if (response.isEmpty()) {
-        std::cerr << "Receive timeout\n";
-        return 3;
+    // Wait for response
+    if (!socket.waitForReadyRead(5000)) {
+        std::cerr << "Receive timeout or error: " << socket.errorString().toStdString() << std::endl;
+        return 3; // Receive timeout
     }
 
-    printf("Data recieved: %s", response.toStdString().c_str());
+    QByteArray response = socket.readAll();
+    if (response.isEmpty()) {
+        std::cout << "No response received" << std::endl;
+        return 0; // Might be normal for some servers
+    }
+
+    std::cout << "Server response: " << response.toStdString() << std::endl;
     return 0;
 }
 
 qint8 DbcSender::initiateConenction(QString Address, QString Port)
 {
-    // Undefined for now
+    // Check if already connected
+    if (socket.state() == QTcpSocket::ConnectedState) {
+        std::cout << "Already connected to server" << std::endl;
+        return 0;
+    }
+
+    // Disconnect any existing connection
+    if (socket.state() != QTcpSocket::UnconnectedState) {
+        socket.disconnectFromHost();
+        socket.waitForDisconnected(1000);
+    }
+
     QHostAddress address(Address);
     quint16 port = Port.toUShort();
 
-    socket.connectToHost(address, port); // No idea if this socket is saved outside of scope - it should be right?
+    std::cout << "Attempting to connect to " << Address.toStdString() << ":" << port << std::endl;
 
-    QTimer connectTimer;
-    connectTimer.setSingleShot(true);
-    connectTimer.start(5000); // 5 second timeout
-    bool connected = false;
-    // TODO: Analyze these connect statements
-    // "This" might be wrong:
-    QObject::connect(&socket, &QTcpSocket::connected, this, [&]() {
-        connected = true;
-        connectTimer.stop();
-    });
-    // "This" might be wrong
-    QObject::connect(&connectTimer, &QTimer::timeout, this, [&]() {
-        socket.abort();
-    });
-    while (!connected && connectTimer.isActive()) {
-        //app.processEvents();
-        //QCoreApplication::processEvents();
-        QGuiApplication::processEvents();
-    }
-    if (!connected) {
-        //std::cerr << "client: failed to connect\n";
-        std::cout << "client: failed to connect\n";
-        return 1; // should do something about this
-    }
-    return 0; // Returns 0 if there are no issues
+    socket.connectToHost(address, port);
 
+    // Wait for connection with proper event loop handling
+    if (socket.waitForConnected(5000)) {
+        std::cout << "Successfully connected to server at " << Address.toStdString() << ":" << port << std::endl;
+        return 0;
+    } else {
+        std::cout << "Failed to connect to server: " << socket.errorString().toStdString() << std::endl;
+        return 1;
+    }
 }
 
 void DbcSender::stopCANMessage(QString CANid)
@@ -96,4 +95,9 @@ void DbcSender::pauseCANMessage(QString CANid)
 {
     // Undefined for now
     // Maybe deprecated
+}
+
+bool DbcSender::isConnected() const
+{
+    return socket.state() == QTcpSocket::ConnectedState;
 }

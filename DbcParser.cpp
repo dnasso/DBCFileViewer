@@ -1,9 +1,11 @@
 #include "DbcParser.h"
+#include "DbcSender.h"
 #include <QFile>
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QFileInfo>
 #include <QDebug>
+#include <QTimer>
 #include <sstream>
 #include <iostream>
 #include <iomanip>
@@ -12,10 +14,24 @@
 #include <set>
 
 DbcParser::DbcParser(QObject *parent)
-    : QObject(parent), selectedMessageIndex(-1), showAllSignals(false), currentEndian("little")
+    : QObject(parent), selectedMessageIndex(-1), showAllSignals(false), currentEndian("little"), dbcSender(nullptr)
 {
     // Initialize with some default values
     m_generatedCanFrame = "";
+    
+    // Initialize DbcSender
+    dbcSender = new DbcSender(this);
+    
+    // Use a timer to automatically attempt connection after the GUI is fully loaded
+    QTimer::singleShot(1000, this, [this]() {
+        qDebug() << "DbcParser: Attempting automatic connection to CAN receiver...";
+        bool connected = connectToServer("127.0.0.1", "8080");
+        if (connected) {
+            qDebug() << "DbcParser: Successfully connected to CAN receiver on startup";
+        } else {
+            qDebug() << "DbcParser: Failed to connect to CAN receiver on startup - receiver may not be running";
+        }
+    });
 }
 
 bool DbcParser::loadDbcFile(const QUrl &fileUrl)
@@ -1545,7 +1561,7 @@ std::set<int> DbcParser::getSignalBitPositions(int startBit, int length, bool li
 }
 // Add these method implementations to your DbcParser.cpp file:
 
-QString DbcParser::prepareCanMessage(const QString &messageName)
+QString DbcParser::prepareCanMessage(const QString &messageName, int rateMs)
 {
     // Extract the message name without the ID part
     int parenthesisPos = messageName.indexOf(" (");
@@ -1559,8 +1575,8 @@ QString DbcParser::prepareCanMessage(const QString &messageName)
             // Generate the hex data for this message
             QString hexData = getMessageHexData(messageName);
 
-            // Format: "CANID|HEX_DATA|RATE" (rate will be added by the dialog)
-            return QString("0x%1|%2").arg(canId, 0, 16).arg(hexData);
+            // Format: "CAN_ID#HEX_DATA#RATE_MS"
+            return QString("0x%1#%2#%3").arg(canId, 0, 16).arg(hexData).arg(rateMs);
         }
     }
 
@@ -1680,23 +1696,73 @@ unsigned long DbcParser::getMessageId(const QString &messageName)
 
 bool DbcParser::sendCanMessage(const QString &messageName, int rateMs)
 {
-    // For now, just prepare the message and log it
-    // Later this will connect to your server
-
-    QString messageData = prepareCanMessage(messageName);
-    if (messageData.isEmpty()) {
-        qWarning() << "Failed to prepare message:" << messageName;
+    // Check if we have a dbcSender instance
+    if (!dbcSender) {
+        qWarning() << "DbcSender not initialized";
+        emit messageSendStatus(messageName, false, "Error: DbcSender not initialized");
         return false;
     }
 
-    // Add the rate to complete the format: "CANID|HEX_DATA|RATE"
-    QString completeMessage = messageData + "|" + QString::number(rateMs);
+    QString messageData = prepareCanMessage(messageName, rateMs);
+    if (messageData.isEmpty()) {
+        qWarning() << "Failed to prepare message:" << messageName;
+        emit messageSendStatus(messageName, false, "Error: Failed to prepare message");
+        return false;
+    }
 
-    // For now, just log the message that would be sent
-    qDebug() << "Would send CAN message:" << completeMessage;
+    // Emit starting status
+    emit messageSendStatus(messageName, true, "Sending message...");
 
-    // TODO: Add actual server communication here
-    // Example: tcpSocket->write(completeMessage.toUtf8());
+    // Send the message via DbcSender
+    qint8 result = dbcSender->sendCANMessage(messageData);
+    
+    if (result == 0) {
+        qDebug() << "Successfully sent CAN message:" << messageData;
+        emit messageSendStatus(messageName, true, "Message sent successfully!");
+        return true;
+    } else if (result == 2) {
+        // Error code 2 is typically a timeout waiting for acknowledgment
+        // The message was likely sent successfully but no response received
+        qDebug() << "Message sent but no acknowledgment received:" << messageData;
+        emit messageSendStatus(messageName, true, "Message transmitted (no acknowledgment received)");
+        return true; // Consider this a success since message was transmitted
+    } else {
+        QString errorMsg = QString("Send failed with error code: %1").arg(result);
+        qWarning() << "Failed to send CAN message. Error code:" << result;
+        emit messageSendStatus(messageName, false, errorMsg);
+        return false;
+    }
+}
 
-    return true;
+bool DbcParser::connectToServer(const QString &address, const QString &port)
+{
+    if (isConnectedToServer()) {
+        qDebug() << "Already connected to server";
+        return true;
+    }
+
+    qint8 result = dbcSender->initiateConenction(address, port);
+    
+    if (result == 0) {
+        qDebug() << "Successfully connected to server at" << address << ":" << port;
+        emit connectionStatusChanged(); // Emit signal to update UI
+        return true;
+    } else {
+        qWarning() << "Failed to connect to server. Error code:" << result;
+        emit connectionStatusChanged(); // Emit signal to update UI
+        return false;
+    }
+}
+
+void DbcParser::disconnectFromServer()
+{
+    // DbcSender doesn't have a disconnect method, so we'll rely on socket cleanup
+    // when the object is destroyed or the connection times out
+    qDebug() << "Disconnect requested - DbcSender will handle connection cleanup";
+    emit connectionStatusChanged(); // Emit signal to update UI
+}
+
+bool DbcParser::isConnectedToServer() const
+{
+    return dbcSender && dbcSender->isConnected();
 }

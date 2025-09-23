@@ -52,6 +52,59 @@ ApplicationWindow {
                     color: "white"
                 }
                 
+                // Connection Status Indicator
+                Rectangle {
+                    Layout.preferredWidth: 150
+                    Layout.preferredHeight: 30
+                    color: dbcParser.isConnectedToServer ? "#2E7D32" : "#D32F2F"
+                    radius: 15
+                    border.color: "white"
+                    border.width: 1
+                    
+                    RowLayout {
+                        anchors.centerIn: parent
+                        spacing: 5
+                        
+                        Rectangle {
+                            width: 8
+                            height: 8
+                            radius: 4
+                            color: "white"
+                            
+                            SequentialAnimation on opacity {
+                                running: dbcParser.isConnectedToServer
+                                loops: Animation.Infinite
+                                NumberAnimation { to: 0.3; duration: 800 }
+                                NumberAnimation { to: 1.0; duration: 800 }
+                            }
+                        }
+                        
+                        Text {
+                            text: dbcParser.isConnectedToServer ? "Connected" : "Disconnected"
+                            color: "white"
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            if (!dbcParser.isConnectedToServer) {
+                                dbcParser.connectToServer("127.0.0.1", "8080")
+                            }
+                        }
+                    }
+                    
+                    ToolTip {
+                        visible: parent.hovered
+                        text: dbcParser.isConnectedToServer ? 
+                              "Connected to CAN receiver (127.0.0.1:8080)" : 
+                              "Click to connect to CAN receiver"
+                        delay: 500
+                    }
+                }
+                
                 Item { Layout.fillWidth: true }
                 Button {
                     text: "Download DBC File"

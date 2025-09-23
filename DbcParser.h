@@ -12,6 +12,9 @@
 #include <string>
 #include <set>
 
+// Forward declarations
+class DbcSender;
+
 // Data structures for CAN messages and signals (from your original code)
 struct canSignal {
     std::string name;
@@ -39,6 +42,7 @@ class DbcParser : public QObject
     Q_PROPERTY(QStringList messageModel READ messageModel NOTIFY messageModelChanged)
     Q_PROPERTY(QVariantList signalModel READ signalModel NOTIFY signalModelChanged)
     Q_PROPERTY(QString generatedCanFrame READ generatedCanFrame NOTIFY generatedCanFrameChanged)
+    Q_PROPERTY(bool isConnectedToServer READ isConnectedToServer NOTIFY connectionStatusChanged)
 
 public:
     explicit DbcParser(QObject *parent = nullptr);
@@ -92,10 +96,15 @@ public:
                                           int startBit, int length, bool littleEndian);
     Q_INVOKABLE bool checkSignalOverlap(const QString &messageName, int startBit, int length, bool littleEndian);
 
-    Q_INVOKABLE QString prepareCanMessage(const QString &messageName);
+    Q_INVOKABLE QString prepareCanMessage(const QString &messageName, int rateMs = 0);
     Q_INVOKABLE QString getMessageHexData(const QString &messageName);
     Q_INVOKABLE unsigned long getMessageId(const QString &messageName);
     Q_INVOKABLE bool sendCanMessage(const QString &messageName, int rateMs);
+
+    // Server connection methods
+    Q_INVOKABLE bool connectToServer(const QString &address, const QString &port);
+    Q_INVOKABLE void disconnectFromServer();
+    Q_INVOKABLE bool isConnectedToServer() const;
 
     // Property getters
     QStringList messageModel() const;
@@ -107,6 +116,8 @@ signals:
     void messageModelChanged();
     void signalModelChanged();
     void generatedCanFrameChanged();
+    void connectionStatusChanged();
+    void messageSendStatus(const QString &messageName, bool success, const QString &statusMessage);
 
 private:
     void parseDBC(const QString &filePath);
@@ -128,6 +139,9 @@ private:
     QString currentEndian;
     QString m_generatedCanFrame;
     QString originalDbcText;
+
+    // Network communication via DbcSender
+    DbcSender* dbcSender;
 
     
 };
