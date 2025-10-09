@@ -14,6 +14,7 @@ option(CROSS_COMPILE_SERVER "Cross-compile server.cpp for Linux from Windows" OF
 set(COMMON_SOURCES
     main.cpp
     DbcParser.cpp
+    DbcSender.cpp
     ./DBCClient/Qtclient.cpp
 )
 
@@ -71,11 +72,10 @@ qt_add_qml_module(appDBC_Parser
     SOURCES
         DbcParser.h
         DbcParser.cpp
+        DbcSender.h
         DBCClient/Qtclient.h
     RESOURCES
-        DBCClient/Makefile
         DBCClient/README
-        DBCClient/server.conf
 )
 
 # Platform-specific compile definitions

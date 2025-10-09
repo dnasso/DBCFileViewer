@@ -290,7 +290,7 @@ Rectangle {
                                     Layout.preferredWidth: parent.width / 2
                                     Layout.fillHeight: true
                                     horizontalAlignment: Text.AlignHCenter
-                                    font.family: "Monospace"
+                                    font.family: "Monaco"
                                     text: "FF"
                                     readOnly: true
                                     background: Rectangle {
@@ -304,7 +304,7 @@ Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     horizontalAlignment: Text.AlignHCenter
-                                    font.family: "Monospace"
+                                    font.family: "Monaco"
                                     text: "11111111"
                                     readOnly: true
                                     background: Rectangle {
@@ -468,14 +468,14 @@ Rectangle {
                     Text {
                         id: dataValueText
                         text: "Data = 0x2213 = 8723"
-                        font.family: "Monospace"
+                        font.family: "Monaco"
                         font.pixelSize: 12
                     }
                     
                     Text {
                         id: physicalValueText
                         text: "Physical value = 0.125 * 8723 + 0 = 1090.375 rpm"
-                        font.family: "Monospace"
+                        font.family: "Monaco"
                         font.pixelSize: 12
                     }
                 }

@@ -41,6 +41,7 @@ struct canMessage {
 struct ActiveTransmission {
     QString messageName;
     unsigned long messageId;
+    QString taskId; // Server-assigned task ID for controlling the transmission
     int rateMs;
     bool isPaused;
     QString status; // "Active", "Paused", "Stopped"
@@ -58,6 +59,7 @@ class DbcParser : public QObject
     Q_PROPERTY(QString generatedCanFrame READ generatedCanFrame NOTIFY generatedCanFrameChanged)
     Q_PROPERTY(bool isConnectedToServer READ isConnectedToServer NOTIFY connectionStatusChanged)
     Q_PROPERTY(QVariantList activeTransmissions READ activeTransmissions NOTIFY activeTransmissionsChanged)
+    Q_PROPERTY(bool isDbcLoaded READ isDbcLoaded NOTIFY dbcLoadedChanged)
 
 public:
     explicit DbcParser(QObject *parent = nullptr);
@@ -122,6 +124,7 @@ public:
     Q_INVOKABLE bool connectToServer(const QString &address, const QString &port);
     Q_INVOKABLE void disconnectFromServer();
     Q_INVOKABLE bool isConnectedToServer() const;
+    Q_INVOKABLE void setTcpClient(QObject* tcpClient);
 
     // Active transmissions management
     Q_INVOKABLE bool startTransmission(const QString &messageName, int rateMs);
@@ -134,10 +137,15 @@ public:
     Q_INVOKABLE bool stopAllTransmissions();
     Q_INVOKABLE bool pauseAllTransmissions();
     Q_INVOKABLE bool resumeAllTransmissions();
+    Q_INVOKABLE bool killAllTransmissions();
     Q_INVOKABLE bool saveActiveTransmissionsConfig(const QUrl &saveUrl);
     Q_INVOKABLE bool loadActiveTransmissionsConfig(const QUrl &loadUrl);
     Q_INVOKABLE void clearActiveTransmissions();
     Q_INVOKABLE void updateActiveTransmissions();
+    Q_INVOKABLE void refreshTasksFromClient();
+    
+    // Helper method to add transmission without sending
+    void addActiveTransmission(const QString &messageName, int rateMs, const QString &taskId = QString());
     
     // Enhanced configuration management
     Q_INVOKABLE QString getActiveTransmissionsConfigInfo(const QUrl &fileUrl);
@@ -155,6 +163,7 @@ public:
     QVariantList signalModel() const;
     QString generatedCanFrame() const;
     QVariantList activeTransmissions() const;
+    bool isDbcLoaded() const;
     
 
 signals:
@@ -165,6 +174,7 @@ signals:
     void messageSendStatus(const QString &messageName, bool success, const QString &statusMessage);
     void activeTransmissionsChanged();
     void transmissionStatusChanged(const QString &messageName, const QString &status);
+    void dbcLoadedChanged();
     
     // Centralized notification signals
     void showNotification(const QString &message, const QString &type);

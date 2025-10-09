@@ -70,6 +70,42 @@ ApplicationWindow {
         }
     }
     
+    // Global notification functions - accessible from anywhere in this file
+    function showNotification(message, type) {
+        type = type || "info"
+        console.log("Showing notification:", type, "-", message)
+        
+        var notification = notificationComponent.createObject(notificationColumn, {
+            "message": message,
+            "type": type
+        })
+    }
+    
+    function showError(message) {
+        showNotification(message, "error")
+    }
+    
+    function showWarning(message) {
+        showNotification(message, "warning")
+    }
+    
+    function showSuccess(message) {
+        showNotification(message, "success")
+    }
+    
+    function showInfo(message) {
+        showNotification(message, "info")
+    }
+    
+    // Legacy function for backward compatibility
+    function showStatusMessage(message, isError) {
+        if (isError) {
+            showError(message)
+        } else {
+            showSuccess(message)
+        }
+    }
+    
     // File dialog for loading DBC files
     FileDialog {
         id: fileDialog
@@ -147,22 +183,12 @@ ApplicationWindow {
                                 dbcParser.connectToServer("127.0.0.1", "8080")
                             }
                         }
-                    }                    ToolTip {
-                        parent: parent.parent // Fix parent reference
-                        visible: parent.parent.hovered
-                        text: dbcParser.isConnectedToServer ? 
+                        
+                        ToolTip.visible: hovered
+                        ToolTip.text: dbcParser.isConnectedToServer ? 
                               "Connected to CAN receiver (127.0.0.1:8080)" : 
                               "Click to connect to CAN receiver"
-                        delay: 500
-                        background: Rectangle {
-                            color: "#424242"
-                            radius: 4
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            font.pixelSize: 12
-                        }
+                        ToolTip.delay: 500
                     }
                 }
                 
@@ -239,6 +265,11 @@ ApplicationWindow {
                 
                 TabButton {
                     text: "Active Transmissions"
+                    width: implicitWidth
+                }
+                
+                TabButton {
+                    text: "Client"
                     width: implicitWidth
                 }
             }
@@ -1233,7 +1264,7 @@ ApplicationWindow {
                         
                         // First column: Bit indices display
                         Rectangle {
-                            Layout.preferredWidth: parent.width * 0.5
+                            Layout.fillWidth: true
                             Layout.fillHeight: true
                             color: "white"
                             border.color: "#e0e0e0"
@@ -1379,7 +1410,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         readOnly: true
                                         text: ""
-                                        font.family: "Monospace"
+                                        font.family: "Monaco"
                                     }
                                     
                                     Text { 
@@ -1392,7 +1423,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         readOnly: true
                                         text: ""
-                                        font.family: "Monospace"
+                                        font.family: "Monaco"
                                     }
                                 }
                                 
@@ -1417,14 +1448,14 @@ ApplicationWindow {
                                         Text {
                                             id: dataValueText
                                             text: "Data = 0x00 = 0"
-                                            font.family: "Monospace"
+                                            font.family: "Monaco"
                                             font.pixelSize: 14
                                         }
                                         
                                         Text {
                                             id: physicalValueText
                                             text: "Physical value = 1.0 * 0 + 0 = 0"
-                                            font.family: "Monospace"
+                                            font.family: "Monaco"
                                             font.pixelSize: 14
                                         }
                                     }
@@ -1640,6 +1671,52 @@ ApplicationWindow {
                                 showStatusMessage("Config test completed - check console for details", false)
                             }
                         }
+                        
+                        Button {
+                            text: "Refresh Tasks"
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            background: Rectangle {
+                                color: parent.pressed ? "#7B1FA2" : (parent.hovered ? "#8E24AA" : "#9C27B0")
+                                radius: 4
+                            }
+                            
+                            onClicked: {
+                                dbcParser.refreshTasksFromClient()
+                                showStatusMessage("Task list refreshed from client", false)
+                            }
+                        }
+                        
+                        Button {
+                            text: "Kill All"
+                            enabled: dbcParser.activeTransmissions.length > 0
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            background: Rectangle {
+                                color: parent.enabled ? (parent.pressed ? "#C62828" : (parent.hovered ? "#D32F2F" : "#F44336")) : "#BDBDBD"
+                                radius: 4
+                            }
+                            
+                            onClicked: {
+                                if (dbcParser.killAllTransmissions()) {
+                                    showStatusMessage("All transmissions killed successfully", false)
+                                } else {
+                                    showStatusMessage("Failed to kill all transmissions", true)
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -1666,37 +1743,38 @@ ApplicationWindow {
                                 anchors.fill: parent
                                 anchors.leftMargin: 15
                                 anchors.rightMargin: 15
+                                spacing: 25
                                 
                                 Text {
-                                    Layout.preferredWidth: 80
+                                    Layout.preferredWidth: 100
                                     text: "Message ID"
                                     font.bold: true
                                     color: "#424242"
                                 }
                                 
                                 Text {
-                                    Layout.preferredWidth: 150
+                                    Layout.preferredWidth: 180
                                     text: "Message Name"
                                     font.bold: true
                                     color: "#424242"
                                 }
                                 
                                 Text {
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 120
                                     text: "Interval (ms)"
                                     font.bold: true
                                     color: "#424242"
                                 }
                                 
                                 Text {
-                                    Layout.preferredWidth: 80
+                                    Layout.preferredWidth: 100
                                     text: "Status"
                                     font.bold: true
                                     color: "#424242"
                                 }
                                 
                                 Text {
-                                    Layout.preferredWidth: 120
+                                    Layout.preferredWidth: 140
                                     text: "Started At"
                                     font.bold: true
                                     color: "#424242"
@@ -1736,45 +1814,48 @@ ApplicationWindow {
                                         anchors.fill: parent
                                         anchors.leftMargin: 15
                                         anchors.rightMargin: 15
+                                        spacing: 25
                                         
                                         Text {
-                                            Layout.preferredWidth: 80
+                                            Layout.preferredWidth: 100
                                             text: "0x" + modelData.messageId.toString(16).toUpperCase()
                                             color: "#424242"
                                         }
                                         
                                         Text {
-                                            Layout.preferredWidth: 150
+                                            Layout.preferredWidth: 180
                                             text: modelData.messageName
                                             color: "#424242"
                                             elide: Text.ElideRight
                                         }
                                         
                                         Text {
-                                            Layout.preferredWidth: 100
+                                            Layout.preferredWidth: 120
                                             text: modelData.interval.toString()
                                             color: "#424242"
                                         }
                                         
                                         Rectangle {
-                                            Layout.preferredWidth: 80
+                                            Layout.preferredWidth: 100
                                             Layout.preferredHeight: 24
                                             color: modelData.status === "Active" ? "#C8E6C9" : 
-                                                   modelData.status === "Paused" ? "#FFE0B2" : "#FFCDD2"
+                                                   modelData.status === "Paused" ? "#FFE0B2" : 
+                                                   modelData.status === "Stopping" ? "#FFF3E0" : "#FFCDD2"
                                             radius: 12
                                             
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: modelData.status
                                                 color: modelData.status === "Active" ? "#2E7D32" : 
-                                                       modelData.status === "Paused" ? "#F57C00" : "#C62828"
+                                                       modelData.status === "Paused" ? "#F57C00" : 
+                                                       modelData.status === "Stopping" ? "#FF6F00" : "#C62828"
                                                 font.pixelSize: 12
                                                 font.bold: true
                                             }
                                         }
                                         
                                         Text {
-                                            Layout.preferredWidth: 120
+                                            Layout.preferredWidth: 140
                                             text: Qt.formatDateTime(modelData.startedAt, "hh:mm:ss")
                                             color: "#757575"
                                             font.pixelSize: 12
@@ -1788,7 +1869,7 @@ ApplicationWindow {
                                                 Layout.preferredWidth: 60
                                                 Layout.preferredHeight: 28
                                                 text: modelData.status === "Paused" ? "Resume" : "Pause"
-                                                enabled: modelData.status !== "Stopped"
+                                                enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
                                                 
                                                 contentItem: Text {
                                                     text: parent.text
@@ -1815,8 +1896,8 @@ ApplicationWindow {
                                             Button {
                                                 Layout.preferredWidth: 50
                                                 Layout.preferredHeight: 28
-                                                text: "Stop"
-                                                enabled: modelData.status !== "Stopped"
+                                                text: modelData.status === "Stopping" ? "..." : "Stop"
+                                                enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
                                                 
                                                 contentItem: Text {
                                                     text: parent.text
@@ -1852,6 +1933,19 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+    }
+    
+    // TCP Client Tab
+    Rectangle {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        visible: tabBar.currentIndex === 2
+        color: "#FAFAFA"
+        
+        TcpClientTab {
+            id: tcpClientTab
+            anchors.fill: parent
         }
     }
     
@@ -1920,7 +2014,7 @@ ApplicationWindow {
                         text: modelData
                         color: modelData.startsWith("+") ? "#2E7D32" :
                                modelData.startsWith("-") ? "#C62828" : "#424242"
-                        font.family: "Monospace"
+                        font.family: "Monaco"
                         elide: Text.ElideRight
                     }
                 }
@@ -2087,29 +2181,11 @@ ApplicationWindow {
                 }
             }
         }
+    }  // End of main ColumnLayout
 
     // =============================================
     // CENTRALIZED NOTIFICATION SYSTEM
     // =============================================
-    
-    // Notification Container - positioned at top-right of screen
-    Rectangle {
-        id: notificationContainer
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: 20
-        anchors.rightMargin: 20
-        width: 400
-        height: childrenRect.height
-        color: "transparent"
-        z: 1000 // High z-index to appear on top
-        
-        Column {
-            id: notificationColumn
-            width: parent.width
-            spacing: 10
-        }
-    }
     
     // Notification Component
     Component {
@@ -2118,13 +2194,24 @@ ApplicationWindow {
         Rectangle {
             id: notification
             width: 400
-            height: 80
+            height: 90 // Slightly taller for better content fit
             radius: 8
-            border.width: 1
+            border.width: 2
             
             property string message: ""
             property string type: "info" // "error", "warning", "success", "info"
             property alias autoClose: autoCloseTimer.running
+            
+            // Drop shadow effect
+            Rectangle {
+                id: shadow
+                anchors.fill: parent
+                anchors.topMargin: 2
+                anchors.leftMargin: 2
+                radius: parent.radius
+                color: "#20000000"
+                z: -1
+            }
             
             // Colors based on type
             color: {
@@ -2176,17 +2263,61 @@ ApplicationWindow {
                 onTriggered: notification.close()
             }
             
-            Row {
+            // Close button - placed first so it's on top
+            Button {
+                id: closeButton
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 8
+                width: 24
+                height: 24
+                z: 10 // Ensure it's on top
+                
+                contentItem: Text {
+                    text: "×"
+                    color: "#757575"
+                    font.pixelSize: 18
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    anchors.centerIn: parent
+                }
+                
+                background: Rectangle {
+                    color: parent.hovered ? "#E0E0E0" : "transparent"
+                    radius: 12
+                    border.color: parent.hovered ? "#BDBDBD" : "transparent"
+                    border.width: 1
+                }
+                
+                onClicked: {
+                    console.log("Close button clicked!")
+                    notification.close()
+                }
+                
+                // Make sure the button is clickable
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        console.log("MouseArea clicked!")
+                        notification.close()
+                    }
+                }
+            }
+
+            RowLayout {
                 anchors.fill: parent
                 anchors.margins: 15
+                anchors.rightMargin: 40 // Leave space for close button
                 spacing: 15
                 
                 // Icon
                 Rectangle {
-                    width: 40
-                    height: 40
+                    Layout.preferredWidth: 40
+                    Layout.preferredHeight: 40
+                    Layout.alignment: Qt.AlignVCenter
                     radius: 20
-                    anchors.verticalCenter: parent.verticalCenter
                     
                     color: {
                         switch(notification.type) {
@@ -2216,12 +2347,13 @@ ApplicationWindow {
                 }
                 
                 // Message Content
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 100 // Account for icon and close button
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: 4
                     
                     Text {
-                        width: parent.width
+                        Layout.fillWidth: true
                         text: {
                             switch(notification.type) {
                                 case "error": return "Error"
@@ -2246,7 +2378,7 @@ ApplicationWindow {
                     }
                     
                     Text {
-                        width: parent.width
+                        Layout.fillWidth: true
                         text: notification.message
                         color: "#424242"
                         font.pixelSize: 14
@@ -2255,30 +2387,6 @@ ApplicationWindow {
                         elide: Text.ElideRight
                     }
                 }
-            }
-            
-            // Close button
-            Button {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 10
-                width: 20
-                height: 20
-                
-                contentItem: Text {
-                    text: "×"
-                    color: "#757575"
-                    font.pixelSize: 16
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                
-                background: Rectangle {
-                    color: parent.hovered ? "#E0E0E0" : "transparent"
-                    radius: 10
-                }
-                
-                onClicked: notification.close()
             }
             
             // Close function
@@ -2293,41 +2401,30 @@ ApplicationWindow {
         }
     }
     
-    // Global notification functions
-    function showNotification(message, type) {
-        type = type || "info"
-        console.log("Showing notification:", type, "-", message)
+    // Notification Container - positioned at top-right of screen
+    Rectangle {
+        id: notificationContainer
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 70 // Below the header
+        anchors.rightMargin: 20
+        width: 420
+        height: childrenRect.height
+        color: "transparent"
+        z: 1000 // High z-index to appear on top
         
-        var notification = notificationComponent.createObject(notificationColumn, {
-            "message": message,
-            "type": type
-        })
-    }
-    
-    function showError(message) {
-        showNotification(message, "error")
-    }
-    
-    function showWarning(message) {
-        showNotification(message, "warning")
-    }
-    
-    function showSuccess(message) {
-        showNotification(message, "success")
-    }
-    
-    function showInfo(message) {
-        showNotification(message, "info")
-    }
-    
-    // Legacy function for backward compatibility
-    function showStatusMessage(message, isError) {
-        if (isError) {
-            showError(message)
-        } else {
-            showSuccess(message)
+        Column {
+            id: notificationColumn
+            width: parent.width
+            spacing: 10
         }
     }
-
+    
+    // Set up the connection between TCP Client and DbcParser
+    Component.onCompleted: {
+        if (tcpClientTab && tcpClientTab.tcpClient) {
+            dbcParser.setTcpClient(tcpClientTab.tcpClient)
+            console.log("Connected DbcParser to TCP Client")
+        }
     }
 }

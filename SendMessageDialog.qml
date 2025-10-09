@@ -229,7 +229,7 @@ Dialog {
                         Text {
                             text: sendMessageDialog.messageId
                             font.pixelSize: 14
-                            font.family: "Monospace"
+                            font.family: "Monaco"
                             color: "#616161"
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
@@ -257,7 +257,7 @@ Dialog {
                                 anchors.fill: parent
                                 anchors.margins: 10
                                 text: sendMessageDialog.hexData
-                                font.family: "Monospace"
+                                font.family: "Monaco"
                                 font.pixelSize: 12
                                 color: "#424242"
                                 verticalAlignment: Text.AlignVCenter
@@ -652,7 +652,7 @@ Dialog {
                             anchors.fill: parent
                             anchors.margins: 15
                             text: sendMessageDialog.messageId + " # " + sendMessageDialog.hexData + " # " + sendMessageDialog.transmissionRate + "ms"
-                            font.family: "Monospace"
+                            font.family: "Monaco"
                             font.pixelSize: 14
                             font.weight: Font.Medium
                             color: "#E65100"
@@ -776,6 +776,37 @@ Dialog {
                         statusText.text = "Error: Not connected to server. Please connect first."
                         statusText.isSuccess = false
                         console.log("Not connected to server. Please connect first.")
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Cannot send message: Not connected to server. Please connect to a CAN server first.")
+                        }
+                        return
+                    }
+
+                    // Check if DBC file is loaded
+                    if (!dbcParser.isDbcLoaded) {
+                        statusText.text = "Error: No DBC file loaded. Please load a DBC file first."
+                        statusText.isSuccess = false
+                        console.log("No DBC file loaded. Please load a DBC file first.")
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Cannot send message: No DBC file loaded. Please load a DBC file first.")
+                        }
+                        return
+                    }
+
+                    // Validate transmission rate
+                    if (sendMessageDialog.transmissionRate <= 0) {
+                        statusText.text = "Error: Invalid transmission rate. Please enter a value greater than 0."
+                        statusText.isSuccess = false
+                        console.log("Invalid transmission rate:", sendMessageDialog.transmissionRate)
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Cannot send message: Invalid transmission rate. Please enter a value greater than 0 ms.")
+                        }
                         return
                     }
 
@@ -791,7 +822,14 @@ Dialog {
                         console.log("Message send initiated:", sendMessageDialog.messageName, "at rate:", sendMessageDialog.transmissionRate, "ms")
                     } else {
                         console.log("Failed to initiate message send:", sendMessageDialog.messageName)
+                        statusText.text = "Error: Failed to send message. Please check server connection and try again."
+                        statusText.isSuccess = false
                         sendMessageDialog.isSending = false
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Failed to send message '" + sendMessageDialog.messageName + "'. Please check server connection and try again.")
+                        }
                     }
                 }
             }

@@ -8,6 +8,7 @@ Qt TCP Client Backend for Qt Quick Application
 #include <QSettings>
 #include <QDebug>
 #include <QQmlEngine>
+#include <QCoreApplication>
 #include <iostream>
 #include <string>
 #include <format>
@@ -75,12 +76,24 @@ public:
     }
 
     Q_INVOKABLE QString sendMessage(const QString& message) {
+        std::cout << "TcpClientBackend::sendMessage called with: " << message.toStdString() << std::endl;
+        
         if (!m_socket || !m_connected) {
+            std::cout << "Not connected to server - m_socket: " << (m_socket ? "valid" : "null") << " m_connected: " << m_connected << std::endl;
             return "Not connected to server";
         }
 
         std::string msg = message.toStdString();
+        // Add newline terminator if not present (many servers expect this)
+        if (!msg.empty() && msg.back() != '\n') {
+            msg += '\n';
+        }
+        
+        std::cout << "Sending raw message: " << msg << std::endl;
+        std::cout << "Message length: " << msg.size() << " bytes" << std::endl;
+        
         qint64 bytesWritten = m_socket->write(msg.c_str(), msg.size());
+        std::cout << "Bytes written: " << bytesWritten << std::endl;
 
         if (bytesWritten == -1) {
             return "Failed to send message";
