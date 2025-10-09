@@ -100,9 +100,6 @@ target_link_libraries(appDBC_Parser
     Qt6::Network
 )
 
-<<<<<<< Updated upstream
-# Install
-=======
 # Fix for AGL framework issue on newer macOS
 if(APPLE)
     set_target_properties(appDBC_Parser PROPERTIES
@@ -110,7 +107,6 @@ if(APPLE)
     )
 endif()
 
->>>>>>> Stashed changes
 include(GNUInstallDirs)
 install(TARGETS appDBC_Parser
     BUNDLE DESTINATION .
