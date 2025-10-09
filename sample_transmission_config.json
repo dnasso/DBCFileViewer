@@ -1,0 +1,34 @@
+{
+  "configVersion": "1.0",
+  "timestamp": "2025-10-05T20:40:00.000Z",
+  "description": "Sample active transmission configuration with 3 example transmissions",
+  "activeTransmissions": [
+    {
+      "messageName": "EngineData",
+      "messageId": 256,
+      "rateMs": 100,
+      "hexData": "00 1A 2B 3C 4D 5E 6F 70",
+      "description": "Auto-transmission for EngineData every 100ms",
+      "autoStart": true,
+      "enabled": true
+    },
+    {
+      "messageName": "BrakePressure",
+      "messageId": 512,
+      "rateMs": 50,
+      "hexData": "FF AA BB CC DD EE 00 11",
+      "description": "Auto-transmission for BrakePressure every 50ms",
+      "autoStart": true,
+      "enabled": true
+    },
+    {
+      "messageName": "SpeedSensor",
+      "messageId": 768,
+      "rateMs": 200,
+      "hexData": "12 34 56 78 9A BC DE F0",
+      "description": "Auto-transmission for SpeedSensor every 200ms",
+      "autoStart": false,
+      "enabled": true
+    }
+  ]
+}

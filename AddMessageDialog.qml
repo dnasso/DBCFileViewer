@@ -9,7 +9,7 @@ Dialog {
     modal: true
     anchors.centerIn: parent
     width: 500
-    height: 350
+    height: 400
 
     background: Rectangle {
         color: "white"
@@ -39,79 +39,98 @@ Dialog {
         }
     }
 
-    contentItem: ColumnLayout {
-        spacing: 15
-        anchors.margins: 20
+    contentItem: Item {
+        anchors.fill: parent
 
-        // Message Name
         ColumnLayout {
-            spacing: 5
+            anchors.centerIn: parent
+            width: parent.width - 50
+            spacing: 20
+
+            // Spacer from top
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 15
+            }
+
+            // Message Name
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 10
 
             Text {
                 text: "Message Name:"
-                font.pixelSize: 14
+                font.pixelSize: 15
                 font.weight: Font.Medium
                 color: "#424242"
+                Layout.alignment: Qt.AlignLeft
             }
 
             TextField {
                 id: nameField
                 Layout.fillWidth: true
-                placeholderText: "Enter message name"
+                Layout.preferredHeight: 45
                 font.pixelSize: 14
                 selectByMouse: true
+                padding: 12
 
                 background: Rectangle {
                     color: "white"
-                    radius: 4
+                    radius: 6
                     border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
-                    border.width: 1
+                    border.width: parent.activeFocus ? 2 : 1
                 }
             }
         }
 
-        // Message ID
-        ColumnLayout {
-            spacing: 5
+            // Message ID
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 10
 
             Text {
                 text: "Message ID (hex):"
-                font.pixelSize: 14
+                font.pixelSize: 15
                 font.weight: Font.Medium
                 color: "#424242"
+                Layout.alignment: Qt.AlignLeft
             }
 
             TextField {
                 id: idField
                 Layout.fillWidth: true
-                placeholderText: "e.g., 0x123 or 123"
+                Layout.preferredHeight: 45
                 font.pixelSize: 14
                 selectByMouse: true
+                padding: 12
                 validator: RegularExpressionValidator { regularExpression: /^(0x)?[0-9A-Fa-f]+$/ }
 
                 background: Rectangle {
                     color: "white"
-                    radius: 4
+                    radius: 6
                     border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
-                    border.width: 1
+                    border.width: parent.activeFocus ? 2 : 1
                 }
             }
         }
 
-        // Message Length
-        ColumnLayout {
-            spacing: 5
+            // Message Length
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 10
 
             Text {
                 text: "Length (bytes):"
-                font.pixelSize: 14
+                font.pixelSize: 15
                 font.weight: Font.Medium
                 color: "#424242"
+                Layout.alignment: Qt.AlignLeft
             }
 
             SpinBox {
                 id: lengthSpinBox
                 Layout.fillWidth: true
+                Layout.preferredHeight: 45
                 from: 1
                 to: 64
                 value: 8
@@ -119,36 +138,45 @@ Dialog {
 
                 contentItem: TextField {
                     text: parent.value
-                    font: parent.font
+                    font.pixelSize: 14
                     color: "#424242"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     selectByMouse: true
                     validator: IntValidator { bottom: 1; top: 64 }
+                    padding: 12
+
+                    background: Rectangle {
+                        color: "transparent"
+                        border.width: 0
+                    }
                 }
 
                 background: Rectangle {
                     color: "white"
-                    radius: 4
+                    radius: 6
                     border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
-                    border.width: 1
+                    border.width: parent.activeFocus ? 2 : 1
                 }
             }
         }
 
-        // Error Label
-        Text {
-            id: errorLabel
-            color: "#D32F2F"
-            visible: text !== ""
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-            font.pixelSize: 12
-        }
+            // Error Label
+            Text {
+                id: errorLabel
+                color: "#D32F2F"
+                visible: text !== ""
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+                font.pixelSize: 13
+                font.weight: Font.Medium
+            }
 
-        // Spacer
-        Item {
-            Layout.fillHeight: true
+            // Spacer from bottom
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 15
+            }
         }
     }
 

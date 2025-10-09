@@ -48,8 +48,8 @@ Dialog {
         anchors.fill: parent
         anchors.margins: 20
         clip: true
-        ScrollBar.vertical.policy: ScrollBar.AsNeeded
         ScrollBar.horizontal.policy: ScrollBar.Never
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
         contentWidth: availableWidth
         
         ColumnLayout {
@@ -95,10 +95,11 @@ Dialog {
                 // Start Bit and Length - Centered grid
                 GridLayout {
                     columns: 2
-                    columnSpacing: 30
-                    rowSpacing: 15
+                    columnSpacing: 40
+                    rowSpacing: 20
                     Layout.alignment: Qt.AlignHCenter
                     Layout.fillWidth: true
+                    Layout.topMargin: 10
 
                     // Start Bit
                     ColumnLayout {
@@ -263,15 +264,16 @@ Dialog {
                     }
                 }            // Byte Order - Centered
             ColumnLayout {
-                spacing: 10
+                spacing: 12
                 Layout.alignment: Qt.AlignHCenter
                 Layout.fillWidth: true
+                Layout.topMargin: 15
 
                 Text {
                     text: "Byte Order:"
-                    font.pixelSize: 15
-                    font.weight: Font.Medium
-                    color: "#424242"
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
+                    color: "#2E7D32"
                     Layout.alignment: Qt.AlignHCenter
                 }
 
@@ -361,9 +363,10 @@ Dialog {
                 // Factor and Offset - Centered grid
                 GridLayout {
                     columns: 2
-                    columnSpacing: 30
-                    rowSpacing: 15
+                    columnSpacing: 40
+                    rowSpacing: 20
                     Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 20
 
                     ColumnLayout {
                         spacing: 10
@@ -435,9 +438,10 @@ Dialog {
                 // Min and Max - Centered grid
                 GridLayout {
                     columns: 2
-                    columnSpacing: 30
-                    rowSpacing: 15
+                    columnSpacing: 40
+                    rowSpacing: 20
                     Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 15
 
                     ColumnLayout {
                         spacing: 10
@@ -506,15 +510,16 @@ Dialog {
                     }
                 }            // Unit - Centered
             ColumnLayout {
-                spacing: 10
+                spacing: 12
                 Layout.alignment: Qt.AlignHCenter
                 Layout.fillWidth: true
+                Layout.topMargin: 15
 
                 Text {
                     text: "Unit:"
-                    font.pixelSize: 15
-                    font.weight: Font.Medium
-                    color: "#424242"
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
+                    color: "#2E7D32"
                     Layout.alignment: Qt.AlignHCenter
                 }
 

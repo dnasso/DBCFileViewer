@@ -18,6 +18,58 @@ ApplicationWindow {
     Material.accent: Material.Green
     Material.primary: Material.Green
     
+    // Connect backend notification signals to frontend notification system
+    Connections {
+        target: dbcParser
+        
+        function onShowNotification(message, type) {
+            showNotification(message, type)
+        }
+        
+        function onShowError(message) {
+            showError(message)
+        }
+        
+        function onShowWarning(message) {
+            showWarning(message)
+        }
+        
+        function onShowSuccess(message) {
+            showSuccess(message)
+        }
+        
+        function onShowInfo(message) {
+            showInfo(message)
+        }
+        
+        function onMessageSendStatus(messageName, success, statusMessage) {
+            if (success) {
+                showSuccess("Message sent: " + messageName + " - " + statusMessage)
+            } else {
+                showError("Failed to send " + messageName + ": " + statusMessage)
+            }
+        }
+        
+        function onConnectionStatusChanged() {
+            if (dbcParser.isConnectedToServer) {
+                showSuccess("Connected to CAN server successfully!")
+            } else {
+                showWarning("Disconnected from CAN server")
+            }
+        }
+        
+        function onTransmissionStatusChanged(messageName, status) {
+            var message = "Transmission " + messageName + " is now " + status
+            if (status === "Active") {
+                showSuccess(message)
+            } else if (status === "Stopped") {
+                showInfo(message)
+            } else if (status === "Paused") {
+                showWarning(message)
+            }
+        }
+    }
+    
     // File dialog for loading DBC files
     FileDialog {
         id: fileDialog
@@ -95,14 +147,22 @@ ApplicationWindow {
                                 dbcParser.connectToServer("127.0.0.1", "8080")
                             }
                         }
-                    }
-                    
-                    ToolTip {
-                        visible: parent.hovered
+                    }                    ToolTip {
+                        parent: parent.parent // Fix parent reference
+                        visible: parent.parent.hovered
                         text: dbcParser.isConnectedToServer ? 
                               "Connected to CAN receiver (127.0.0.1:8080)" : 
                               "Click to connect to CAN receiver"
                         delay: 500
+                        background: Rectangle {
+                            color: "#424242"
+                            radius: 4
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: "white"
+                            font.pixelSize: 12
+                        }
                     }
                 }
                 
@@ -161,12 +221,35 @@ ApplicationWindow {
             color: "#757575"
         }
         
-        // Main content area
-        SplitView {
-            id: mainSplitView
+        // Main content area with tabs
+        ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: Qt.Vertical
+            spacing: 0
+            
+            // Tab bar
+            TabBar {
+                id: tabBar
+                Layout.fillWidth: true
+                
+                TabButton {
+                    text: "DBC Editor"
+                    width: implicitWidth
+                }
+                
+                TabButton {
+                    text: "Active Transmissions"
+                    width: implicitWidth
+                }
+            }
+            
+            // Tab content
+            SplitView {
+                id: mainSplitView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                orientation: Qt.Vertical
+                visible: tabBar.currentIndex === 0
             
             // Top section with messages and signals
             SplitView {
@@ -320,8 +403,14 @@ ApplicationWindow {
                             clip: true
                             model: dbcParser.messageModel
                             
+                            // Add scrollbar
+                            ScrollBar.vertical: ScrollBar {
+                                active: true
+                                policy: ScrollBar.AsNeeded
+                            }
+                            
                             delegate: Rectangle {
-                                width: parent.width
+                                width: messageListView.width
                                 height: 50 // Increased height to accommodate send button
                                 color: highlighted ? "#E8F5E9" : (index % 2 == 0 ? "#F5F5F5" : "white")
 
@@ -398,10 +487,10 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // Click handler for the entire delegate (excluding the send button)
+                                // Click handler for the message text area
                                 MouseArea {
                                     anchors.fill: parent
-                                    anchors.rightMargin: 70 // Don't overlap with the send button
+                                    anchors.rightMargin: 80 // Leave space for send button
                                     onClicked: {
                                         messageListView.currentIndex = index
                                         dbcParser.selectMessage(modelData)
@@ -567,6 +656,7 @@ ApplicationWindow {
                             Layout.fillHeight: true
                             clip: true
                             ScrollBar.horizontal.policy: ScrollBar.AlwaysOn
+                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
                             
                             // Table header
                             Item {
@@ -633,13 +723,21 @@ ApplicationWindow {
                                     clip: true
                                     model: dbcParser.signalModel
                                     
+                                    // Add scrollbar
+                                    ScrollBar.vertical: ScrollBar {
+                                        active: true
+                                        policy: ScrollBar.AsNeeded
+                                    }
+                                    
                                     delegate: Rectangle {
-                                        width: signalTableRow.width
+                                        width: signalListView.width
                                         height: 45
                                         color: index % 2 == 0 ? "#F5F5F5" : "white"
                                         
                                         // Signal row content
                                         Row {
+                                            id: signalTableRow
+                                            width: parent.width // Fix width calculation
                                             height: parent.height
                                             spacing: 0
                                             
@@ -943,6 +1041,7 @@ ApplicationWindow {
                                                         Layout.preferredWidth: 50
                                                         Layout.preferredHeight: 28
                                                         text: "Bits"
+                                                        z: 1 // Ensure button is above other elements
 
                                                         contentItem: Text {
                                                             text: parent.text
@@ -988,14 +1087,15 @@ ApplicationWindow {
                                             opacity: 0.5
                                             z: -1
                                         }
-                                        
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            onClicked: {
-                                                signalListView.currentIndex = index
-                                            }
-                                            z: -2 // Behind other controls
-                                        }
+                                                          MouseArea {
+                            anchors.fill: parent
+                            anchors.rightMargin: 70 // Leave space for the Bits button column
+                            hoverEnabled: false // Disable hover to prevent interference
+                            onClicked: {
+                                signalListView.currentIndex = index
+                            }
+                            z: -2 // Behind other controls
+                        }
                                     }
                                 }
                             }
@@ -1160,7 +1260,8 @@ ApplicationWindow {
                                         anchors.fill: parent
                                         anchors.margins: 5
                                         columns: 9
-                                        spacing: 1
+                                        columnSpacing: 1
+                                        rowSpacing: 1
                                         
                                         // Empty top-left cell
                                         Rectangle {
@@ -1363,9 +1464,9 @@ ApplicationWindow {
                 }
                 
                 function updateDataDisplay() {
-                    // Get the frame data as hex and binary
-                    var hexData = dbcParser.getFrameDataHex(bitsSection.signalName, bitsSection.rawValue);
-                    var binData = dbcParser.getFrameDataBin(bitsSection.signalName, bitsSection.rawValue);
+                    // Get the frame data as hex and binary using the unified methods
+                    var hexData = dbcParser.getCurrentMessageHexData();
+                    var binData = dbcParser.getCurrentMessageBinData();
                     
                     hexDataField.text = hexData;
                     binDataField.text = binData;
@@ -1443,7 +1544,347 @@ ApplicationWindow {
                 }
             }
         }
+        
+        // Active Transmissions Tab Content
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            color: "#f9f9f9"
+            visible: tabBar.currentIndex === 1
+            
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 15
+                
+                // Header
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 60
+                    color: "white"
+                    radius: 8
+                    
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 20
+                        
+                        Text {
+                            text: "Active Transmissions"
+                            font.pixelSize: 20
+                            font.bold: true
+                            color: "#2E7D32"
+                        }
+                        
+                        Item { Layout.fillWidth: true }
+                        
+                        Button {
+                            text: "Save Config"
+                            enabled: dbcParser.activeTransmissions.length > 0
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            background: Rectangle {
+                                color: parent.enabled ? (parent.pressed ? "#388E3C" : (parent.hovered ? "#43A047" : "#4CAF50")) : "#BDBDBD"
+                                radius: 4
+                            }
+                            
+                            onClicked: {
+                                saveConfigDialog.open()
+                            }
+                        }
+                        
+                        Button {
+                            text: "Load Config"
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            background: Rectangle {
+                                color: parent.pressed ? "#1976D2" : (parent.hovered ? "#1E88E5" : "#2196F3")
+                                radius: 4
+                            }
+                            
+                            onClicked: {
+                                loadConfigDialog.open()
+                            }
+                        }
+                        
+                        Button {
+                            text: "Test Config"
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            background: Rectangle {
+                                color: parent.pressed ? "#FF6F00" : (parent.hovered ? "#FF8F00" : "#FF9800")
+                                radius: 4
+                            }
+                            
+                            onClicked: {
+                                var result = dbcParser.testConfigLoad()
+                                console.log("CONFIG TEST RESULT:", result)
+                                showStatusMessage("Config test completed - check console for details", false)
+                            }
+                        }
+                    }
+                }
+                
+                // Transmissions Table
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: "white"
+                    radius: 8
+                    
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+                        
+                        // Table Header
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 40
+                            color: "#F5F5F5"
+                            radius: 4
+                            
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 15
+                                anchors.rightMargin: 15
+                                
+                                Text {
+                                    Layout.preferredWidth: 80
+                                    text: "Message ID"
+                                    font.bold: true
+                                    color: "#424242"
+                                }
+                                
+                                Text {
+                                    Layout.preferredWidth: 150
+                                    text: "Message Name"
+                                    font.bold: true
+                                    color: "#424242"
+                                }
+                                
+                                Text {
+                                    Layout.preferredWidth: 100
+                                    text: "Interval (ms)"
+                                    font.bold: true
+                                    color: "#424242"
+                                }
+                                
+                                Text {
+                                    Layout.preferredWidth: 80
+                                    text: "Status"
+                                    font.bold: true
+                                    color: "#424242"
+                                }
+                                
+                                Text {
+                                    Layout.preferredWidth: 120
+                                    text: "Started At"
+                                    font.bold: true
+                                    color: "#424242"
+                                }
+                                
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "Actions"
+                                    font.bold: true
+                                    color: "#424242"
+                                }
+                            }
+                        }
+                        
+                        // Transmissions List
+                        ScrollView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            
+                            ListView {
+                                id: transmissionsListView
+                                model: dbcParser.activeTransmissions
+                                
+                                delegate: Rectangle {
+                                    width: transmissionsListView.width
+                                    height: 50
+                                    color: index % 2 === 0 ? "white" : "#FAFAFA"
+                                    
+                                    Rectangle {
+                                        anchors.bottom: parent.bottom
+                                        width: parent.width
+                                        height: 1
+                                        color: "#E0E0E0"
+                                    }
+                                    
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 15
+                                        anchors.rightMargin: 15
+                                        
+                                        Text {
+                                            Layout.preferredWidth: 80
+                                            text: "0x" + modelData.messageId.toString(16).toUpperCase()
+                                            color: "#424242"
+                                        }
+                                        
+                                        Text {
+                                            Layout.preferredWidth: 150
+                                            text: modelData.messageName
+                                            color: "#424242"
+                                            elide: Text.ElideRight
+                                        }
+                                        
+                                        Text {
+                                            Layout.preferredWidth: 100
+                                            text: modelData.interval.toString()
+                                            color: "#424242"
+                                        }
+                                        
+                                        Rectangle {
+                                            Layout.preferredWidth: 80
+                                            Layout.preferredHeight: 24
+                                            color: modelData.status === "Active" ? "#C8E6C9" : 
+                                                   modelData.status === "Paused" ? "#FFE0B2" : "#FFCDD2"
+                                            radius: 12
+                                            
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: modelData.status
+                                                color: modelData.status === "Active" ? "#2E7D32" : 
+                                                       modelData.status === "Paused" ? "#F57C00" : "#C62828"
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                            }
+                                        }
+                                        
+                                        Text {
+                                            Layout.preferredWidth: 120
+                                            text: Qt.formatDateTime(modelData.startedAt, "hh:mm:ss")
+                                            color: "#757575"
+                                            font.pixelSize: 12
+                                        }
+                                        
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 5
+                                            
+                                            Button {
+                                                Layout.preferredWidth: 60
+                                                Layout.preferredHeight: 28
+                                                text: modelData.status === "Paused" ? "Resume" : "Pause"
+                                                enabled: modelData.status !== "Stopped"
+                                                
+                                                contentItem: Text {
+                                                    text: parent.text
+                                                    color: "white"
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    font.pixelSize: 11
+                                                }
+                                                
+                                                background: Rectangle {
+                                                    color: parent.enabled ? (parent.pressed ? "#F57C00" : (parent.hovered ? "#FB8C00" : "#FF9800")) : "#BDBDBD"
+                                                    radius: 4
+                                                }
+                                                
+                                                onClicked: {
+                                                    if (modelData.status === "Paused") {
+                                                        dbcParser.resumeActiveTransmission(modelData.messageId)
+                                                    } else {
+                                                        dbcParser.pauseActiveTransmission(modelData.messageId)
+                                                    }
+                                                }
+                                            }
+                                            
+                                            Button {
+                                                Layout.preferredWidth: 50
+                                                Layout.preferredHeight: 28
+                                                text: "Stop"
+                                                enabled: modelData.status !== "Stopped"
+                                                
+                                                contentItem: Text {
+                                                    text: parent.text
+                                                    color: "white"
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    font.pixelSize: 11
+                                                }
+                                                
+                                                background: Rectangle {
+                                                    color: parent.enabled ? (parent.pressed ? "#D32F2F" : (parent.hovered ? "#E53935" : "#F44336")) : "#BDBDBD"
+                                                    radius: 4
+                                                }
+                                                
+                                                onClicked: {
+                                                    dbcParser.stopActiveTransmission(modelData.messageId)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Empty state
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "No active transmissions"
+                                    color: "#757575"
+                                    font.pixelSize: 16
+                                    visible: transmissionsListView.count === 0
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
+    
+    // Save Configuration Dialog
+    FileDialog {
+        id: saveConfigDialog
+        title: "Save Active Transmissions Configuration"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["JSON Files (*.json)"]
+        onAccepted: {
+            dbcParser.saveActiveTransmissionsConfig(selectedFile)
+        }
+    }
+    
+    // Load Configuration Dialog
+    FileDialog {
+        id: loadConfigDialog
+        title: "Load Active Transmissions Configuration"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["JSON Files (*.json)"]
+        onAccepted: {
+            console.log("Loading config file:", selectedFile)
+            var success = dbcParser.loadActiveTransmissionsConfig(selectedFile)
+            if (success) {
+                console.log("Configuration loaded successfully")
+                showStatusMessage("Configuration loaded successfully!", false)
+            } else {
+                console.log("Failed to load configuration")
+                showStatusMessage("Failed to load configuration file!", true)
+            }
+        }
+    }
+    
     Dialog {
     id: diffDialog
     modal: true
@@ -1647,5 +2088,246 @@ ApplicationWindow {
             }
         }
 
-        // Similar styling for removeSignalConfirmDialog...
+    // =============================================
+    // CENTRALIZED NOTIFICATION SYSTEM
+    // =============================================
+    
+    // Notification Container - positioned at top-right of screen
+    Rectangle {
+        id: notificationContainer
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 20
+        anchors.rightMargin: 20
+        width: 400
+        height: childrenRect.height
+        color: "transparent"
+        z: 1000 // High z-index to appear on top
+        
+        Column {
+            id: notificationColumn
+            width: parent.width
+            spacing: 10
+        }
+    }
+    
+    // Notification Component
+    Component {
+        id: notificationComponent
+        
+        Rectangle {
+            id: notification
+            width: 400
+            height: 80
+            radius: 8
+            border.width: 1
+            
+            property string message: ""
+            property string type: "info" // "error", "warning", "success", "info"
+            property alias autoClose: autoCloseTimer.running
+            
+            // Colors based on type
+            color: {
+                switch(type) {
+                    case "error": return "#FFEBEE"
+                    case "warning": return "#FFF8E1" 
+                    case "success": return "#E8F5E8"
+                    case "info": return "#E3F2FD"
+                    default: return "#F5F5F5"
+                }
+            }
+            
+            border.color: {
+                switch(type) {
+                    case "error": return "#F44336"
+                    case "warning": return "#FF9800"
+                    case "success": return "#4CAF50"
+                    case "info": return "#2196F3"
+                    default: return "#BDBDBD"
+                }
+            }
+            
+            // Slide in animation
+            NumberAnimation on x {
+                id: slideInAnimation
+                from: 450
+                to: 0
+                duration: 300
+                easing.type: Easing.OutCubic
+                running: true
+            }
+            
+            // Slide out animation
+            NumberAnimation {
+                id: slideOutAnimation
+                target: notification
+                property: "x"
+                to: 450
+                duration: 300
+                easing.type: Easing.InCubic
+                onFinished: notification.destroy()
+            }
+            
+            // Auto-close timer (5 seconds for errors, 3 seconds for others)
+            Timer {
+                id: autoCloseTimer
+                interval: notification.type === "error" ? 5000 : 3000
+                repeat: false
+                onTriggered: notification.close()
+            }
+            
+            Row {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 15
+                
+                // Icon
+                Rectangle {
+                    width: 40
+                    height: 40
+                    radius: 20
+                    anchors.verticalCenter: parent.verticalCenter
+                    
+                    color: {
+                        switch(notification.type) {
+                            case "error": return "#F44336"
+                            case "warning": return "#FF9800"
+                            case "success": return "#4CAF50"
+                            case "info": return "#2196F3"
+                            default: return "#BDBDBD"
+                        }
+                    }
+                    
+                    Text {
+                        anchors.centerIn: parent
+                        color: "white"
+                        font.pixelSize: 18
+                        font.bold: true
+                        text: {
+                            switch(notification.type) {
+                                case "error": return "✗"
+                                case "warning": return "⚠"
+                                case "success": return "✓"
+                                case "info": return "ℹ"
+                                default: return "●"
+                            }
+                        }
+                    }
+                }
+                
+                // Message Content
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 100 // Account for icon and close button
+                    
+                    Text {
+                        width: parent.width
+                        text: {
+                            switch(notification.type) {
+                                case "error": return "Error"
+                                case "warning": return "Warning"
+                                case "success": return "Success"
+                                case "info": return "Info"
+                                default: return "Notification"
+                            }
+                        }
+                        color: {
+                            switch(notification.type) {
+                                case "error": return "#D32F2F"
+                                case "warning": return "#F57C00"
+                                case "success": return "#388E3C"
+                                case "info": return "#1976D2"
+                                default: return "#424242"
+                            }
+                        }
+                        font.pixelSize: 16
+                        font.bold: true
+                        wrapMode: Text.WordWrap
+                    }
+                    
+                    Text {
+                        width: parent.width
+                        text: notification.message
+                        color: "#424242"
+                        font.pixelSize: 14
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+            
+            // Close button
+            Button {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 10
+                width: 20
+                height: 20
+                
+                contentItem: Text {
+                    text: "×"
+                    color: "#757575"
+                    font.pixelSize: 16
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                
+                background: Rectangle {
+                    color: parent.hovered ? "#E0E0E0" : "transparent"
+                    radius: 10
+                }
+                
+                onClicked: notification.close()
+            }
+            
+            // Close function
+            function close() {
+                autoCloseTimer.stop()
+                slideOutAnimation.start()
+            }
+            
+            Component.onCompleted: {
+                autoCloseTimer.start()
+            }
+        }
+    }
+    
+    // Global notification functions
+    function showNotification(message, type) {
+        type = type || "info"
+        console.log("Showing notification:", type, "-", message)
+        
+        var notification = notificationComponent.createObject(notificationColumn, {
+            "message": message,
+            "type": type
+        })
+    }
+    
+    function showError(message) {
+        showNotification(message, "error")
+    }
+    
+    function showWarning(message) {
+        showNotification(message, "warning")
+    }
+    
+    function showSuccess(message) {
+        showNotification(message, "success")
+    }
+    
+    function showInfo(message) {
+        showNotification(message, "info")
+    }
+    
+    // Legacy function for backward compatibility
+    function showStatusMessage(message, isError) {
+        if (isError) {
+            showError(message)
+        } else {
+            showSuccess(message)
+        }
+    }
+
+    }
 }

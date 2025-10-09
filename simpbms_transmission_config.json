@@ -1,0 +1,52 @@
+{
+  "configVersion": "1.0",
+  "timestamp": "2025-10-05T21:00:00.000Z",
+  "description": "SimpBMS active transmission configuration for testing GUI functionality",
+  "activeTransmissions": [
+    {
+      "messageName": "SimpBMS_SOC",
+      "messageId": 853,
+      "rateMs": 500,
+      "hexData": "50 00 64 00 00 00 02 00",
+      "description": "Battery SOC/SOH data - SOC: 80%, SOH: 100%, Status: Drive",
+      "autoStart": true,
+      "enabled": true
+    },
+    {
+      "messageName": "SimpBMS_Status",
+      "messageId": 854,
+      "rateMs": 250,
+      "hexData": "DC 0F 2C 01 94 01 00 00",
+      "description": "Battery status - Voltage: 40.60V, Current: 30.0A, Temp: 41.2°C",
+      "autoStart": true,
+      "enabled": true
+    },
+    {
+      "messageName": "SimpBMS_Warnings",
+      "messageId": 858,
+      "rateMs": 1000,
+      "hexData": "00 00 00 00 00 01 00 00",
+      "description": "Warning and alarm status - Minor temperature warning active",
+      "autoStart": false,
+      "enabled": true
+    },
+    {
+      "messageName": "SimpBMS_High_Low",
+      "messageId": 883,
+      "rateMs": 2000,
+      "hexData": "E8 0F F4 0F 15 01 25 01",
+      "description": "Cell voltage/temp limits - Min: 4072mV, Max: 4084mV, MinTemp: 277K, MaxTemp: 293K",
+      "autoStart": true,
+      "enabled": true
+    },
+    {
+      "messageName": "SimpBMS_Limits",
+      "messageId": 849,
+      "rateMs": 5000,
+      "hexData": "70 17 E8 03 C4 09 A0 0F",
+      "description": "Charge/discharge limits - ChargeV: 60.0V, ChargeI: 100.0A, DischargeV: 25.0V, DischargeI: 40.0A",
+      "autoStart": false,
+      "enabled": true
+    }
+  ]
+}

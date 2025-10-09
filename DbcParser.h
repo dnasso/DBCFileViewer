@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QDateTime>
 #include <QFile>
 #include <QTextStream>
 #include <vector>
@@ -36,6 +37,19 @@ struct canMessage {
     std::vector<canSignal> signalList; // Renamed from 'signals' to avoid Qt keyword conflict
 };
 
+// Data structure for active transmission
+struct ActiveTransmission {
+    QString messageName;
+    unsigned long messageId;
+    int rateMs;
+    bool isPaused;
+    QString status; // "Active", "Paused", "Stopped"
+    QString lastSent;
+    int sentCount;
+    QString hexData;
+    QDateTime startedAt;
+};
+
 class DbcParser : public QObject
 {
     Q_OBJECT
@@ -43,6 +57,7 @@ class DbcParser : public QObject
     Q_PROPERTY(QVariantList signalModel READ signalModel NOTIFY signalModelChanged)
     Q_PROPERTY(QString generatedCanFrame READ generatedCanFrame NOTIFY generatedCanFrameChanged)
     Q_PROPERTY(bool isConnectedToServer READ isConnectedToServer NOTIFY connectionStatusChanged)
+    Q_PROPERTY(QVariantList activeTransmissions READ activeTransmissions NOTIFY activeTransmissionsChanged)
 
 public:
     explicit DbcParser(QObject *parent = nullptr);
@@ -98,6 +113,8 @@ public:
 
     Q_INVOKABLE QString prepareCanMessage(const QString &messageName, int rateMs = 0);
     Q_INVOKABLE QString getMessageHexData(const QString &messageName);
+    Q_INVOKABLE QString getCurrentMessageHexData(); // Unified method for current message hex data
+    Q_INVOKABLE QString getCurrentMessageBinData(); // Unified method for current message binary data
     Q_INVOKABLE unsigned long getMessageId(const QString &messageName);
     Q_INVOKABLE bool sendCanMessage(const QString &messageName, int rateMs);
 
@@ -106,10 +123,38 @@ public:
     Q_INVOKABLE void disconnectFromServer();
     Q_INVOKABLE bool isConnectedToServer() const;
 
+    // Active transmissions management
+    Q_INVOKABLE bool startTransmission(const QString &messageName, int rateMs);
+    Q_INVOKABLE bool stopTransmission(const QString &messageName);
+    Q_INVOKABLE bool pauseTransmission(const QString &messageName);
+    Q_INVOKABLE bool resumeTransmission(const QString &messageName);
+    Q_INVOKABLE bool stopActiveTransmission(unsigned int messageId);
+    Q_INVOKABLE bool pauseActiveTransmission(unsigned int messageId);
+    Q_INVOKABLE bool resumeActiveTransmission(unsigned int messageId);
+    Q_INVOKABLE bool stopAllTransmissions();
+    Q_INVOKABLE bool pauseAllTransmissions();
+    Q_INVOKABLE bool resumeAllTransmissions();
+    Q_INVOKABLE bool saveActiveTransmissionsConfig(const QUrl &saveUrl);
+    Q_INVOKABLE bool loadActiveTransmissionsConfig(const QUrl &loadUrl);
+    Q_INVOKABLE void clearActiveTransmissions();
+    Q_INVOKABLE void updateActiveTransmissions();
+    
+    // Enhanced configuration management
+    Q_INVOKABLE QString getActiveTransmissionsConfigInfo(const QUrl &fileUrl);
+    Q_INVOKABLE bool validateConfigFile(const QUrl &fileUrl);
+    Q_INVOKABLE QStringList getConfigSummary(const QUrl &fileUrl);
+    Q_INVOKABLE bool mergeActiveTransmissionsConfig(const QUrl &fileUrl, bool replaceExisting = false);
+    
+    // Debug methods for troubleshooting
+    Q_INVOKABLE QStringList getAvailableMessages() const;
+    Q_INVOKABLE QString debugLoadConfig(const QUrl &fileUrl);
+    Q_INVOKABLE QString testConfigLoad(); // Simple test method
+
     // Property getters
     QStringList messageModel() const;
     QVariantList signalModel() const;
     QString generatedCanFrame() const;
+    QVariantList activeTransmissions() const;
     
 
 signals:
@@ -118,6 +163,15 @@ signals:
     void generatedCanFrameChanged();
     void connectionStatusChanged();
     void messageSendStatus(const QString &messageName, bool success, const QString &statusMessage);
+    void activeTransmissionsChanged();
+    void transmissionStatusChanged(const QString &messageName, const QString &status);
+    
+    // Centralized notification signals
+    void showNotification(const QString &message, const QString &type);
+    void showError(const QString &message);
+    void showWarning(const QString &message);
+    void showSuccess(const QString &message);
+    void showInfo(const QString &message);
 
 private:
     void parseDBC(const QString &filePath);
@@ -143,6 +197,8 @@ private:
     // Network communication via DbcSender
     DbcSender* dbcSender;
 
+    // Active transmissions tracking
+    QList<ActiveTransmission> m_activeTransmissions;
     
 };
 

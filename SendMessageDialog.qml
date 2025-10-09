@@ -9,7 +9,7 @@ Dialog {
     modal: true
     anchors.centerIn: parent
     width: 750
-    height: 700
+    height: 750
 
     property string messageName: ""
     property string messageId: ""
@@ -83,6 +83,7 @@ Dialog {
                     font.pixelSize: 22
                     font.weight: Font.Bold
                     color: "white"
+                    Layout.alignment: Qt.AlignHCenter
                 }
 
                 Text {
@@ -90,6 +91,7 @@ Dialog {
                     font.pixelSize: 14
                     color: "white"
                     opacity: 0.9
+                    Layout.alignment: Qt.AlignHCenter
                 }
             }
 
@@ -108,6 +110,29 @@ Dialog {
                     radius: 6
                     color: sendMessageDialog.isSending ? "#FF9800" : "#4CAF50"
                 }
+            }
+        }
+    }
+
+    // Connection to update hex data when signal values change
+    Connections {
+        target: dbcParser
+        function onSignalModelChanged() {
+            // Update hex data when signal values change
+            if (sendMessageDialog.messageName) {
+                sendMessageDialog.hexData = dbcParser.getMessageHexData(sendMessageDialog.messageName)
+            }
+        }
+        function onGeneratedCanFrameChanged() {
+            // Update hex data when CAN frame changes
+            if (sendMessageDialog.messageName) {
+                sendMessageDialog.hexData = dbcParser.getMessageHexData(sendMessageDialog.messageName)
+            }
+        }
+        function onMessageModelChanged() {
+            // Update hex data when message selection changes
+            if (sendMessageDialog.messageName) {
+                sendMessageDialog.hexData = dbcParser.getMessageHexData(sendMessageDialog.messageName)
             }
         }
     }
@@ -134,19 +159,21 @@ Dialog {
     contentItem: ScrollView {
         clip: true
         contentWidth: availableWidth
+        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
         ColumnLayout {
             width: parent.width
-            spacing: 25
-            anchors.margins: 25
+            spacing: 20
+            anchors.fill: parent
+            anchors.margins: 20
+            anchors.bottomMargin: 110
 
             // Message Information Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 140
-                Layout.leftMargin: 25
-                Layout.rightMargin: 25
-                Layout.topMargin: 20
+                Layout.preferredHeight: 160
+                Layout.topMargin: 10
                 color: "#F8F9FA"
                 radius: 8
                 border.color: "#E8F5E9"
@@ -155,7 +182,7 @@ Dialog {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 20
-                    spacing: 15
+                    spacing: 16
 
                     Text {
                         text: "Message Information"
@@ -168,53 +195,53 @@ Dialog {
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
-                        rowSpacing: 12
-                        columnSpacing: 20
+                        rowSpacing: 15
+                        columnSpacing: 25
 
                         Text {
                             text: "Message Name:"
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.weight: Font.Medium
                             color: "#424242"
-                            Layout.preferredWidth: 110
-                            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                            Layout.preferredWidth: 120
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
 
                         Text {
                             text: sendMessageDialog.messageName
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             color: "#616161"
                             Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                             elide: Text.ElideRight
                             wrapMode: Text.WordWrap
                         }
 
                         Text {
                             text: "CAN ID:"
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.weight: Font.Medium
                             color: "#424242"
-                            Layout.preferredWidth: 110
-                            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                            Layout.preferredWidth: 120
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
 
                         Text {
                             text: sendMessageDialog.messageId
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.family: "Monospace"
                             color: "#616161"
                             Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
 
                         Text {
                             text: "Hex Data:"
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.weight: Font.Medium
                             color: "#424242"
-                            Layout.preferredWidth: 110
-                            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                            Layout.preferredWidth: 120
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
 
                         Rectangle {
@@ -245,9 +272,7 @@ Dialog {
             Rectangle {
                 id: statusArea
                 Layout.fillWidth: true
-                Layout.preferredHeight: statusText.hasMessage ? 50 : 0
-                Layout.leftMargin: 25
-                Layout.rightMargin: 25
+                Layout.preferredHeight: statusText.hasMessage ? 55 : 0
                 color: statusText.isSuccess ? "#E8F5E8" : "#FFEBEE"
                 border.color: statusText.isSuccess ? "#4CAF50" : "#F44336"
                 border.width: statusText.hasMessage ? 1 : 0
@@ -319,9 +344,7 @@ Dialog {
             // Transmission Settings Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 160
-                Layout.leftMargin: 25
-                Layout.rightMargin: 25
+                Layout.preferredHeight: 180
                 color: "#F8F9FA"
                 radius: 8
                 border.color: "#E8F5E9"
@@ -330,7 +353,7 @@ Dialog {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 20
-                    spacing: 15
+                    spacing: 20
 
                     Text {
                         text: "Transmission Settings"
@@ -343,36 +366,43 @@ Dialog {
                     // Rate input row
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 15
+                        spacing: 20
                         Layout.alignment: Qt.AlignLeft
 
                         Text {
                             text: "Rate (ms):"
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.weight: Font.Medium
                             color: "#424242"
-                            Layout.preferredWidth: 80
+                            Layout.preferredWidth: 100
                             Layout.alignment: Qt.AlignVCenter
                         }
 
                         SpinBox {
                             id: rateSpinBox
-                            Layout.preferredWidth: 120
-                            Layout.preferredHeight: 35
+                            Layout.preferredWidth: 140
+                            Layout.preferredHeight: 40
                             from: 1
                             to: 10000
                             value: sendMessageDialog.transmissionRate
                             editable: true
-                            font.pixelSize: 13
+                            font.pixelSize: 14
 
                             onValueChanged: {
                                 sendMessageDialog.transmissionRate = value
+                            }
+
+                            background: Rectangle {
+                                color: "white"
+                                radius: 6
+                                border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
+                                border.width: 1
                             }
                         }
 
                         Text {
                             text: "(" + (1000.0 / sendMessageDialog.transmissionRate).toFixed(1) + " Hz)"
-                            font.pixelSize: 12
+                            font.pixelSize: 13
                             color: "#757575"
                             Layout.alignment: Qt.AlignVCenter
                         }
@@ -507,9 +537,7 @@ Dialog {
             // Server Connection Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
-                Layout.leftMargin: 25
-                Layout.rightMargin: 25
+                Layout.preferredHeight: 120
                 color: "#E3F2FD"
                 radius: 8
                 border.color: "#2196F3"
@@ -518,7 +546,7 @@ Dialog {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 20
-                    spacing: 10
+                    spacing: 16
 
                     Text {
                         text: "Server Connection"
@@ -530,33 +558,34 @@ Dialog {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 15
+                        spacing: 20
 
                         Text {
                             id: connectionStatusText
                             text: "Not connected to server"
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             color: "#F44336"
                             Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
                         }
 
                         Button {
                             text: dbcParser.isConnectedToServer ? "Disconnect" : "Connect"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 32
+                            Layout.preferredWidth: 120
+                            Layout.preferredHeight: 40
                             enabled: !sendMessageDialog.isSending
 
                             background: Rectangle {
                                 color: parent.pressed ? "#E3F2FD" : (parent.hovered ? "#F3E5F5" : "white")
                                 border.color: "#2196F3"
                                 border.width: 1
-                                radius: 4
+                                radius: 6
                             }
 
                             contentItem: Text {
                                 text: parent.text
                                 color: parent.enabled ? "#2196F3" : "#CCCCCC"
-                                font.pixelSize: 12
+                                font.pixelSize: 14
                                 font.weight: Font.Medium
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
@@ -583,10 +612,8 @@ Dialog {
             // Message Preview Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 120
-                Layout.leftMargin: 25
-                Layout.rightMargin: 25
-                Layout.bottomMargin: 10
+                Layout.preferredHeight: 140
+                Layout.bottomMargin: 25
                 color: "#FFF3E0"
                 radius: 8
                 border.color: "#FFB74D"
@@ -595,7 +622,7 @@ Dialog {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 20
-                    spacing: 12
+                    spacing: 16
 
                     Text {
                         text: "Message Preview"
@@ -607,25 +634,26 @@ Dialog {
 
                     Text {
                         text: "Message to be sent:"
-                        font.pixelSize: 12
+                        font.pixelSize: 13
                         color: "#BF360C"
                         Layout.alignment: Qt.AlignLeft
+                        font.weight: Font.Medium
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 40
+                        Layout.preferredHeight: 45
                         color: "white"
-                        radius: 4
+                        radius: 6
                         border.color: "#FFB74D"
                         border.width: 1
 
                         Text {
                             anchors.fill: parent
-                            anchors.margins: 12
+                            anchors.margins: 15
                             text: sendMessageDialog.messageId + " # " + sendMessageDialog.hexData + " # " + sendMessageDialog.transmissionRate + "ms"
                             font.family: "Monospace"
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             font.weight: Font.Medium
                             color: "#E65100"
                             verticalAlignment: Text.AlignVCenter
@@ -635,7 +663,7 @@ Dialog {
 
                     Text {
                         text: "Format: CAN_ID # HEX_DATA # RATE_MS"
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         color: "#8D6E63"
                         font.italic: true
                         Layout.alignment: Qt.AlignLeft

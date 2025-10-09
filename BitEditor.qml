@@ -128,7 +128,8 @@ Rectangle {
             
             // First column: Bit indices grid
             Rectangle {
-                Layout.preferredWidth: 180
+                Layout.preferredWidth: 200
+                Layout.minimumWidth: 180
                 Layout.fillHeight: true
                 color: "white"
                 border.color: "#e0e0e0"
@@ -210,7 +211,8 @@ Rectangle {
             
             // Second column: CAN frame data (HEX and BIN)
             Rectangle {
-                Layout.preferredWidth: 350
+                Layout.preferredWidth: 360
+                Layout.minimumWidth: 300
                 Layout.fillHeight: true
                 color: "white"
                 border.color: "#e0e0e0"
@@ -263,6 +265,11 @@ Rectangle {
                         Layout.fillHeight: true
                         clip: true
                         model: 8  // 8 bytes
+                        
+                        ScrollBar.vertical: ScrollBar {
+                            active: true
+                            policy: ScrollBar.AsNeeded
+                        }
                         
                         delegate: Item {
                             width: canFrameDataView.width
