@@ -49,6 +49,31 @@ struct ActiveTransmission {
     int sentCount;
     QString hexData;
     QDateTime startedAt;
+    QString canBus; // CAN bus interface name
+};
+
+// Data structure for past transmission history
+struct PastTransmission {
+    QString messageName;
+    unsigned long messageId;
+    QString taskId;
+    int rateMs;
+    QString hexData;
+    QDateTime startedAt;
+    QDateTime endedAt;
+    QString endReason; // "Stopped", "Killed", "Error", "Completed"
+    int totalSent;
+    QString canBus;
+    QString duration; // Formatted duration string
+};
+
+// Data structure for config file entry in file browser
+struct ConfigFileEntry {
+    QString fileName;
+    QString filePath;
+    QDateTime lastModified;
+    QString description;
+    int messageCount;
 };
 
 class DbcParser : public QObject
@@ -59,10 +84,13 @@ class DbcParser : public QObject
     Q_PROPERTY(QString generatedCanFrame READ generatedCanFrame NOTIFY generatedCanFrameChanged)
     Q_PROPERTY(bool isConnectedToServer READ isConnectedToServer NOTIFY connectionStatusChanged)
     Q_PROPERTY(QVariantList activeTransmissions READ activeTransmissions NOTIFY activeTransmissionsChanged)
+    Q_PROPERTY(QVariantList pastTransmissions READ pastTransmissions NOTIFY pastTransmissionsChanged)
+    Q_PROPERTY(QVariantList configFiles READ configFiles NOTIFY configFilesChanged)
     Q_PROPERTY(bool isDbcLoaded READ isDbcLoaded NOTIFY dbcLoadedChanged)
 
 public:
     explicit DbcParser(QObject *parent = nullptr);
+    ~DbcParser(); // Destructor for proper cleanup
 
     // QML accessible methods
     Q_INVOKABLE bool loadDbcFile(const QUrl &fileUrl);
@@ -114,11 +142,14 @@ public:
     Q_INVOKABLE bool checkSignalOverlap(const QString &messageName, int startBit, int length, bool littleEndian);
 
     Q_INVOKABLE QString prepareCanMessage(const QString &messageName, int rateMs = 0);
+    Q_INVOKABLE QString prepareCanMessage(const QString &messageName, int rateMs, const QString &canBus);
     Q_INVOKABLE QString getMessageHexData(const QString &messageName);
     Q_INVOKABLE QString getCurrentMessageHexData(); // Unified method for current message hex data
     Q_INVOKABLE QString getCurrentMessageBinData(); // Unified method for current message binary data
     Q_INVOKABLE unsigned long getMessageId(const QString &messageName);
     Q_INVOKABLE bool sendCanMessage(const QString &messageName, int rateMs);
+    Q_INVOKABLE bool sendCanMessage(const QString &messageName, int rateMs, const QString &canBus);
+    Q_INVOKABLE bool sendCanMessageOnce(const QString &messageName, const QString &canBus = "vcan0");
 
     // Server connection methods
     Q_INVOKABLE bool connectToServer(const QString &address, const QString &port);
@@ -126,8 +157,12 @@ public:
     Q_INVOKABLE bool isConnectedToServer() const;
     Q_INVOKABLE void setTcpClient(QObject* tcpClient);
 
+    // CAN interface management
+    Q_INVOKABLE QStringList getAvailableCanInterfaces();
+
     // Active transmissions management
     Q_INVOKABLE bool startTransmission(const QString &messageName, int rateMs);
+    Q_INVOKABLE bool startTransmission(const QString &messageName, int rateMs, const QString &canBus);
     Q_INVOKABLE bool stopTransmission(const QString &messageName);
     Q_INVOKABLE bool pauseTransmission(const QString &messageName);
     Q_INVOKABLE bool resumeTransmission(const QString &messageName);
@@ -146,12 +181,27 @@ public:
     
     // Helper method to add transmission without sending
     void addActiveTransmission(const QString &messageName, int rateMs, const QString &taskId = QString());
+    void addActiveTransmission(const QString &messageName, const QString &taskId, int rateMs, const QString &canBus = QString());
     
+    // Helper method to stop existing transmission for the same message (prevents duplicates)
+    bool stopExistingTransmission(const QString &messageName);
+
     // Enhanced configuration management
     Q_INVOKABLE QString getActiveTransmissionsConfigInfo(const QUrl &fileUrl);
     Q_INVOKABLE bool validateConfigFile(const QUrl &fileUrl);
     Q_INVOKABLE QStringList getConfigSummary(const QUrl &fileUrl);
     Q_INVOKABLE bool mergeActiveTransmissionsConfig(const QUrl &fileUrl, bool replaceExisting = false);
+    
+    // Config file browser methods
+    Q_INVOKABLE void refreshConfigFiles();
+    Q_INVOKABLE void setConfigDirectory(const QUrl &directoryUrl);
+    Q_INVOKABLE bool loadConfigByFileName(const QString &fileName);
+    Q_INVOKABLE QString getConfigFileInfo(const QString &fileName);
+    
+    // Past transmissions methods
+    Q_INVOKABLE void clearPastTransmissions();
+    Q_INVOKABLE QVariantList getPastTransmissionsFiltered(const QString &filter = "");
+    Q_INVOKABLE void exportPastTransmissions(const QUrl &saveUrl);
     
     // Debug methods for troubleshooting
     Q_INVOKABLE QStringList getAvailableMessages() const;
@@ -163,6 +213,8 @@ public:
     QVariantList signalModel() const;
     QString generatedCanFrame() const;
     QVariantList activeTransmissions() const;
+    QVariantList pastTransmissions() const;
+    QVariantList configFiles() const;
     bool isDbcLoaded() const;
     
 
@@ -173,6 +225,8 @@ signals:
     void connectionStatusChanged();
     void messageSendStatus(const QString &messageName, bool success, const QString &statusMessage);
     void activeTransmissionsChanged();
+    void pastTransmissionsChanged();
+    void configFilesChanged();
     void transmissionStatusChanged(const QString &messageName, const QString &status);
     void dbcLoadedChanged();
     
@@ -196,6 +250,9 @@ private:
     // Helper methods for signal validation
     int getMotorolaLsb(int msb, int length);
     std::set<int> getSignalBitPositions(int startBit, int length, bool littleEndian);
+    
+    // Helper method for past transmissions
+    void addToPastTransmissions(const ActiveTransmission& transmission, const QString& endReason);
 
     std::vector<canMessage> messages;
     int selectedMessageIndex;
@@ -209,6 +266,13 @@ private:
 
     // Active transmissions tracking
     QList<ActiveTransmission> m_activeTransmissions;
+    
+    // Past transmissions tracking
+    QList<PastTransmission> m_pastTransmissions;
+    
+    // Config file browser
+    QList<ConfigFileEntry> m_configFiles;
+    QString m_configDirectory;
     
 };
 

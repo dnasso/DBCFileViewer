@@ -10,6 +10,9 @@ Dialog {
     anchors.centerIn: parent
     width: 750
     height: 750
+    
+    // Reference to the main window to access TCP client
+    property var window: null
 
     property string messageName: ""
     property string messageId: ""
@@ -17,8 +20,10 @@ Dialog {
     property int transmissionRate: 100 // Default rate in milliseconds
     property bool isSending: false
     property string lastStatusMessage: ""
+    property string selectedCanBus: "vcan0" // Default CAN bus
+    property var availableCanBuses: ["vcan0"] // List of available CAN buses
 
-    // Connection to handle message send status
+    // Connection to handle message send status and connection changes
     Connections {
         target: dbcParser
         function onMessageSendStatus(messageName, success, statusMessage) {
@@ -37,6 +42,11 @@ Dialog {
                     sendMessageDialog.isSending = false
                 }
             }
+        }
+        
+        function onConnectionStatusChanged() {
+            console.log("SendMessageDialog: Connection status changed, updating UI")
+            updateConnectionStatus()
         }
     }
 
@@ -146,14 +156,55 @@ Dialog {
         
         // Update connection status
         updateConnectionStatus()
+        
+        // Refresh CAN bus list
+        refreshCanBusList()
+    }
+    
+    // Function to refresh CAN bus list
+    function refreshCanBusList() {
+        console.log("Refreshing CAN bus list...")
+        var canBuses = dbcParser.getAvailableCanInterfaces()
+        if (canBuses.length > 0) {
+            availableCanBuses = canBuses
+            // Keep current selection if it's still available, otherwise select first
+            if (canBuses.indexOf(selectedCanBus) === -1) {
+                selectedCanBus = canBuses[0]
+            }
+            console.log("Available CAN buses:", canBuses)
+        } else {
+            console.log("No CAN buses found or error retrieving list")
+            // Keep default if no buses found
+            availableCanBuses = ["vcan0"]
+            selectedCanBus = "vcan0"
+        }
+    }
+    
+    // Function to check connection status from multiple sources
+    function isConnected() {
+        // Check both dbcParser connection and direct TCP client connection
+        return dbcParser.isConnectedToServer || 
+               (window && window.tcpClientTab && window.tcpClientTab.tcpClient && window.tcpClientTab.tcpClient.connected)
     }
     
     // Function to update connection status
     function updateConnectionStatus() {
-        connectionStatusText.text = dbcParser.isConnectedToServer ? 
+        var connected = isConnected()
+        connectionStatusText.text = connected ? 
             "Connected to server" : "Not connected to server"
-        connectionStatusText.color = dbcParser.isConnectedToServer ? 
+        connectionStatusText.color = connected ? 
             "#4CAF50" : "#F44336"
+    }
+    
+    // Timer to periodically update connection status
+    Timer {
+        id: connectionUpdateTimer
+        interval: 500
+        running: sendMessageDialog.visible
+        repeat: true
+        onTriggered: {
+            updateConnectionStatus()
+        }
     }
 
     contentItem: ScrollView {
@@ -534,6 +585,108 @@ Dialog {
                 }
             }
 
+            // CAN Bus Selection Section
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 140
+                color: "#F3E5F5"
+                radius: 8
+                border.color: "#9C27B0"
+                border.width: 2
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 20
+                    spacing: 16
+
+                    Text {
+                        text: "CAN Bus Selection"
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
+                        color: "#7B1FA2"
+                        Layout.alignment: Qt.AlignLeft
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 15
+
+                        Text {
+                            text: "CAN Interface:"
+                            font.pixelSize: 14
+                            font.weight: Font.Medium
+                            color: "#424242"
+                            Layout.preferredWidth: 100
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        ComboBox {
+                            id: canBusComboBox
+                            Layout.preferredWidth: 200
+                            Layout.preferredHeight: 40
+                            model: sendMessageDialog.availableCanBuses
+                            currentIndex: {
+                                var index = model.indexOf(sendMessageDialog.selectedCanBus)
+                                return index >= 0 ? index : 0
+                            }
+                            enabled: !sendMessageDialog.isSending
+
+                            onCurrentTextChanged: {
+                                if (currentText) {
+                                    sendMessageDialog.selectedCanBus = currentText
+                                }
+                            }
+
+                            background: Rectangle {
+                                color: "white"
+                                radius: 6
+                                border.color: parent.activeFocus ? "#9C27B0" : "#BDBDBD"
+                                border.width: 1
+                            }
+
+                            contentItem: Text {
+                                leftPadding: 12
+                                rightPadding: parent.indicator.width + parent.spacing
+                                text: parent.displayText
+                                font.pixelSize: 14
+                                color: parent.enabled ? "#424242" : "#CCCCCC"
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Button {
+                            text: "Refresh"
+                            Layout.preferredWidth: 80
+                            Layout.preferredHeight: 40
+                            enabled: !sendMessageDialog.isSending
+
+                            background: Rectangle {
+                                color: parent.pressed ? "#E1BEE7" : (parent.hovered ? "#F3E5F5" : "white")
+                                border.color: "#9C27B0"
+                                border.width: 1
+                                radius: 6
+                            }
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#9C27B0" : "#CCCCCC"
+                                font.pixelSize: 14
+                                font.weight: Font.Medium
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                refreshCanBusList()
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true } // Spacer
+                    }
+                }
+            }
+
             // Server Connection Section
             Rectangle {
                 Layout.fillWidth: true
@@ -593,13 +746,29 @@ Dialog {
 
                             onClicked: {
                                 if (dbcParser.isConnectedToServer) {
+                                    // Disconnect both TCP Client and DbcParser for consistency
+                                    console.log("SendMessageDialog: Disconnecting from server")
+                                    if (typeof tcpClientTab !== 'undefined' && tcpClientTab && tcpClientTab.tcpClient) {
+                                        tcpClientTab.tcpClient.disconnect()
+                                    }
                                     dbcParser.disconnectFromServer()
                                 } else {
-                                    // Try to connect with default values
-                                    if (dbcParser.connectToServer("127.0.0.1", "8080")) {
-                                        console.log("Connected to server successfully")
+                                    // Try to connect through TCP Client for consistency
+                                    console.log("SendMessageDialog: Connecting to server")
+                                    if (typeof tcpClientTab !== 'undefined' && tcpClientTab && tcpClientTab.tcpClient) {
+                                        if (tcpClientTab.tcpClient.connectToServer("127.0.0.1", 8080)) {
+                                            console.log("Connected to server successfully via TCP Client")
+                                        } else {
+                                            console.log("Failed to connect via TCP Client, trying direct connection")
+                                            dbcParser.connectToServer("127.0.0.1", "8080")
+                                        }
                                     } else {
-                                        console.log("Failed to connect to server")
+                                        // Fallback to direct connection if TCP Client not available
+                                        if (dbcParser.connectToServer("127.0.0.1", "8080")) {
+                                            console.log("Connected to server successfully via direct connection")
+                                        } else {
+                                            console.log("Failed to connect to server")
+                                        }
                                     }
                                 }
                                 updateConnectionStatus()
@@ -614,9 +783,9 @@ Dialog {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 140
                 Layout.bottomMargin: 25
-                color: "#FFF3E0"
+                color: "#E8F4FD"
                 radius: 8
-                border.color: "#FFB74D"
+                border.color: "#64B5F6"
                 border.width: 2
 
                 ColumnLayout {
@@ -628,14 +797,14 @@ Dialog {
                         text: "Message Preview"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#E65100"
+                        color: "#1976D2"
                         Layout.alignment: Qt.AlignLeft
                     }
 
                     Text {
                         text: "Message to be sent:"
                         font.pixelSize: 13
-                        color: "#BF360C"
+                        color: "#1565C0"
                         Layout.alignment: Qt.AlignLeft
                         font.weight: Font.Medium
                     }
@@ -645,26 +814,26 @@ Dialog {
                         Layout.preferredHeight: 45
                         color: "white"
                         radius: 6
-                        border.color: "#FFB74D"
+                        border.color: "#64B5F6"
                         border.width: 1
 
                         Text {
                             anchors.fill: parent
                             anchors.margins: 15
-                            text: sendMessageDialog.messageId + " # " + sendMessageDialog.hexData + " # " + sendMessageDialog.transmissionRate + "ms"
+                            text: sendMessageDialog.selectedCanBus + " # " + sendMessageDialog.messageId + " # " + sendMessageDialog.hexData + " # " + sendMessageDialog.transmissionRate + "ms"
                             font.family: "Monaco"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#E65100"
+                            color: "#1976D2"
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                         }
                     }
 
                     Text {
-                        text: "Format: CAN_ID # HEX_DATA # RATE_MS"
+                        text: "Format: CAN_BUS # CAN_ID # HEX_DATA # RATE_MS"
                         font.pixelSize: 12
-                        color: "#8D6E63"
+                        color: "#546E7A"
                         font.italic: true
                         Layout.alignment: Qt.AlignLeft
                     }
@@ -743,12 +912,92 @@ Dialog {
             }
 
             Button {
+                id: sendOnceButton
+                text: "Send Once"
+                Layout.preferredWidth: 100
+                Layout.preferredHeight: 36
+                Layout.alignment: Qt.AlignVCenter
+                enabled: !sendMessageDialog.isSending && sendMessageDialog.isConnected()
+
+                contentItem: Text {
+                    text: parent.text
+                    color: "white"
+                    font.pixelSize: 13
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                background: Rectangle {
+                    color: parent.enabled ?
+                        (parent.pressed ? "#1976D2" : (parent.hovered ? "#1E88E5" : "#2196F3")) :
+                        "#CCCCCC"
+                    radius: 4
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+                }
+
+                onClicked: {
+                    // Check if connected to server first
+                    if (!sendMessageDialog.isConnected()) {
+                        statusText.text = "Error: Not connected to server. Please connect first."
+                        statusText.isSuccess = false
+                        console.log("Not connected to server. Please connect first.")
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Cannot send message: Not connected to server. Please connect to a CAN server first.")
+                        }
+                        return
+                    }
+
+                    // Check if DBC file is loaded
+                    if (!dbcParser.isDbcLoaded) {
+                        statusText.text = "Error: No DBC file loaded. Please load a DBC file first."
+                        statusText.isSuccess = false
+                        console.log("No DBC file loaded. Please load a DBC file first.")
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Cannot send message: No DBC file loaded. Please load a DBC file first.")
+                        }
+                        return
+                    }
+
+                    // Clear previous status and show sending state
+                    statusText.text = "Sending message once..."
+                    statusText.isSuccess = true
+
+                    // Call the backend method to send the message once with selected CAN bus
+                    var success = dbcParser.sendCanMessageOnce(sendMessageDialog.messageName, sendMessageDialog.selectedCanBus)
+                    
+                    if (success) {
+                        console.log("One-shot message sent:", sendMessageDialog.messageName, "on bus:", sendMessageDialog.selectedCanBus)
+                        statusText.text = "Message sent successfully!"
+                        statusText.isSuccess = true
+                        statusHideTimer.start()
+                    } else {
+                        console.log("Failed to send one-shot message:", sendMessageDialog.messageName, "on bus:", sendMessageDialog.selectedCanBus)
+                        statusText.text = "Error: Failed to send message. Please check server connection and CAN bus availability."
+                        statusText.isSuccess = false
+                        
+                        // Show notification popup
+                        if (typeof parent.parent.parent.parent.showError !== 'undefined') {
+                            parent.parent.parent.parent.showError("Failed to send message once '" + sendMessageDialog.messageName + "' on CAN bus '" + sendMessageDialog.selectedCanBus + "'. Please check server connection and try again.")
+                        }
+                    }
+                }
+            }
+
+            Button {
                 id: sendButton
                 text: sendMessageDialog.isSending ? "Sending..." : "Send Message"
                 Layout.preferredWidth: 120
                 Layout.preferredHeight: 36
                 Layout.alignment: Qt.AlignVCenter
-                enabled: !sendMessageDialog.isSending && dbcParser.isConnectedToServer
+                enabled: !sendMessageDialog.isSending && sendMessageDialog.isConnected()
 
                 contentItem: Text {
                     text: parent.text
@@ -772,7 +1021,7 @@ Dialog {
 
                 onClicked: {
                     // Check if connected to server first
-                    if (!dbcParser.isConnectedToServer) {
+                    if (!sendMessageDialog.isConnected()) {
                         statusText.text = "Error: Not connected to server. Please connect first."
                         statusText.isSuccess = false
                         console.log("Not connected to server. Please connect first.")
@@ -815,20 +1064,20 @@ Dialog {
                     statusText.isSuccess = true
                     sendMessageDialog.isSending = true
 
-                    // Call the backend method to send the message
-                    var success = dbcParser.sendCanMessage(sendMessageDialog.messageName, sendMessageDialog.transmissionRate)
+                    // Call the backend method to send the message with selected CAN bus
+                    var success = dbcParser.sendCanMessage(sendMessageDialog.messageName, sendMessageDialog.transmissionRate, sendMessageDialog.selectedCanBus)
                     
                     if (success) {
-                        console.log("Message send initiated:", sendMessageDialog.messageName, "at rate:", sendMessageDialog.transmissionRate, "ms")
+                        console.log("Message send initiated:", sendMessageDialog.messageName, "at rate:", sendMessageDialog.transmissionRate, "ms on bus:", sendMessageDialog.selectedCanBus)
                     } else {
-                        console.log("Failed to initiate message send:", sendMessageDialog.messageName)
-                        statusText.text = "Error: Failed to send message. Please check server connection and try again."
+                        console.log("Failed to initiate message send:", sendMessageDialog.messageName, "on bus:", sendMessageDialog.selectedCanBus)
+                        statusText.text = "Error: Failed to send message. Please check server connection and CAN bus availability."
                         statusText.isSuccess = false
                         sendMessageDialog.isSending = false
                         
                         // Show notification popup
                         if (typeof parent.parent.parent.parent.showError !== 'undefined') {
-                            parent.parent.parent.parent.showError("Failed to send message '" + sendMessageDialog.messageName + "'. Please check server connection and try again.")
+                            parent.parent.parent.parent.showError("Failed to send message '" + sendMessageDialog.messageName + "' on CAN bus '" + sendMessageDialog.selectedCanBus + "'. Please check server connection and try again.")
                         }
                     }
                 }

@@ -35,6 +35,13 @@ int main(int argc, char *argv[])
         if (!obj && url == objUrl)
             QCoreApplication::exit(-1);
     }, Qt::QueuedConnection);
+    
+    // Connect aboutToQuit signal for proper cleanup
+    QObject::connect(&app, &QGuiApplication::aboutToQuit, [&dbcParser]() {
+        qDebug() << "Application about to quit - performing cleanup...";
+        dbcParser.disconnectFromServer();
+        qDebug() << "Cleanup completed";
+    });
 
     engine.load(url);
 

@@ -20,13 +20,16 @@ class DbcSender : public QObject {
 
 public:
     explicit DbcSender(QObject *parent = nullptr);
-    Q_INVOKABLE qint8 initiateConenction(QString Address, QString Port);
+    ~DbcSender(); // Destructor for proper cleanup
+    Q_INVOKABLE qint8 initiateConnection(QString Address, QString Port);
     Q_INVOKABLE void disconnect(); // Add disconnect method
     Q_INVOKABLE qint8 sendCANMessage(QString message);
+    Q_INVOKABLE qint8 sendOneShotMessage(QString message, int delayMs = 0);
     Q_INVOKABLE qint8 stopCANMessage(QString taskId);
     Q_INVOKABLE qint8 pauseCANMessage(QString taskId);
     Q_INVOKABLE qint8 resumeCANMessage(QString taskId);
     Q_INVOKABLE QString listTasks();
+    Q_INVOKABLE QString listCanInterfaces();
     Q_INVOKABLE qint8 killAllTasks();
     Q_INVOKABLE qint8 update();
     Q_INVOKABLE void printCANlist(); //test
@@ -44,5 +47,7 @@ private:
     
     QTcpSocket* getActiveSocket(); // Helper method to get the active socket
     bool shouldUseTcpClient() const; // Check if we should route through TCP Client
+    void parseUpdateResponse(const QString& responseStr); // Helper to parse UPDATE command responses
+    qint8 sendDisconnectMessage(); // Helper to send proper disconnect message to server
 };
 #endif // DBCSENDER_H

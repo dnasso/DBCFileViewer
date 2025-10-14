@@ -143,12 +143,28 @@ ApplicationWindow {
                 
                 // Connection Status Indicator
                 Rectangle {
+                    id: connectionStatusIndicator
                     Layout.preferredWidth: 150
                     Layout.preferredHeight: 30
-                    color: dbcParser.isConnectedToServer ? "#2E7D32" : "#D32F2F"
+                    color: getConnectionStatus() ? "#2E7D32" : "#D32F2F"
                     radius: 15
                     border.color: "white"
                     border.width: 1
+                    
+                    // Function to get connection status from multiple sources
+                    function getConnectionStatus() {
+                        var status = dbcParser.isConnectedToServer || 
+                               (tcpClientTab && tcpClientTab.tcpClient && tcpClientTab.tcpClient.connected)
+                        return status
+                    }
+                    
+                    // Property change notifications
+                    Connections {
+                        target: dbcParser
+                        function onIsConnectedToServerChanged() {
+                            connectionStatusIndicator.color = connectionStatusIndicator.getConnectionStatus() ? "#2E7D32" : "#D32F2F"
+                        }
+                    }
                     
                     RowLayout {
                         anchors.centerIn: parent
@@ -161,7 +177,7 @@ ApplicationWindow {
                             color: "white"
                             
                             SequentialAnimation on opacity {
-                                running: dbcParser.isConnectedToServer
+                                running: connectionStatusIndicator.getConnectionStatus()
                                 loops: Animation.Infinite
                                 NumberAnimation { to: 0.3; duration: 800 }
                                 NumberAnimation { to: 1.0; duration: 800 }
@@ -169,7 +185,7 @@ ApplicationWindow {
                         }
                         
                         Text {
-                            text: dbcParser.isConnectedToServer ? "Connected" : "Disconnected"
+                            text: connectionStatusIndicator.getConnectionStatus() ? "Connected" : "Disconnected"
                             color: "white"
                             font.pixelSize: 12
                             font.bold: true
@@ -179,13 +195,18 @@ ApplicationWindow {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            if (!dbcParser.isConnectedToServer) {
-                                dbcParser.connectToServer("127.0.0.1", "8080")
+                            if (!connectionStatusIndicator.getConnectionStatus()) {
+                                // Try to connect via the TCP client first
+                                if (tcpClientTab && tcpClientTab.tcpClient) {
+                                    tcpClientTab.tcpClient.connectToServer("127.0.0.1", 8080)
+                                } else {
+                                    dbcParser.connectToServer("127.0.0.1", "8080")
+                                }
                             }
                         }
                         
                         ToolTip.visible: hovered
-                        ToolTip.text: dbcParser.isConnectedToServer ? 
+                        ToolTip.text: connectionStatusIndicator.getConnectionStatus() ? 
                               "Connected to CAN receiver (127.0.0.1:8080)" : 
                               "Click to connect to CAN receiver"
                         ToolTip.delay: 500
@@ -1886,9 +1907,9 @@ ApplicationWindow {
                                                 
                                                 onClicked: {
                                                     if (modelData.status === "Paused") {
-                                                        dbcParser.resumeActiveTransmission(modelData.messageId)
+                                                        dbcParser.resumeTransmission(modelData.messageName)
                                                     } else {
-                                                        dbcParser.pauseActiveTransmission(modelData.messageId)
+                                                        dbcParser.pauseTransmission(modelData.messageName)
                                                     }
                                                 }
                                             }
@@ -1913,7 +1934,7 @@ ApplicationWindow {
                                                 }
                                                 
                                                 onClicked: {
-                                                    dbcParser.stopActiveTransmission(modelData.messageId)
+                                                    dbcParser.stopTransmission(modelData.messageName)
                                                 }
                                             }
                                         }
@@ -2057,6 +2078,7 @@ ApplicationWindow {
         // Send Message Dialog
         SendMessageDialog {
             id: sendMessageDialog
+            window: window // Pass reference to main window
         }
 
 
@@ -2425,6 +2447,37 @@ ApplicationWindow {
         if (tcpClientTab && tcpClientTab.tcpClient) {
             dbcParser.setTcpClient(tcpClientTab.tcpClient)
             console.log("Connected DbcParser to TCP Client")
+            
+            // Force update the connection status
+            dbcParser.updateConnectionStatus()
+        }
+    }
+    
+    // Additional connection to monitor TCP client status
+    Connections {
+        target: tcpClientTab ? tcpClientTab.tcpClient : null
+        
+        function onConnectionStatusChanged() {
+            console.log("Main: TCP Client connection status changed")
+            // Force update the DbcParser connection status
+            if (dbcParser) {
+                dbcParser.updateConnectionStatus()
+            }
+            // Update the header indicator
+            connectionStatusIndicator.color = connectionStatusIndicator.getConnectionStatus() ? "#2E7D32" : "#D32F2F"
+        }
+    }
+    
+    // Timer to periodically update connection status
+    Timer {
+        id: connectionStatusTimer
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            if (connectionStatusIndicator) {
+                connectionStatusIndicator.color = connectionStatusIndicator.getConnectionStatus() ? "#2E7D32" : "#D32F2F"
+            }
         }
     }
 }

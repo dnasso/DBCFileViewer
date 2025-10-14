@@ -18,17 +18,14 @@ Rectangle {
             console.log("TCP Connection status changed:", connected)
             statusIndicator.updateStatus()
             
-            // Sync DbcParser connection status when TCP client status changes
-            if (!connected && typeof dbcParser !== 'undefined' && dbcParser !== null) {
-                // If TCP client disconnected, also disconnect DbcParser
-                dbcParser.disconnectFromServer()
-                messageHistory.append({
-                    "timestamp": new Date().toLocaleTimeString(),
-                    "type": "system",
-                    "content": "Connection lost - DbcParser also disconnected"
-                })
-                messageListView.positionViewAtEnd()
-            }
+            // Notify the parent application about connection status change
+            // The DbcParser should automatically sync because it was set up with setTcpClient
+            messageHistory.append({
+                "timestamp": new Date().toLocaleTimeString(),
+                "type": "system",
+                "content": connected ? "Connected to server" : "Disconnected from server"
+            })
+            messageListView.positionViewAtEnd()
         }
 
         onResponseReceived: {
@@ -377,10 +374,10 @@ Rectangle {
             }
         }
 
-        // Send message section
+        // Debug console section
         Rectangle {
             Layout.fillWidth: true
-            height: 120
+            height: 200
             color: tcpClient.connected ? "white" : "#F9F9F9"
             border.color: "#E0E0E0"
             border.width: 1
@@ -391,7 +388,7 @@ Rectangle {
             Rectangle {
                 x: 8
                 y: -12
-                width: 110
+                width: 130
                 height: 24
                 color: tcpClient.connected ? "white" : "#F9F9F9"
             }
@@ -400,7 +397,7 @@ Rectangle {
             Text {
                 x: 12
                 y: -6
-                text: "Send Message"
+                text: "Debug Console"
                 font.pixelSize: 14
                 font.weight: Font.Medium
                 color: tcpClient.connected ? "#424242" : "#9E9E9E"
@@ -413,10 +410,35 @@ Rectangle {
                 anchors.margins: 20
                 anchors.topMargin: 30
                 spacing: 12
-                height: 70  // Increased height constraint
+                height: 150
+
+                // Command examples section
+                Rectangle {
+                    width: parent.width
+                    height: 60
+                    color: "#F8F9FA"
+                    border.color: "#E9ECEF"
+                    border.width: 1
+                    radius: 4
+
+                    ScrollView {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        clip: true
+
+                        Text {
+                            width: parent.width
+                            text: "Essential Commands:\n• CANSEND#<CAN_ID>#<HEX_DATA>#<RATE_MS>#<CAN_BUS>  (e.g., CANSEND#0x123#DEADBEEF#100#vcan0)\n• LIST_TASKS  • LIST_CAN_INTERFACES  • KILL_TASK <task_id>  • PAUSE <task_id>  • RESUME <task_id>  • KILL_ALL_TASKS"
+                            font.pixelSize: 11
+                            font.family: "Monaco, Consolas, monospace"
+                            color: "#495057"
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
 
                 Text {
-                    text: "Message:"
+                    text: "Enter Command:"
                     font.pixelSize: 13
                     color: "#616161"
                     height: 20
@@ -433,6 +455,7 @@ Rectangle {
                         height: 30
                         enabled: tcpClient.connected
                         selectByMouse: true
+                        placeholderText: "Type command here (e.g., LIST_TASKS)"
 
                         background: Rectangle {
                             color: parent.enabled ? "white" : "#F5F5F5"

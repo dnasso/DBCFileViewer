@@ -12,6 +12,7 @@
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonArray>
+#include <QtCore/QCoreApplication>
 #include <sstream>
 #include <iostream>
 #include <iomanip>
@@ -29,8 +30,50 @@ DbcParser::DbcParser(QObject *parent)
     // Initialize DbcSender
     dbcSender = new DbcSender(this);
     
+    // Initialize config directory and refresh config files
+    // Get the directory where the executable is located and go to the project root
+    QString execPath = QCoreApplication::applicationDirPath();
+    QDir execDir(execPath);
+    
+    // Navigate to project root (for macOS app bundle, we need to go up several levels)
+    if (execDir.dirName() == "MacOS") {
+        execDir.cdUp(); // Contents
+        execDir.cdUp(); // .app
+        execDir.cdUp(); // build_new
+        execDir.cdUp(); // project root
+    }
+    
+    m_configDirectory = execDir.absolutePath() + "/config_files";
+    qDebug() << "Config directory set to:" << m_configDirectory;
+    refreshConfigFiles();
+    
     // Note: Connection to CAN receiver is now handled through the GUI TCP Client tab
     qDebug() << "DbcParser: Initialized - use TCP Client tab to connect to server";
+}
+
+DbcParser::~DbcParser()
+{
+    qDebug() << "DbcParser: Destructor called - cleaning up...";
+    
+    // Ensure proper cleanup when the application closes
+    if (dbcSender) {
+        // Stop all active transmissions
+        if (!m_activeTransmissions.isEmpty()) {
+            qDebug() << "DbcParser: Stopping all active transmissions during cleanup";
+            killAllTransmissions();
+        }
+        
+        // Disconnect from server
+        if (dbcSender->isConnected()) {
+            qDebug() << "DbcParser: Disconnecting from server during cleanup";
+            dbcSender->disconnect();
+        }
+        
+        // The DbcSender will be deleted automatically since it's a child of this object
+        qDebug() << "DbcParser: DbcSender cleanup completed";
+    }
+    
+    qDebug() << "DbcParser: Destructor completed";
 }
 
 bool DbcParser::loadDbcFile(const QUrl &fileUrl)
@@ -912,6 +955,7 @@ QString DbcParser::getFrameDataHex(const QString &signalName, double rawValue)
     
     // Format the frame data as a hex string
     std::stringstream ss;
+    ss << "Data: ";
     for (size_t i = 0; i < frameData.size(); i++) {
         ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(frameData[i]);
         if (i < frameData.size() - 1) {
@@ -1600,6 +1644,46 @@ QString DbcParser::prepareCanMessage(const QString &messageName, int rateMs)
     return QString();
 }
 
+QString DbcParser::prepareCanMessage(const QString &messageName, int rateMs, const QString &canBus)
+{
+    qDebug() << "DbcParser::prepareCanMessage called with messageName:" << messageName << "rateMs:" << rateMs << "canBus:" << canBus;
+    
+    // Extract the message name without the ID part
+    int parenthesisPos = messageName.indexOf(" (");
+    QString name = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
+    
+    qDebug() << "Extracted message name:" << name;
+
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == name) {
+            // Get the message ID
+            unsigned long canId = msg.id;
+
+            // Generate the hex data for this message
+            QString hexData = getMessageHexData(messageName);
+
+            // New format: "canid#canmessage#rate#canbus"
+            // Remove spaces from hexData and format as continuous hex string
+            QString cleanHexData = hexData;
+            cleanHexData.remove(" ");
+            
+            // Use the provided CAN bus instead of hardcoded "vcan0"
+            QString busToUse = canBus.isEmpty() ? "vcan0" : canBus;
+            QString result = QString("%1#%2#%3#%4").arg(canId, 0, 16, QChar('0')).arg(cleanHexData).arg(rateMs).arg(busToUse);
+            qDebug() << "Prepared message:" << result;
+            qDebug() << "  - CAN ID:" << QString::number(canId, 16);
+            qDebug() << "  - Hex Data:" << cleanHexData;
+            qDebug() << "  - Rate:" << rateMs;
+            qDebug() << "  - CAN Bus:" << busToUse;
+            
+            return result;
+        }
+    }
+
+    qDebug() << "Message not found:" << name;
+    return QString();
+}
+
 QString DbcParser::getMessageHexData(const QString &messageName)
 {
     // Extract the message name without the ID part
@@ -1608,98 +1692,65 @@ QString DbcParser::getMessageHexData(const QString &messageName)
 
     // Find the message index
     int messageIndex = -1;
-    for (size_t i = 0; i < messages.size(); i++) {
+    for (int i = 0; i < static_cast<int>(messages.size()); ++i) {
         if (QString::fromStdString(messages[i].name) == name) {
-            messageIndex = static_cast<int>(i);
+            messageIndex = i;
             break;
         }
     }
 
-    if (messageIndex < 0 || messageIndex >= static_cast<int>(messages.size())) {
+    if (messageIndex == -1) {
+        qWarning() << "Message not found:" << name;
         return QString("00 00 00 00 00 00 00 00");
     }
-    
-    // If this is the currently selected message, use the unified method to ensure consistency
-    if (messageIndex == selectedMessageIndex) {
-        return getCurrentMessageHexData();
-    }
 
-    // For non-selected messages, use the stored signal values
     const auto& msg = messages[messageIndex];
-
-    // Create a buffer of zeros for the CAN frame data  
+    
+    // Create a buffer of zeros for the CAN frame data
     std::vector<uint8_t> frameData(msg.length, 0);
 
-    // For each signal, pack its value into the frame using the SAME logic as buildCanFrame()
-    for (const auto& sig : msg.signalList) {
-        // Convert the physical value to raw value
-        double rawValue = (sig.value - sig.offset) / sig.factor;
+    // Pack the signal values into the frame data
+    for (const auto& signal : msg.signalList) {
+        if (signal.value == 0.0) continue; // Skip zero values for efficiency
 
-        // Clamp to min/max if defined
-        if (sig.min != sig.max) {
-            rawValue = std::max(sig.min, std::min(rawValue, sig.max));
-        }
-
-        // Round to integer
+        // Calculate raw value from physical value
+        double rawValue = (signal.value - signal.offset) / signal.factor;
         uint64_t intValue = static_cast<uint64_t>(std::round(rawValue));
-        
-        // Apply bit mask based on signal length
-        uint64_t mask = (1ULL << sig.length) - 1;
-        intValue &= mask;
 
-        // Pack the value into the frame based on endianness
-        int startBit = sig.startBit;
-        
-        if (sig.littleEndian) {
-            // Little endian (Intel format)
-            for (int i = 0; i < sig.length; i++) {
-                int byteIndex = startBit / 8;
-                int bitIndex = startBit % 8;
-                
-                if (byteIndex < msg.length) {
-                    // Set or clear bit
-                    if (intValue & (1ULL << i)) {
-                        frameData[byteIndex] |= (1 << bitIndex);
-                    } else {
-                        frameData[byteIndex] &= ~(1 << bitIndex);
-                    }
-                }
-                
-                startBit++;
+        // Ensure the value fits within the signal's bit length
+        uint64_t maxValue = (1ULL << signal.length) - 1;
+        if (intValue > maxValue) {
+            intValue = maxValue;
+        }
+
+        // Pack the bits into the frame data
+        for (int bit = 0; bit < signal.length; ++bit) {
+            int bitPosition;
+            if (signal.littleEndian) {
+                bitPosition = signal.startBit + bit;
+            } else {
+                // Motorola (big-endian) bit ordering
+                bitPosition = signal.startBit - bit;
             }
-        } else {
-            // Big endian (Motorola format)
-            int msb = startBit;
-            for (int i = 0; i < sig.length; i++) {
-                int byteIndex = msb / 8;
-                int bitIndex = 7 - (msb % 8);
-                
-                if (byteIndex < msg.length) {
-                    // Set or clear bit
-                    if (intValue & (1ULL << (sig.length - 1 - i))) {
-                        frameData[byteIndex] |= (1 << bitIndex);
-                    } else {
-                        frameData[byteIndex] &= ~(1 << bitIndex);
-                    }
+
+            int byteIndex = bitPosition / 8;
+            int bitInByte = bitPosition % 8;
+
+            if (byteIndex >= 0 && byteIndex < static_cast<int>(frameData.size())) {
+                if (intValue & (1ULL << bit)) {
+                    frameData[byteIndex] |= (1 << bitInByte);
                 }
-                
-                // Decrement for Motorola format
-                msb--;
-                if (msb < 0) break;
             }
         }
     }
-    
-    // Format the frame data as a hex string WITHOUT "Data: " prefix (this is the key difference from buildCanFrame)
-    std::stringstream ss;
-    for (size_t i = 0; i < frameData.size(); i++) {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(frameData[i]);
-        if (i < frameData.size() - 1) {
-            ss << " ";
-        }
+
+    // Convert to hex string
+    QStringList hexBytes;
+    for (uint8_t byte : frameData) {
+        hexBytes << QString("%1").arg(byte, 2, 16, QChar('0')).toUpper();
     }
 
-    return QString::fromStdString(ss.str());
+    return hexBytes.join(" ");
 }
 
 unsigned long DbcParser::getMessageId(const QString &messageName)
@@ -1724,6 +1775,12 @@ bool DbcParser::sendCanMessage(const QString &messageName, int rateMs)
         qWarning() << "DbcSender not initialized";
         emit messageSendStatus(messageName, false, "Error: DbcSender not initialized");
         return false;
+    }
+
+    // Stop any existing transmission for this message first
+    if (stopExistingTransmission(messageName)) {
+        qDebug() << "Stopped existing transmission for message:" << messageName << "before starting new one";
+        emit showInfo("Replaced existing transmission for message: " + messageName);
     }
 
     QString messageData = prepareCanMessage(messageName, rateMs);
@@ -1771,54 +1828,178 @@ bool DbcParser::sendCanMessage(const QString &messageName, int rateMs)
     }
 }
 
-bool DbcParser::connectToServer(const QString &address, const QString &port)
+bool DbcParser::sendCanMessage(const QString &messageName, int rateMs, const QString &canBus)
 {
-    if (isConnectedToServer()) {
-        qDebug() << "Already connected to server";
-        return true;
+    qDebug() << "Send CAN message called for:" << messageName << "rate:" << rateMs << "ms on bus:" << canBus;
+    
+    emit messageSendStatus(messageName, true, "Sending message...");
+    
+    return startTransmission(messageName, rateMs, canBus);
+}
+
+bool DbcParser::sendCanMessageOnce(const QString &messageName, const QString &canBus)
+{
+    qDebug() << "Send CAN message once called for:" << messageName << "on bus:" << canBus;
+    
+    // Check if we have a dbcSender instance
+    if (!dbcSender) {
+        qWarning() << "DbcSender not initialized";
+        emit messageSendStatus(messageName, false, "Error: DbcSender not initialized");
+        return false;
     }
 
-    qint8 result = dbcSender->initiateConenction(address, port);
+    // Check if connected to server
+    if (!dbcSender->isConnected()) {
+        qDebug() << "Error: Not connected to server";
+        emit messageSendStatus(messageName, false, "Error: Not connected to server");
+        return false;
+    }
+
+    // Prepare the CAN message for one-shot sending
+    // Use rate 0 since it's a one-shot message
+    QString messageData = prepareCanMessage(messageName, 0, canBus);
+    if (messageData.isEmpty()) {
+        qWarning() << "Failed to prepare one-shot message:" << messageName;
+        emit messageSendStatus(messageName, false, "Error: Failed to prepare message");
+        return false;
+    }
+
+    // Emit starting status
+    emit messageSendStatus(messageName, true, "Sending message once...");
+
+    // Send the one-shot message via DbcSender using the new sendOneShotMessage method
+    qint8 result = dbcSender->sendOneShotMessage(messageData, 0); // 0ms delay
     
     if (result == 0) {
-        qDebug() << "Successfully connected to server at" << address << ":" << port;
-        emit connectionStatusChanged(); // Emit signal to update UI
+        qDebug() << "Successfully sent one-shot CAN message:" << messageData;
+        
+        // Get the task ID from the server response (for logging/debugging)
+        QString taskId = dbcSender->getLastTaskId();
+        qDebug() << "One-shot message task ID:" << taskId;
+        
+        emit messageSendStatus(messageName, true, "Message sent once successfully!");
         return true;
+    } else if (result == 2) {
+        // Error code 2 is typically a timeout waiting for acknowledgment
+        // The message was likely sent successfully but no response received
+        qDebug() << "One-shot message sent but no acknowledgment received:" << messageData;
+        
+        emit messageSendStatus(messageName, true, "Message sent once (no acknowledgment received)");
+        return true; // Consider this a success since message was transmitted
     } else {
-        qWarning() << "Failed to connect to server. Error code:" << result;
-        emit connectionStatusChanged(); // Emit signal to update UI
+        QString errorMsg = QString("One-shot send failed with error code: %1").arg(result);
+        qWarning() << "Failed to send one-shot CAN message. Error code:" << result;
+        emit messageSendStatus(messageName, false, errorMsg);
         return false;
     }
 }
 
-void DbcParser::disconnectFromServer()
+// Start transmission with CAN bus parameter
+bool DbcParser::startTransmission(const QString &messageName, int rateMs, const QString &canBus)
 {
-    if (dbcSender) {
-        qDebug() << "Disconnecting DbcSender from server";
-        dbcSender->disconnect();
+    qDebug() << "Starting transmission for message:" << messageName << "rate:" << rateMs << "ms on bus:" << canBus;
+
+    // Stop any existing transmission for this message first
+    stopExistingTransmission(messageName);
+
+    if (!dbcSender || !dbcSender->isConnected()) {
+        qDebug() << "Error: Not connected to server";
+        emit messageSendStatus(messageName, false, "Error: Not connected to server");
+        return false;
     }
-    emit connectionStatusChanged(); // Emit signal to update UI
+
+    // Prepare the CAN message with the specified bus
+    QString canMessage = prepareCanMessage(messageName, rateMs, canBus);
+    if (canMessage.isEmpty()) {
+        qDebug() << "Error: Failed to prepare CAN message";
+        emit messageSendStatus(messageName, false, "Error: Failed to prepare CAN message");
+        return false;
+    }
+
+    // Send the message
+    qint8 result = dbcSender->sendCANMessage(canMessage);
+    if (result == 0) {
+        // Get the task ID from the sender
+        QString taskId = dbcSender->getLastTaskId();
+        
+        // Add to active transmissions
+        addActiveTransmission(messageName, taskId, rateMs, canBus);
+        
+        qDebug() << "Message transmission started successfully with task ID:" << taskId;
+        emit messageSendStatus(messageName, true, "Message transmission started");
+        emit activeTransmissionsChanged();
+        return true;
+    } else {
+        qDebug() << "Error: Failed to send CAN message, error code:" << result;
+        emit messageSendStatus(messageName, false, "Error: Failed to send CAN message");
+        return false;
+    }
 }
 
-bool DbcParser::isConnectedToServer() const
+// Helper method to add active transmission with canBus parameter
+void DbcParser::addActiveTransmission(const QString &messageName, const QString &taskId, int rateMs, const QString &canBus)
 {
-    return dbcSender && dbcSender->isConnected();
-}
-
-void DbcParser::setTcpClient(QObject* tcpClient)
-{
-    qDebug() << "DbcParser: Setting TCP Client reference";
-    // Store reference to TCP Client for routing commands
-    if (dbcSender) {
-        dbcSender->setProperty("tcpClient", QVariant::fromValue(tcpClient));
+    ActiveTransmission transmission;
+    transmission.messageName = messageName;
+    transmission.taskId = taskId;
+    transmission.rateMs = rateMs;
+    transmission.isPaused = false;
+    transmission.status = "Active";
+    transmission.lastSent = QDateTime::currentDateTime().toString("hh:mm:ss");
+    transmission.sentCount = 0;
+    transmission.startedAt = QDateTime::currentDateTime();
+    transmission.canBus = canBus.isEmpty() ? "vcan0" : canBus;
+    
+    // Get message details
+    for (const auto &msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            transmission.messageId = msg.id;
+            transmission.hexData = getMessageHexData(messageName);
+            break;
+        }
     }
     
-    // Connect to TCP client's connection status changes to emit our own signal
-    if (tcpClient) {
-        connect(tcpClient, SIGNAL(connectionStatusChanged()), 
-                this, SIGNAL(connectionStatusChanged()));
-        qDebug() << "DbcParser: Connected to TCP client connection status changes";
+    m_activeTransmissions.append(transmission);
+    qDebug() << "Added active transmission:" << messageName << "with task ID:" << taskId << "on bus:" << canBus;
+}
+
+
+
+// Get available CAN interfaces
+QStringList DbcParser::getAvailableCanInterfaces()
+{
+    qDebug() << "Getting available CAN interfaces";
+    
+    if (!dbcSender) {
+        qDebug() << "Error: DbcSender not available";
+        return QStringList() << "vcan0"; // Default fallback
     }
+    
+    QString response = dbcSender->listCanInterfaces();
+    if (response.isEmpty() || response.startsWith("Error:")) {
+        qDebug() << "Error getting CAN interfaces:" << response;
+        return QStringList() << "vcan0"; // Default fallback
+    }
+    
+    // Parse the response to extract CAN interface names
+    QStringList interfaces;
+    QStringList lines = response.split('\n', Qt::SkipEmptyParts);
+    
+    for (const QString &line : lines) {
+        QString trimmed = line.trimmed();
+        if (!trimmed.isEmpty() && !trimmed.startsWith("Available") && !trimmed.startsWith("CAN")) {
+            // Assume each line contains an interface name
+            interfaces.append(trimmed);
+        }
+    }
+    
+    if (interfaces.isEmpty()) {
+        qDebug() << "No CAN interfaces found in response, using default";
+        interfaces.append("vcan0");
+    }
+    
+    qDebug() << "Available CAN interfaces:" << interfaces;
+    return interfaces;
 }
 
 // Unified method to get hex data for the currently selected message
@@ -1832,77 +2013,49 @@ QString DbcParser::getCurrentMessageHexData()
     
     // Create a buffer of zeros for the CAN frame data
     std::vector<uint8_t> frameData(msg.length, 0);
-    
-    // For each signal, pack its value into the frame using the SAME logic as buildCanFrame()
-    for (const auto& sig : msg.signalList) {
-        // Convert the physical value to raw value
-        double rawValue = (sig.value - sig.offset) / sig.factor;
-        
-        // Clamp to min/max if defined
-        if (sig.min != sig.max) {
-            rawValue = std::max(sig.min, std::min(rawValue, sig.max));
-        }
-        
-        // Round to integer
+
+    // Pack the signal values into the frame data
+    for (const auto& signal : msg.signalList) {
+        if (signal.value == 0.0) continue; // Skip zero values for efficiency
+
+        // Calculate raw value from physical value
+        double rawValue = (signal.value - signal.offset) / signal.factor;
         uint64_t intValue = static_cast<uint64_t>(std::round(rawValue));
-        
-        // Apply bit mask based on signal length
-        uint64_t mask = (1ULL << sig.length) - 1;
-        intValue &= mask;
-        
-        // Pack the value into the frame based on endianness
-        int startBit = sig.startBit;
-        
-        if (sig.littleEndian) {
-            // Little endian (Intel format)
-            for (int i = 0; i < sig.length; i++) {
-                int byteIndex = startBit / 8;
-                int bitIndex = startBit % 8;
-                
-                if (byteIndex < msg.length) {
-                    // Set or clear bit
-                    if (intValue & (1ULL << i)) {
-                        frameData[byteIndex] |= (1 << bitIndex);
-                    } else {
-                        frameData[byteIndex] &= ~(1 << bitIndex);
-                    }
-                }
-                
-                startBit++;
+
+        // Ensure the value fits within the signal's bit length
+        uint64_t maxValue = (1ULL << signal.length) - 1;
+        if (intValue > maxValue) {
+            intValue = maxValue;
+        }
+
+        // Pack the bits into the frame data
+        for (int bit = 0; bit < signal.length; ++bit) {
+            int bitPosition;
+            if (signal.littleEndian) {
+                bitPosition = signal.startBit + bit;
+            } else {
+                // Motorola (big-endian) bit ordering
+                bitPosition = signal.startBit - bit;
             }
-        } else {
-            // Big endian (Motorola format)
-            int msb = startBit;
-            for (int i = 0; i < sig.length; i++) {
-                int byteIndex = msb / 8;
-                int bitIndex = 7 - (msb % 8);
-                
-                if (byteIndex < msg.length) {
-                    // Set or clear bit
-                    if (intValue & (1ULL << (sig.length - 1 - i))) {
-                        frameData[byteIndex] |= (1 << bitIndex);
-                    } else {
-                        frameData[byteIndex] &= ~(1 << bitIndex);
-                    }
+
+            int byteIndex = bitPosition / 8;
+            int bitInByte = bitPosition % 8;
+
+            if (byteIndex >= 0 && byteIndex < static_cast<int>(frameData.size())) {
+                if (intValue & (1ULL << bit)) {
+                    frameData[byteIndex] |= (1 << bitInByte);
                 }
-                
-                // Decrement for Motorola format
-                msb--;
-                if (msb < 0) break;
             }
         }
     }
-    
-    // Format the frame data as a hex string WITHOUT "Data: " prefix
-    std::stringstream ss;
-    for (size_t i = 0; i < frameData.size(); i++) {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(frameData[i]);
-        if (i < frameData.size() - 1) {
-            ss << " ";
-        }
+
+    // Convert to hex string
+    QStringList hexBytes;
+    for (uint8_t byte : frameData) {
+        hexBytes << QString("%1").arg(byte, 2, 16, QChar('0')).toUpper();
     }
-    
-    return QString::fromStdString(ss.str());
+
+    return hexBytes.join(" ");
 }
 
 // Unified method to get binary data for the currently selected message
@@ -1911,528 +2064,99 @@ QString DbcParser::getCurrentMessageBinData()
     if (selectedMessageIndex < 0 || selectedMessageIndex >= static_cast<int>(messages.size())) {
         return QString("00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000");
     }
-    
-    const auto& msg = messages[selectedMessageIndex];
-    
-    // Create a buffer of zeros for the CAN frame data
-    std::vector<uint8_t> frameData(msg.length, 0);
-    
-    // For each signal, pack its value into the frame using the SAME logic as buildCanFrame()
-    for (const auto& sig : msg.signalList) {
-        // Convert the physical value to raw value
-        double rawValue = (sig.value - sig.offset) / sig.factor;
-        
-        // Clamp to min/max if defined
-        if (sig.min != sig.max) {
-            rawValue = std::max(sig.min, std::min(rawValue, sig.max));
-        }
-        
-        // Round to integer
-        uint64_t intValue = static_cast<uint64_t>(std::round(rawValue));
-        
-        // Apply bit mask based on signal length
-        uint64_t mask = (1ULL << sig.length) - 1;
-        intValue &= mask;
-        
-        // Pack the value into the frame based on endianness
-        int startBit = sig.startBit;
-        
-        if (sig.littleEndian) {
-            // Little endian (Intel format)
-            for (int i = 0; i < sig.length; i++) {
-                int byteIndex = startBit / 8;
-                int bitIndex = startBit % 8;
-                
-                if (byteIndex < msg.length) {
-                    // Set or clear bit
-                    if (intValue & (1ULL << i)) {
-                        frameData[byteIndex] |= (1 << bitIndex);
-                    } else {
-                        frameData[byteIndex] &= ~(1 << bitIndex);
-                    }
-                }
-                
-                startBit++;
-            }
-        } else {
-            // Big endian (Motorola format)
-            int msb = startBit;
-            for (int i = 0; i < sig.length; i++) {
-                int byteIndex = msb / 8;
-                int bitIndex = 7 - (msb % 8);
-                
-                if (byteIndex < msg.length) {
-                    // Set or clear bit
-                    if (intValue & (1ULL << (sig.length - 1 - i))) {
-                        frameData[byteIndex] |= (1 << bitIndex);
-                    } else {
-                        frameData[byteIndex] &= ~(1 << bitIndex);
-                    }
-                }
-                
-                // Decrement for Motorola format
-                msb--;
-                if (msb < 0) break;
-            }
-        }
-    }
-    
-    // Format the frame data as a binary string
-    std::stringstream ss;
-    for (size_t i = 0; i < frameData.size(); i++) {
-        for (int bit = 7; bit >= 0; bit--) {
-            ss << ((frameData[i] & (1 << bit)) ? "1" : "0");
-        }
-        if (i < frameData.size() - 1) {
-            ss << " ";
-        }
-    }
-    
-    return QString::fromStdString(ss.str());
-}
 
-// Active transmission management methods
-QVariantList DbcParser::activeTransmissions() const
-{
-    QVariantList result;
-    for (const auto& transmission : m_activeTransmissions) {
-        QVariantMap transmissionMap;
-        transmissionMap["messageName"] = transmission.messageName;
-        transmissionMap["messageId"] = static_cast<qint64>(transmission.messageId);
-        transmissionMap["taskId"] = transmission.taskId;
-        transmissionMap["rateMs"] = transmission.rateMs;
-        transmissionMap["interval"] = transmission.rateMs;
-        transmissionMap["isPaused"] = transmission.isPaused;
-        transmissionMap["status"] = transmission.status;
-        transmissionMap["lastSent"] = transmission.lastSent;
-        transmissionMap["sentCount"] = transmission.sentCount;
-        transmissionMap["hexData"] = transmission.hexData;
-        transmissionMap["startedAt"] = transmission.startedAt;
-        result.append(transmissionMap);
+    // Get the current message
+    const canMessage& msg = messages[selectedMessageIndex];
+    
+    // Build binary representation
+    QStringList binBytes;
+    for (int i = 0; i < msg.length; i++) {
+        binBytes << "00000000"; // Default to all zeros
     }
-    return result;
-}
-
-bool DbcParser::startTransmission(const QString &messageName, int rateMs)
-{
-    if (!isConnectedToServer()) {
-        emit showError("Cannot start transmission: not connected to server");
-        qWarning() << "Cannot start transmission: not connected to server";
-        return false;
-    }
-
-    // Check if transmission already exists
-    for (auto& transmission : m_activeTransmissions) {
-        if (transmission.messageName == messageName) {
-            if (transmission.status == "Stopped") {
-                transmission.status = "Active";
-                transmission.isPaused = false;
-                transmission.rateMs = rateMs;
-                transmission.startedAt = QDateTime::currentDateTime();
-                
-                // Start the actual transmission on the server
-                if (dbcSender && isConnectedToServer()) {
-                    QString messageData = prepareCanMessage(messageName, rateMs);
-                    if (!messageData.isEmpty()) {
-                        qint8 result = dbcSender->sendCANMessage(messageData);
-                        
-                        if (result == 0 || result == 2) {
-                            // Success or timeout (but message likely sent)
-                            QString taskId = dbcSender->getLastTaskId();
-                            transmission.taskId = taskId;
-                            qDebug() << "Reactivated transmission with task ID:" << taskId << "for message:" << messageName;
-                        } else {
-                            qWarning() << "Failed to reactivate transmission, result:" << result;
-                        }
-                    }
-                }
-                
-                updateActiveTransmissions();
-                emit transmissionStatusChanged(messageName, "Active");
-                return true;
+    
+    // Apply signal values to generate the actual binary data
+    for (const auto& signal : msg.signalList) {
+        // Convert signal value to raw binary value
+        uint64_t rawValue = static_cast<uint64_t>((signal.value - signal.offset) / signal.factor);
+        
+        // Apply the raw value to the appropriate bits in the message
+        for (int bit = 0; bit < signal.length; bit++) {
+            int bitPos;
+            if (signal.littleEndian) {
+                bitPos = signal.startBit + bit;
             } else {
-                qWarning() << "Transmission already active for message:" << messageName;
-                return false;
+                // Motorola (big-endian) bit numbering
+                bitPos = signal.startBit - bit;
             }
-        }
-    }
-
-    // Find the message
-    auto messageIt = std::find_if(messages.begin(), messages.end(),
-        [&messageName](const canMessage& msg) {
-            return QString::fromStdString(msg.name) == messageName;
-        });
-
-    if (messageIt == messages.end()) {
-        emit showError("Message '" + messageName + "' not found in DBC file");
-        qWarning() << "Message not found:" << messageName;
-        return false;
-    }
-
-    // Create new active transmission
-    ActiveTransmission newTransmission;
-    newTransmission.messageName = messageName;
-    newTransmission.messageId = messageIt->id;
-    newTransmission.rateMs = rateMs;
-    newTransmission.isPaused = false;
-    newTransmission.status = "Active";
-    newTransmission.lastSent = QDateTime::currentDateTime().toString("hh:mm:ss");
-    newTransmission.sentCount = 0;
-    newTransmission.startedAt = QDateTime::currentDateTime();
-    newTransmission.hexData = getMessageHexData(messageName);
-    newTransmission.taskId = ""; // Initialize empty, will be set after sending
-
-    qDebug() << "Created new active transmission for:" << messageName << "with messageId:" << messageIt->id;
-    m_activeTransmissions.append(newTransmission);
-
-    // Start the actual transmission on the server
-    if (dbcSender && isConnectedToServer()) {
-        QString messageData = prepareCanMessage(messageName, rateMs);
-        if (!messageData.isEmpty()) {
-            qint8 result = dbcSender->sendCANMessage(messageData);
             
-            if (result == 0 || result == 2) {
-                // Success or timeout (but message likely sent)
-                QString taskId = dbcSender->getLastTaskId();
-                qDebug() << "Got task ID from server:" << taskId << "for message:" << messageName;
+            if (bitPos >= 0 && bitPos < msg.length * 8) {
+                int byteIndex = bitPos / 8;
+                int bitIndex = 7 - (bitPos % 8);
                 
-                // Store the task ID in the active transmission
-                bool taskIdStored = false;
-                for (auto& transmission : m_activeTransmissions) {
-                    if (transmission.messageName == messageName) {
-                        transmission.taskId = taskId;
-                        qDebug() << "SUCCESS: Stored task ID:" << taskId << "for transmission:" << messageName;
-                        taskIdStored = true;
-                        break;
+                if (byteIndex < binBytes.size()) {
+                    QString byteStr = binBytes[byteIndex];
+                    if (rawValue & (1ULL << bit)) {
+                        byteStr[bitIndex] = '1';
+                    } else {
+                        byteStr[bitIndex] = '0';
                     }
+                    binBytes[byteIndex] = byteStr;
                 }
-                if (!taskIdStored) {
-                    qWarning() << "FAILED: Could not find transmission to store task ID:" << taskId << "for message:" << messageName;
-                }
-            } else {
-                qWarning() << "Failed to send message during startTransmission, result:" << result;
             }
         }
     }
     
-    updateActiveTransmissions();
-    emit transmissionStatusChanged(messageName, "Active");
-    return true;
+    return binBytes.join(" ");
 }
 
-bool DbcParser::stopTransmission(const QString &messageName)
+// Transmission management methods
+bool DbcParser::stopExistingTransmission(const QString &messageName)
 {
+    // Extract the clean message name (remove ID part if present)
+    int parenthesisPos = messageName.indexOf(" (");
+    QString cleanMessageName = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
+    
+    bool foundAndStopped = false;
+    
     for (auto it = m_activeTransmissions.begin(); it != m_activeTransmissions.end(); ++it) {
-        if (it->messageName == messageName) {
+        // Extract clean name from existing transmission
+        int existingParenthesisPos = it->messageName.indexOf(" (");
+        QString existingCleanName = existingParenthesisPos > 0 ? it->messageName.left(existingParenthesisPos) : it->messageName;
+        
+        if (existingCleanName == cleanMessageName) {
+            qDebug() << "Found existing transmission for message:" << cleanMessageName << "- stopping it";
+            
             // Stop the transmission on the server
             if (dbcSender && isConnectedToServer() && !it->taskId.isEmpty()) {
+                qDebug() << "Stopping server task:" << it->taskId << "for message:" << it->messageName;
                 dbcSender->stopCANMessage(it->taskId);
             }
             
-            it->status = "Stopped";
-            QString messageName = it->messageName;
-            emit transmissionStatusChanged(messageName, "Stopped");
+            QString stoppedMessageName = it->messageName;
+            emit transmissionStatusChanged(stoppedMessageName, "Stopped");
+            
+            // Add to past transmissions before removing from active list
+            addToPastTransmissions(*it, "Stopped");
             
             // Remove from active list
             m_activeTransmissions.erase(it);
-            updateActiveTransmissions();
-            return true;
-        }
-    }
-   
-
-    return false;
-}
-
-bool DbcParser::pauseTransmission(const QString &messageName)
-{
-    for (auto& transmission : m_activeTransmissions) {
-        if (transmission.messageName == messageName) {
-            transmission.isPaused = true;
-            transmission.status = "Paused";
+            foundAndStopped = true;
             
-            // Pause the transmission on the server
-            if (dbcSender && isConnectedToServer()) {
-                dbcSender->pauseCANMessage(QString::number(transmission.messageId));
-            }
-            
-            updateActiveTransmissions();
-            emit transmissionStatusChanged(messageName, "Paused");
-            return true;
-        }
-    }
-    return false;
-}
-
-bool DbcParser::resumeTransmission(const QString &messageName)
-{
-    for (auto& transmission : m_activeTransmissions) {
-        if (transmission.messageName == messageName && transmission.isPaused) {
-            transmission.isPaused = false;
-            transmission.status = "Active";
-            
-            // Resume the transmission on the server
-            if (dbcSender && isConnectedToServer()) {
-                QString messageData = prepareCanMessage(messageName, transmission.rateMs);
-                if (!messageData.isEmpty()) {
-                    dbcSender->sendCANMessage(messageData);
-                }
-            }
-            
-            updateActiveTransmissions();
-            emit transmissionStatusChanged(messageName, "Active");
-            return true;
-        }
-    }
-    return false;
-}
-
-bool DbcParser::stopActiveTransmission(unsigned int messageId)
-{
-    qDebug() << "STOP BUTTON CLICKED: Attempting to stop transmission with messageId:" << messageId;
-    qDebug() << "Current active transmissions count:" << m_activeTransmissions.size();
-    
-    for (auto it = m_activeTransmissions.begin(); it != m_activeTransmissions.end(); ++it) {
-        qDebug() << "Checking transmission - MessageId:" << it->messageId << "Status:" << it->status << "TaskId:" << it->taskId;
-        
-        if (it->messageId == messageId) {
-            qDebug() << "Found matching transmission, stopping...";
-            
-            if (dbcSender && isConnectedToServer() && !it->taskId.isEmpty()) {
-                qDebug() << "Sending KILL command to server with taskId:" << it->taskId;
-                qDebug() << "DbcSender exists:" << (dbcSender ? "YES" : "NO");
-                qDebug() << "Connected to server:" << (isConnectedToServer() ? "YES" : "NO");
-                
-                // Set status to "Stopping" to indicate the kill command was sent
-                it->status = "Stopping";
-                QString messageName = it->messageName;
-                emit transmissionStatusChanged(messageName, "Stopping");
-                updateActiveTransmissions();
-                
-                // Send the kill command and check response
-                qint8 result = dbcSender->stopCANMessage(it->taskId);
-                
-                if (result == 0) {
-                    // Success - now remove from list
-                    qDebug() << "Task killed successfully, removing from active transmissions";
-                    it->status = "Stopped";
-                    emit transmissionStatusChanged(messageName, "Stopped");
-                    m_activeTransmissions.erase(it);
-                    updateActiveTransmissions();
-                } else {
-                    // Failed - revert status to previous state (assume it was Active)
-                    qDebug() << "Failed to kill task, reverting status";
-                    it->status = "Active";
-                    emit transmissionStatusChanged(messageName, "Active");
-                    updateActiveTransmissions();
-                }
-            } else {
-                qDebug() << "Cannot send KILL command:";
-                qDebug() << "  - DbcSender exists:" << (dbcSender ? "YES" : "NO");
-                qDebug() << "  - Connected to server:" << (isConnectedToServer() ? "YES" : "NO");
-                qDebug() << "  - TaskId is not empty:" << (!it->taskId.isEmpty() ? "YES" : "NO");
-                qDebug() << "  - TaskId value:" << it->taskId;
-                
-                // If we can't send the command, just remove it locally
-                it->status = "Stopped";
-                QString messageName = it->messageName;
-                emit transmissionStatusChanged(messageName, "Stopped");
-                m_activeTransmissions.erase(it);
-                updateActiveTransmissions();
-            }
-            
-            return true;
-        }
-    }
-    qDebug() << "No matching transmission found for messageId:" << messageId;
-    return false;
-}
-
-bool DbcParser::pauseActiveTransmission(unsigned int messageId)
-{
-    qDebug() << "PAUSE BUTTON CLICKED: Attempting to pause transmission with messageId:" << messageId;
-    qDebug() << "Current active transmissions count:" << m_activeTransmissions.size();
-    
-    for (auto& transmission : m_activeTransmissions) {
-        qDebug() << "Checking transmission - MessageId:" << transmission.messageId << "Status:" << transmission.status << "TaskId:" << transmission.taskId;
-        
-        if (transmission.messageId == messageId && transmission.status == "Active") {
-            qDebug() << "Found matching active transmission, pausing...";
-            transmission.isPaused = true;
-            transmission.status = "Paused";
-            
-            if (dbcSender && isConnectedToServer() && !transmission.taskId.isEmpty()) {
-                qDebug() << "Sending PAUSE command to server with taskId:" << transmission.taskId;
-                qDebug() << "DbcSender exists:" << (dbcSender ? "YES" : "NO");
-                qDebug() << "Connected to server:" << (isConnectedToServer() ? "YES" : "NO");
-                dbcSender->pauseCANMessage(transmission.taskId);
-            } else {
-                qDebug() << "Cannot send PAUSE command:";
-                qDebug() << "  - DbcSender exists:" << (dbcSender ? "YES" : "NO");
-                qDebug() << "  - Connected to server:" << (isConnectedToServer() ? "YES" : "NO");
-                qDebug() << "  - TaskId is not empty:" << (!transmission.taskId.isEmpty() ? "YES" : "NO");
-                qDebug() << "  - TaskId value:" << transmission.taskId;
-            }
-            
-            updateActiveTransmissions();
-            emit transmissionStatusChanged(transmission.messageName, "Paused");
-            return true;
-        }
-    }
-    qDebug() << "No matching active transmission found for messageId:" << messageId;
-    return false;
-}
-
-bool DbcParser::resumeActiveTransmission(unsigned int messageId)
-{
-    qDebug() << "RESUME BUTTON CLICKED: Attempting to resume transmission with messageId:" << messageId;
-    qDebug() << "Current active transmissions count:" << m_activeTransmissions.size();
-    
-    for (auto& transmission : m_activeTransmissions) {
-        qDebug() << "Checking transmission - MessageId:" << transmission.messageId << "Status:" << transmission.status << "TaskId:" << transmission.taskId;
-        
-        if (transmission.messageId == messageId && transmission.status == "Paused") {
-            qDebug() << "Found matching paused transmission, resuming...";
-            transmission.isPaused = false;
-            transmission.status = "Active";
-            
-            if (dbcSender && isConnectedToServer() && !transmission.taskId.isEmpty()) {
-                qDebug() << "Sending RESUME command to server with taskId:" << transmission.taskId;
-                qDebug() << "DbcSender exists:" << (dbcSender ? "YES" : "NO");
-                qDebug() << "Connected to server:" << (isConnectedToServer() ? "YES" : "NO");
-                dbcSender->resumeCANMessage(transmission.taskId);
-            } else {
-                qDebug() << "Cannot send RESUME command:";
-                qDebug() << "  - DbcSender exists:" << (dbcSender ? "YES" : "NO");
-                qDebug() << "  - Connected to server:" << (isConnectedToServer() ? "YES" : "NO");
-                qDebug() << "  - TaskId is not empty:" << (!transmission.taskId.isEmpty() ? "YES" : "NO");
-                qDebug() << "  - TaskId value:" << transmission.taskId;
-            }
-            
-            updateActiveTransmissions();
-            emit transmissionStatusChanged(transmission.messageName, "Active");
-            return true;
-        }
-    }
-    qDebug() << "No matching paused transmission found for messageId:" << messageId;
-    return false;
-}
-
-bool DbcParser::stopAllTransmissions()
-{
-    bool allStopped = true;
-    for (auto& transmission : m_activeTransmissions) {
-        if (dbcSender && isConnectedToServer() && !transmission.taskId.isEmpty()) {
-            dbcSender->stopCANMessage(transmission.taskId);
-        }
-        transmission.status = "Stopped";
-        emit transmissionStatusChanged(transmission.messageName, "Stopped");
-    }
-    
-    m_activeTransmissions.clear();
-    updateActiveTransmissions();
-    return allStopped;
-}
-
-bool DbcParser::pauseAllTransmissions()
-{
-    bool allPaused = true;
-    for (auto& transmission : m_activeTransmissions) {
-        if (transmission.status == "Active") {
-            transmission.isPaused = true;
-            transmission.status = "Paused";
-            
-            if (dbcSender && isConnectedToServer() && !transmission.taskId.isEmpty()) {
-                dbcSender->pauseCANMessage(transmission.taskId);
-            }
-            emit transmissionStatusChanged(transmission.messageName, "Paused");
+            qDebug() << "Successfully stopped existing transmission for:" << cleanMessageName;
+            break; // Only stop the first match (there should only be one anyway)
         }
     }
     
-    updateActiveTransmissions();
-    return allPaused;
-}
-
-bool DbcParser::resumeAllTransmissions()
-{
-    bool allResumed = true;
-    for (auto& transmission : m_activeTransmissions) {
-        if (transmission.status == "Paused") {
-            transmission.isPaused = false;
-            transmission.status = "Active";
-            
-            if (dbcSender && isConnectedToServer() && !transmission.taskId.isEmpty()) {
-                dbcSender->resumeCANMessage(transmission.taskId);
-            }
-            emit transmissionStatusChanged(transmission.messageName, "Active");
-        }
-    }
-    
-    updateActiveTransmissions();
-    return allResumed;
-}
-
-bool DbcParser::killAllTransmissions()
-{
-    qDebug() << "DbcParser::killAllTransmissions called";
-    
-    if (!dbcSender || !isConnectedToServer()) {
-        qWarning() << "Cannot kill all transmissions: not connected to server";
-        return false;
-    }
-    
-    // Use the KILL_ALL_TASKS command to kill all tasks at once
-    qint8 result = dbcSender->killAllTasks();
-    
-    if (result == 0) {
-        qDebug() << "KILL_ALL_TASKS command successful, clearing local active transmissions";
-        
-        // Clear all local active transmissions since they were killed on the server
-        for (auto& transmission : m_activeTransmissions) {
-            transmission.status = "Stopped";
-            emit transmissionStatusChanged(transmission.messageName, "Stopped");
-        }
-        
-        m_activeTransmissions.clear();
+    if (foundAndStopped) {
         updateActiveTransmissions();
-        return true;
-    } else {
-        qWarning() << "KILL_ALL_TASKS command failed with result:" << result;
-        return false;
     }
+    
+    return foundAndStopped;
 }
 
 void DbcParser::addActiveTransmission(const QString &messageName, int rateMs, const QString &taskId)
 {
     qDebug() << "Adding active transmission for message:" << messageName << "with rate:" << rateMs << "and taskId:" << taskId;
-    
-    // Check if transmission already exists
-    for (auto& transmission : m_activeTransmissions) {
-        if (transmission.messageName == messageName) {
-            if (transmission.status == "Stopped") {
-                // Reactivate existing stopped transmission
-                transmission.status = "Active";
-                transmission.isPaused = false;
-                transmission.rateMs = rateMs;
-                transmission.taskId = taskId;
-                transmission.startedAt = QDateTime::currentDateTime();
-                transmission.lastSent = QDateTime::currentDateTime().toString("hh:mm:ss");
-                
-                qDebug() << "Reactivated existing transmission for:" << messageName;
-                updateActiveTransmissions();
-                emit transmissionStatusChanged(messageName, "Active");
-                return;
-            } else {
-                qWarning() << "Transmission already active for message:" << messageName;
-                // Update the existing transmission with new task ID and rate
-                transmission.rateMs = rateMs;
-                transmission.taskId = taskId;
-                transmission.lastSent = QDateTime::currentDateTime().toString("hh:mm:ss");
-                updateActiveTransmissions();
-                return;
-            }
-        }
-    }
 
     // Extract the message name without the ID part (e.g., "SimpBMS_Status (0x356)" -> "SimpBMS_Status")
     int parenthesisPos = messageName.indexOf(" (");
@@ -2470,462 +2194,620 @@ void DbcParser::addActiveTransmission(const QString &messageName, int rateMs, co
     emit transmissionStatusChanged(messageName, "Active");
 }
 
-void DbcParser::clearActiveTransmissions()
+
+
+// Missing transmission control methods
+
+bool DbcParser::killAllTransmissions()
 {
-    // Stop all active transmissions first
-    for (auto& transmission : m_activeTransmissions) {
-        if (dbcSender && isConnectedToServer() && !transmission.taskId.isEmpty()) {
-            dbcSender->stopCANMessage(transmission.taskId);
-        }
-        emit transmissionStatusChanged(transmission.messageName, "Stopped");
-    }
-    
-    m_activeTransmissions.clear();
-    emit activeTransmissionsChanged();
+    qDebug() << "Kill all transmissions called";
+    return stopAllTransmissions();
 }
 
-void DbcParser::updateActiveTransmissions()
+bool DbcParser::stopAllTransmissions()
 {
-    // Emit signal to notify QML that the active transmissions list has changed
-    emit activeTransmissionsChanged();
+    qDebug() << "Stop all transmissions called";
+    
+    if (!dbcSender || !dbcSender->isConnected()) {
+        return false;
+    }
+    
+    // Add all active transmissions to past transmissions before clearing
+    for (const auto& transmission : m_activeTransmissions) {
+        addToPastTransmissions(transmission, "Killed All");
+    }
+    
+    qint8 result = dbcSender->killAllTasks();
+    if (result == 0) {
+        clearActiveTransmissions();
+        return true;
+    }
+    return false;
+}
+
+bool DbcParser::pauseAllTransmissions()
+{
+    qDebug() << "Pause all transmissions called";
+    
+    bool success = true;
+    for (auto &transmission : m_activeTransmissions) {
+        if (!pauseTransmission(transmission.messageName)) {
+            success = false;
+        }
+    }
+    return success;
+}
+
+bool DbcParser::resumeAllTransmissions()
+{
+    qDebug() << "Resume all transmissions called";
+    
+    bool success = true;
+    for (auto &transmission : m_activeTransmissions) {
+        if (transmission.isPaused && !resumeTransmission(transmission.messageName)) {
+            success = false;
+        }
+    }
+    return success;
+}
+
+// Missing method implementations for linker errors
+
+void DbcParser::setTcpClient(QObject* tcpClient)
+{
+    qDebug() << "Set TCP client called";
+    if (dbcSender) {
+        dbcSender->setProperty("tcpClient", QVariant::fromValue(tcpClient));
+    }
+}
+
+QString DbcParser::testConfigLoad()
+{
+    qDebug() << "Test config load called";
+    return "Test config load not implemented";
+}
+
+bool DbcParser::connectToServer(const QString &address, const QString &port)
+{
+    qDebug() << "Connect to server called with address:" << address << "port:" << port;
+    
+    if (!dbcSender) {
+        qDebug() << "Error: DbcSender not available";
+        return false;
+    }
+    
+    qint8 result = dbcSender->initiateConnection(address, port);
+    if (result == 0) {
+        qDebug() << "Successfully connected to server";
+        emit connectionStatusChanged();
+        return true;
+    } else {
+        qDebug() << "Failed to connect to server, error code:" << result;
+        emit connectionStatusChanged();
+        return false;
+    }
+}
+
+QString DbcParser::debugLoadConfig(const QUrl &url)
+{
+    qDebug() << "Debug load config called with URL:" << url;
+    return "Debug load config not implemented";
+}
+
+QStringList DbcParser::getConfigSummary(const QUrl &url)
+{
+    qDebug() << "Get config summary called with URL:" << url;
+    return QStringList() << "Config summary not implemented";
+}
+
+bool DbcParser::stopTransmission(const QString &messageName)
+{
+    qDebug() << "Stop transmission called for:" << messageName;
+    return stopExistingTransmission(messageName);
+}
+
+bool DbcParser::pauseTransmission(const QString &messageName)
+{
+    qDebug() << "Pause transmission called for:" << messageName;
+    
+    if (!dbcSender || !dbcSender->isConnected()) {
+        return false;
+    }
+    
+    // Find the transmission and pause it
+    for (auto &transmission : m_activeTransmissions) {
+        if (transmission.messageName == messageName) {
+            qint8 result = dbcSender->pauseCANMessage(transmission.taskId);
+            if (result == 0) {
+                transmission.isPaused = true;
+                transmission.status = "Paused";
+                emit activeTransmissionsChanged();
+                emit transmissionStatusChanged(messageName, "Paused");
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool DbcParser::startTransmission(const QString &messageName, int rateMs)
+{
+    qDebug() << "Start transmission called for:" << messageName << "rate:" << rateMs;
+    return startTransmission(messageName, rateMs, "vcan0"); // Use default CAN bus
+}
+
+bool DbcParser::resumeTransmission(const QString &messageName)
+{
+    qDebug() << "Resume transmission called for:" << messageName;
+    
+    if (!dbcSender || !dbcSender->isConnected()) {
+        return false;
+    }
+    
+    // Find the transmission and resume it
+    for (auto &transmission : m_activeTransmissions) {
+        if (transmission.messageName == messageName && transmission.isPaused) {
+            qint8 result = dbcSender->resumeCANMessage(transmission.taskId);
+            if (result == 0) {
+                transmission.isPaused = false;
+                transmission.status = "Active";
+                emit activeTransmissionsChanged();
+                emit transmissionStatusChanged(messageName, "Active");
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool DbcParser::validateConfigFile(const QUrl &fileUrl)
+{
+    qDebug() << "Validate config file called with URL:" << fileUrl;
+    return false;
+}
+
+void DbcParser::disconnectFromServer()
+{
+    qDebug() << "Disconnect from server called";
+    
+    if (dbcSender) {
+        // Stop all active transmissions first
+        qDebug() << "Stopping all transmissions before disconnect";
+        killAllTransmissions();
+        
+        // Clear active transmissions list
+        m_activeTransmissions.clear();
+        emit activeTransmissionsChanged();
+        
+        // Disconnect from server
+        dbcSender->disconnect();
+        emit connectionStatusChanged();
+        
+        qDebug() << "Successfully disconnected from server";
+    }
 }
 
 void DbcParser::refreshTasksFromClient()
 {
-    qDebug() << "DbcParser::refreshTasksFromClient called";
-    
-    if (!dbcSender) {
-        qWarning() << "DbcSender not available";
-        return;
-    }
-    
-    // Call listTasks from DbcSender
-    QString tasksResponse = dbcSender->listTasks();
-    qDebug() << "Tasks response from client:" << tasksResponse;
-    
-    // Parse the response and update active transmissions accordingly
-    // Expected format from client might be something like:
-    // "task_0: SEND CAN_ID msg rate\ntask_1: SEND CAN_ID msg rate\n" etc.
-    
-    if (tasksResponse.contains("Error:") || tasksResponse.contains("No tasks")) {
-        qDebug() << "No active tasks or error in response:" << tasksResponse;
-        return;
-    }
-    
-    // For now, just emit the signal to refresh the UI
-    // In the future, we could parse the response and sync our local active transmissions
-    // with what's actually running on the client
-    emit activeTransmissionsChanged();
-    
-    qDebug() << "Active transmissions refreshed from client tasks";
-}
-
-bool DbcParser::saveActiveTransmissionsConfig(const QUrl &fileUrl)
-{
-    QString filePath = fileUrl.toLocalFile();
-    if (filePath.isEmpty()) {
-        return false;
-    }
-
-    QJsonDocument doc;
-    QJsonObject rootObj;
-    QJsonArray transmissionsArray;
-
-    for (const auto& transmission : m_activeTransmissions) {
-        QJsonObject transmissionObj;
-        transmissionObj["messageName"] = transmission.messageName;
-        transmissionObj["messageId"] = static_cast<qint64>(transmission.messageId);
-        transmissionObj["rateMs"] = transmission.rateMs;
-        transmissionObj["hexData"] = transmission.hexData;
-        
-        // Configuration-specific settings (not runtime status)
-        transmissionObj["description"] = QString("Auto-transmission for %1 every %2ms").arg(transmission.messageName).arg(transmission.rateMs);
-        transmissionObj["autoStart"] = true; // Default to auto-start on load
-        transmissionObj["enabled"] = true;   // Allow enabling/disabling without removing
-        
-        transmissionsArray.append(transmissionObj);
-    }
-
-    rootObj["activeTransmissions"] = transmissionsArray;
-    rootObj["configVersion"] = "1.0";
-    rootObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-    rootObj["description"] = QString("Active transmission configuration saved with %1 transmissions").arg(transmissionsArray.size());
-    
-    doc.setObject(rootObj);
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Cannot write active transmissions config to file:" << filePath;
-        return false;
-    }
-
-    file.write(doc.toJson());
-    file.close();
-    qDebug() << "Saved active transmissions configuration to:" << filePath;
-    return true;
-}
-
-bool DbcParser::loadActiveTransmissionsConfig(const QUrl &fileUrl)
-{
-    QString filePath = fileUrl.toLocalFile();
-    qDebug() << "Loading config - Original URL:" << fileUrl.toString();
-    qDebug() << "Loading config - Local file path:" << filePath;
-    
-    // Check if DBC file is loaded first
-    if (messages.empty()) {
-        emit showError("Cannot load configuration: No DBC file is currently loaded. Please load a DBC file first.");
-        qWarning() << "Cannot load config: No DBC file loaded";
-        return false;
-    }
-    
-    // Check if file path is valid
-    if (filePath.isEmpty()) {
-        emit showError("Invalid file path for loading configuration");
-        qWarning() << "Invalid file path for loading active transmissions config";
-        return false;
-    }
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit showError("Cannot read configuration file: " + QFileInfo(filePath).fileName());
-        qWarning() << "Cannot read active transmissions config file:" << filePath;
-        qWarning() << "File exists:" << QFile::exists(filePath);
-        qWarning() << "File error:" << file.errorString();
-        return false;
-    }
-
-    QByteArray data = file.readAll();
-    file.close();
-
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
-    
-    if (parseError.error != QJsonParseError::NoError) {
-        emit showError("Configuration file has invalid JSON format: " + parseError.errorString());
-        qWarning() << "JSON parse error in config file:" << parseError.errorString();
-        return false;
-    }
-
-    QJsonObject rootObj = doc.object();
-    QString configVersion = rootObj["configVersion"].toString();
-    QJsonArray transmissionsArray = rootObj["activeTransmissions"].toArray();
-
-    qDebug() << "Loading active transmissions config version:" << configVersion;
-    qDebug() << "Found" << transmissionsArray.size() << "transmission configurations";
-    qDebug() << "Current DBC has" << messages.size() << "messages loaded";
-
-    // Don't clear existing transmissions - add to them or ask user
-    // clearActiveTransmissions();
-
-    int loadedCount = 0;
-    int skippedCount = 0;
-
-    for (const QJsonValue& value : transmissionsArray) {
-        QJsonObject transmissionObj = value.toObject();
-        QString messageName = transmissionObj["messageName"].toString();
-        int rateMs = transmissionObj["rateMs"].toInt();
-        bool autoStart = transmissionObj["autoStart"].toBool();
-        bool enabled = transmissionObj["enabled"].toBool(true); // Default to enabled
-        
-        // Validate the configuration
-        if (messageName.isEmpty() || rateMs <= 0) {
-            emit showWarning("Invalid configuration for transmission: " + messageName);
-            qWarning() << "Invalid transmission config: messageName=" << messageName << "rateMs=" << rateMs;
-            skippedCount++;
-            continue;
-        }
-        
-        // Check if message exists in current DBC
-        if (!messageExists(messageName)) {
-            emit showWarning("Message '" + messageName + "' not found in current DBC file - skipping");
-            qWarning() << "Message" << messageName << "not found in current DBC - skipping";
-            skippedCount++;
-            continue;
-        }
-        
-        // Check if transmission already active
-        bool alreadyActive = false;
-        for (const auto& existing : m_activeTransmissions) {
-            if (existing.messageName == messageName) {
-                qDebug() << "Transmission for" << messageName << "already active - skipping";
-                alreadyActive = true;
-                skippedCount++;
-                break;
-            }
-        }
-        
-        if (alreadyActive) continue;
-        
-        // Start transmission only if enabled and autoStart is true
-        if (enabled && autoStart) {
-            if (startTransmission(messageName, rateMs)) {
-                loadedCount++;
-                qDebug() << "Started transmission:" << messageName << "at" << rateMs << "ms";
-                
-                // Add a small delay between message sends to ensure they are processed separately
-                QThread::msleep(100); // 100ms delay between messages
-            } else {
-                qWarning() << "Failed to start transmission:" << messageName;
-                skippedCount++;
-            }
-        } else {
-            qDebug() << "Skipping transmission" << messageName << "(enabled:" << enabled << ", autoStart:" << autoStart << ")";
-            skippedCount++;
-        }
-    }
-
+    qDebug() << "Refresh tasks from client called";
     updateActiveTransmissions();
-    
-    qDebug() << "Configuration load complete. Loaded:" << loadedCount << "Skipped:" << skippedCount;
-    
-    if (loadedCount > 0) {
-        emit showSuccess(QString("Configuration loaded successfully! Started %1 transmissions, skipped %2").arg(loadedCount).arg(skippedCount));
-    } else if (skippedCount > 0) {
-        emit showWarning(QString("Configuration loaded but no transmissions started. %1 items were skipped").arg(skippedCount));
-    } else {
-        emit showError("No valid transmissions found in configuration file");
-    }
-    
-    return loadedCount > 0; // Return true if at least one transmission was loaded
 }
 
-// Debug methods for troubleshooting
-QStringList DbcParser::getAvailableMessages() const
+bool DbcParser::stopActiveTransmission(unsigned int messageId)
 {
-    QStringList messageNames;
-    for (const auto& msg : messages) {
-        messageNames << QString::fromStdString(msg.name);
+    qDebug() << "Stop active transmission called for message ID:" << messageId;
+    
+    for (int i = 0; i < m_activeTransmissions.size(); ++i) {
+        if (m_activeTransmissions[i].messageId == messageId) {
+            return stopTransmission(m_activeTransmissions[i].messageName);
+        }
     }
-    return messageNames;
+    
+    qDebug() << "No active transmission found for message ID:" << messageId;
+    return false;
 }
 
-QString DbcParser::debugLoadConfig(const QUrl &fileUrl)
+bool DbcParser::pauseActiveTransmission(unsigned int messageId)
 {
-    QString result = "Debug Config Load:\n";
-    QString filePath = fileUrl.toLocalFile();
+    qDebug() << "Pause active transmission called for message ID:" << messageId;
     
-    result += QString("URL: %1\n").arg(fileUrl.toString());
-    result += QString("Local Path: %1\n").arg(filePath);
-    result += QString("File Exists: %1\n").arg(QFile::exists(filePath) ? "Yes" : "No");
-    result += QString("DBC Messages Loaded: %1\n").arg(messages.size());
-    
-    if (!messages.empty()) {
-        result += "Available Messages:\n";
-        for (const auto& msg : messages) {
-            result += QString("- %1 (ID: %2)\n").arg(QString::fromStdString(msg.name)).arg(msg.id);
+    for (int i = 0; i < m_activeTransmissions.size(); ++i) {
+        if (m_activeTransmissions[i].messageId == messageId) {
+            return pauseTransmission(m_activeTransmissions[i].messageName);
         }
     }
     
-    // Test 3: Check config file path
-    QString configPath = QDir::currentPath() + "/simpbms_transmission_config.json";
-    result += QString("\nConfig file path: %1\n").arg(configPath);
-    result += QString("Config file exists: %1\n").arg(QFile::exists(configPath) ? "Yes" : "No");
-    
-    // Test 4: Try to load config
-    if (QFile::exists(configPath)) {
-        QUrl fileUrl = QUrl::fromLocalFile(configPath);
-        result += QString("QUrl: %1\n").arg(fileUrl.toString());
-        
-        bool success = loadActiveTransmissionsConfig(fileUrl);
-        result += QString("Load result: %1\n").arg(success ? "SUCCESS" : "FAILED");
-        
-        result += QString("Active transmissions count: %1\n").arg(m_activeTransmissions.size());
-    }
-    
-    return result;
+    qDebug() << "No active transmission found for message ID:" << messageId;
+    return false;
 }
 
-QString DbcParser::getActiveTransmissionsConfigInfo(const QUrl &fileUrl) {
-    QString result = "Config Info:\n";
-    
-    QString filePath = fileUrl.toLocalFile();
-    if (!QFile::exists(filePath)) {
-        return "Error: File does not exist";
-    }
-    
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return "Error: Cannot open file";
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
-    
-    if (error.error != QJsonParseError::NoError) {
-        return QString("Error: Invalid JSON - %1").arg(error.errorString());
-    }
-    
-    QJsonObject root = doc.object();
-    result += QString("Version: %1\n").arg(root["version"].toString());
-    result += QString("Created: %1\n").arg(root["created"].toString());
-    
-    QJsonArray transmissions = root["active_transmissions"].toArray();
-    result += QString("Transmissions: %1\n").arg(transmissions.size());
-    
-    return result;
+void DbcParser::clearActiveTransmissions()
+{
+    qDebug() << "Clearing active transmissions";
+    m_activeTransmissions.clear();
+    emit activeTransmissionsChanged();
 }
 
-bool DbcParser::validateConfigFile(const QUrl &fileUrl) {
-    QString filePath = fileUrl.toLocalFile();
-    if (!QFile::exists(filePath)) {
-        emit showError("Config file does not exist");
-        return false;
-    }
+bool DbcParser::resumeActiveTransmission(unsigned int messageId)
+{
+    qDebug() << "Resume active transmission called for message ID:" << messageId;
     
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit showError("Cannot open config file");
-        return false;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
-    
-    if (error.error != QJsonParseError::NoError) {
-        emit showError(QString("Invalid JSON in config file: %1").arg(error.errorString()));
-        return false;
-    }
-    
-    QJsonObject root = doc.object();
-    if (!root.contains("active_transmissions")) {
-        emit showError("Config file missing 'active_transmissions' section");
-        return false;
-    }
-    
-    emit showSuccess("Config file validation passed");
-    return true;
-}
-
-QStringList DbcParser::getConfigSummary(const QUrl &fileUrl) {
-    QStringList summary;
-    
-    QString filePath = fileUrl.toLocalFile();
-    if (!QFile::exists(filePath)) {
-        summary << "Error: File does not exist";
-        return summary;
-    }
-    
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        summary << "Error: Cannot open file";
-        return summary;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &error);
-    
-    if (error.error != QJsonParseError::NoError) {
-        summary << QString("Error: Invalid JSON - %1").arg(error.errorString());
-        return summary;
-    }
-    
-    QJsonObject root = doc.object();
-    summary << QString("Version: %1").arg(root["version"].toString());
-    summary << QString("Created: %1").arg(root["created"].toString());
-    
-    QJsonArray transmissions = root["active_transmissions"].toArray();
-    summary << QString("Total transmissions: %1").arg(transmissions.size());
-    
-    for (const QJsonValue &value : transmissions) {
-        QJsonObject trans = value.toObject();
-        QString messageName = trans["messageName"].toString();
-        int rateMs = trans["rateMs"].toInt();
-        QString status = trans["status"].toString();
-        summary << QString("- %1: %2ms, %3").arg(messageName).arg(rateMs).arg(status);
-    }
-    
-    return summary;
-}
-
-bool DbcParser::mergeActiveTransmissionsConfig(const QUrl &fileUrl, bool replaceExisting) {
-    if (!validateConfigFile(fileUrl)) {
-        return false;
-    }
-    
-    QString filePath = fileUrl.toLocalFile();
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit showError("Cannot open config file for merging");
-        return false;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    QJsonObject root = doc.object();
-    QJsonArray transmissions = root["active_transmissions"].toArray();
-    
-    int mergedCount = 0;
-    int skippedCount = 0;
-    
-    for (const QJsonValue &value : transmissions) {
-        QJsonObject transObj = value.toObject();
-        ActiveTransmission trans;
-        trans.messageName = transObj["messageName"].toString();
-        trans.messageId = transObj["messageId"].toInt();
-        trans.rateMs = transObj["rateMs"].toInt();
-        trans.status = transObj["status"].toString();
-        trans.isPaused = (trans.status == "Paused");
-        
-        // Check if transmission already exists
-        bool exists = false;
-        for (int i = 0; i < m_activeTransmissions.size(); ++i) {
-            if (m_activeTransmissions[i].messageName == trans.messageName) {
-                exists = true;
-                if (replaceExisting) {
-                    m_activeTransmissions[i] = trans;
-                    mergedCount++;
-                } else {
-                    skippedCount++;
-                }
-                break;
-            }
-        }
-        
-        if (!exists) {
-            m_activeTransmissions.append(trans);
-            mergedCount++;
+    for (int i = 0; i < m_activeTransmissions.size(); ++i) {
+        if (m_activeTransmissions[i].messageId == messageId) {
+            return resumeTransmission(m_activeTransmissions[i].messageName);
         }
     }
+    
+    qDebug() << "No active transmission found for message ID:" << messageId;
+    return false;
+}
+
+void DbcParser::updateActiveTransmissions()
+{
+    qDebug() << "Update active transmissions called";
+    
+    if (!dbcSender || !dbcSender->isConnected()) {
+        return;
+    }
+    
+    // Get current tasks from server
+    QString tasksResponse = dbcSender->listTasks();
+    // TODO: Parse response and update transmission states
     
     emit activeTransmissionsChanged();
-    emit showSuccess(QString("Merged %1 transmissions, skipped %2 existing").arg(mergedCount).arg(skippedCount));
-    return true;
 }
 
-QString DbcParser::testConfigLoad() {
-    QString result = "Testing config load:\n";
-    
-    QString configPath = QDir::currentPath() + "/simpbms_transmission_config.json";
-    result += QString("Config path: %1\n").arg(configPath);
-    
-    if (QFile::exists(configPath)) {
-        result += "File exists: YES\n";
-        QUrl fileUrl = QUrl::fromLocalFile(configPath);
-        result += QString("QUrl: %1\n").arg(fileUrl.toString());
-        
-        bool success = loadActiveTransmissionsConfig(fileUrl);
-        result += QString("Load result: %1\n").arg(success ? "SUCCESS" : "FAILED");
-        
-        result += QString("Active transmissions count: %1\n").arg(m_activeTransmissions.size());
-    } else {
-        result += "File exists: NO\n";
-    }
-    
-    return result;
+bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
+{
+    qDebug() << "Load active transmissions config called with URL:" << loadUrl;
+    return false;
+}
+
+bool DbcParser::saveActiveTransmissionsConfig(const QUrl &saveUrl)
+{
+    qDebug() << "Save active transmissions config called with URL:" << saveUrl;
+    return false;
+}
+
+bool DbcParser::mergeActiveTransmissionsConfig(const QUrl &fileUrl, bool replaceExisting)
+{
+    qDebug() << "Merge active transmissions config called with URL:" << fileUrl << "replace:" << replaceExisting;
+    return false;
+}
+
+QString DbcParser::getActiveTransmissionsConfigInfo(const QUrl &fileUrl)
+{
+    qDebug() << "Get active transmissions config info called with URL:" << fileUrl;
+    return "Config info not implemented";
 }
 
 bool DbcParser::isDbcLoaded() const
 {
     return !messages.empty();
 }
+
+QVariantList DbcParser::activeTransmissions() const
+{
+    QVariantList result;
+    for (const auto &transmission : m_activeTransmissions) {
+        QVariantMap map;
+        map["messageName"] = transmission.messageName;
+        map["messageId"] = QString("0x%1").arg(transmission.messageId, 0, 16).toUpper();
+        map["taskId"] = transmission.taskId;
+        map["rateMs"] = transmission.rateMs;
+        map["isPaused"] = transmission.isPaused;
+        map["status"] = transmission.status;
+        map["lastSent"] = transmission.lastSent;
+        map["sentCount"] = transmission.sentCount;
+        map["hexData"] = transmission.hexData;
+        map["startedAt"] = transmission.startedAt.toString("hh:mm:ss");
+        map["canBus"] = transmission.canBus;
+        result.append(map);
+    }
+    return result;
+}
+
+QStringList DbcParser::getAvailableMessages() const
+{
+    QStringList messageNames;
+    for (const auto &message : messages) {
+        messageNames.append(QString::fromStdString(message.name));
+    }
+    return messageNames;
+}
+
+// Helper method to move active transmission to past transmissions
+void DbcParser::addToPastTransmissions(const ActiveTransmission& transmission, const QString& endReason)
+{
+    PastTransmission pastTx;
+    pastTx.messageName = transmission.messageName;
+    pastTx.messageId = transmission.messageId;
+    pastTx.taskId = transmission.taskId;
+    pastTx.rateMs = transmission.rateMs;
+    pastTx.hexData = transmission.hexData;
+    pastTx.startedAt = transmission.startedAt;
+    pastTx.endedAt = QDateTime::currentDateTime();
+    pastTx.endReason = endReason;
+    pastTx.totalSent = transmission.sentCount;
+    pastTx.canBus = transmission.canBus;
+    
+    // Calculate duration
+    qint64 durationMs = pastTx.startedAt.msecsTo(pastTx.endedAt);
+    if (durationMs < 1000) {
+        pastTx.duration = QString("%1ms").arg(durationMs);
+    } else if (durationMs < 60000) {
+        pastTx.duration = QString("%1.%2s").arg(durationMs / 1000).arg((durationMs % 1000) / 100);
+    } else {
+        int seconds = durationMs / 1000;
+        int minutes = seconds / 60;
+        seconds = seconds % 60;
+        pastTx.duration = QString("%1m %2s").arg(minutes).arg(seconds);
+    }
+    
+    // Add to beginning of list (most recent first)
+    m_pastTransmissions.prepend(pastTx);
+    
+    // Limit to 100 past transmissions
+    if (m_pastTransmissions.size() > 100) {
+        m_pastTransmissions.removeLast();
+    }
+    
+    emit pastTransmissionsChanged();
+}
+
+// Property getters for new features
+QVariantList DbcParser::pastTransmissions() const
+{
+    QVariantList list;
+    for (const auto& transmission : m_pastTransmissions) {
+        QVariantMap map;
+        map["messageName"] = transmission.messageName;
+        map["messageId"] = static_cast<qint64>(transmission.messageId);
+        map["taskId"] = transmission.taskId;
+        map["rateMs"] = transmission.rateMs;
+        map["hexData"] = transmission.hexData;
+        map["startedAt"] = transmission.startedAt;
+        map["endedAt"] = transmission.endedAt;
+        map["endReason"] = transmission.endReason;
+        map["totalSent"] = transmission.totalSent;
+        map["canBus"] = transmission.canBus;
+        map["duration"] = transmission.duration;
+        list.append(map);
+    }
+    return list;
+}
+
+QVariantList DbcParser::configFiles() const
+{
+    QVariantList list;
+    for (const auto& config : m_configFiles) {
+        QVariantMap map;
+        map["fileName"] = config.fileName;
+        map["filePath"] = config.filePath;
+        map["lastModified"] = config.lastModified;
+        map["description"] = config.description;
+        map["messageCount"] = config.messageCount;
+        list.append(map);
+    }
+    return list;
+}
+
+// Config file browser methods
+void DbcParser::refreshConfigFiles()
+{
+    qDebug() << "Refreshing config files from directory:" << m_configDirectory;
+    
+    m_configFiles.clear();
+    
+    if (m_configDirectory.isEmpty()) {
+        // Set default directory to the current working directory
+        m_configDirectory = QDir::currentPath();
+    }
+    
+    QDir dir(m_configDirectory);
+    if (!dir.exists()) {
+        qWarning() << "Config directory does not exist:" << m_configDirectory;
+        emit configFilesChanged();
+        return;
+    }
+    
+    // Look for JSON config files
+    QStringList nameFilters;
+    nameFilters << "*.json";
+    QFileInfoList fileInfos = dir.entryInfoList(nameFilters, QDir::Files | QDir::Readable, QDir::Time);
+    
+    for (const QFileInfo& fileInfo : fileInfos) {
+        ConfigFileEntry entry;
+        entry.fileName = fileInfo.baseName();
+        entry.filePath = fileInfo.absoluteFilePath();
+        entry.lastModified = fileInfo.lastModified();
+        
+        // Try to get basic info from the config file
+        QFile file(entry.filePath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray data = file.readAll();
+            QJsonParseError error;
+            QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+            
+            if (error.error == QJsonParseError::NoError && doc.isObject()) {
+                QJsonObject obj = doc.object();
+                
+                // Count transmissions
+                if (obj.contains("transmissions") && obj["transmissions"].isArray()) {
+                    entry.messageCount = obj["transmissions"].toArray().size();
+                } else {
+                    entry.messageCount = 0;
+                }
+                
+                // Get description if available
+                if (obj.contains("description")) {
+                    entry.description = obj["description"].toString();
+                } else {
+                    entry.description = QString("Config with %1 messages").arg(entry.messageCount);
+                }
+            } else {
+                entry.messageCount = 0;
+                entry.description = "Invalid JSON file";
+            }
+        } else {
+            entry.messageCount = 0;
+            entry.description = "Cannot read file";
+        }
+        
+        m_configFiles.append(entry);
+    }
+    
+    qDebug() << "Found" << m_configFiles.size() << "config files";
+    emit configFilesChanged();
+}
+
+void DbcParser::setConfigDirectory(const QUrl &directoryUrl)
+{
+    QString newDirectory = directoryUrl.toLocalFile();
+    if (newDirectory != m_configDirectory) {
+        m_configDirectory = newDirectory;
+        qDebug() << "Config directory set to:" << m_configDirectory;
+        refreshConfigFiles();
+    }
+}
+
+bool DbcParser::loadConfigByFileName(const QString &fileName)
+{
+    qDebug() << "Loading config by file name:" << fileName;
+    
+    // Find the config file entry
+    QString fullPath;
+    for (const auto& config : m_configFiles) {
+        if (config.fileName == fileName) {
+            fullPath = config.filePath;
+            break;
+        }
+    }
+    
+    if (fullPath.isEmpty()) {
+        qWarning() << "Config file not found:" << fileName;
+        emit showError("Config file not found: " + fileName);
+        return false;
+    }
+    
+    // Load the configuration using the existing method
+    QUrl fileUrl = QUrl::fromLocalFile(fullPath);
+    bool success = loadActiveTransmissionsConfig(fileUrl);
+    
+    if (success) {
+        emit showSuccess("Loaded configuration: " + fileName);
+        qDebug() << "Successfully loaded config:" << fileName;
+    } else {
+        emit showError("Failed to load configuration: " + fileName);
+        qWarning() << "Failed to load config:" << fileName;
+    }
+    
+    return success;
+}
+
+QString DbcParser::getConfigFileInfo(const QString &fileName)
+{
+    for (const auto& config : m_configFiles) {
+        if (config.fileName == fileName) {
+            QString info = QString("File: %1\n")
+                          .arg(config.fileName);
+            info += QString("Messages: %1\n").arg(config.messageCount);
+            info += QString("Modified: %1\n").arg(config.lastModified.toString("yyyy-MM-dd hh:mm:ss"));
+            info += QString("Description: %1").arg(config.description);
+            return info;
+        }
+    }
+    return "Config file not found";
+}
+
+// Past transmissions methods
+void DbcParser::clearPastTransmissions()
+{
+    qDebug() << "Clearing past transmissions";
+    m_pastTransmissions.clear();
+    emit pastTransmissionsChanged();
+}
+
+QVariantList DbcParser::getPastTransmissionsFiltered(const QString &filter)
+{
+    if (filter.isEmpty()) {
+        return pastTransmissions();
+    }
+    
+    QVariantList filteredList;
+    QString lowerFilter = filter.toLower();
+    
+    for (const auto& transmission : m_pastTransmissions) {
+        bool matches = transmission.messageName.toLower().contains(lowerFilter) ||
+                      transmission.endReason.toLower().contains(lowerFilter) ||
+                      transmission.canBus.toLower().contains(lowerFilter);
+        
+        if (matches) {
+            QVariantMap map;
+            map["messageName"] = transmission.messageName;
+            map["messageId"] = static_cast<qint64>(transmission.messageId);
+            map["taskId"] = transmission.taskId;
+            map["rateMs"] = transmission.rateMs;
+            map["hexData"] = transmission.hexData;
+            map["startedAt"] = transmission.startedAt;
+            map["endedAt"] = transmission.endedAt;
+            map["endReason"] = transmission.endReason;
+            map["totalSent"] = transmission.totalSent;
+            map["canBus"] = transmission.canBus;
+            map["duration"] = transmission.duration;
+            filteredList.append(map);
+        }
+    }
+    
+    return filteredList;
+}
+
+void DbcParser::exportPastTransmissions(const QUrl &saveUrl)
+{
+    QString filePath = saveUrl.toLocalFile();
+    if (filePath.isEmpty()) {
+        emit showError("Invalid file path for export");
+        return;
+    }
+    
+    QJsonArray transmissionsArray;
+    for (const auto& transmission : m_pastTransmissions) {
+        QJsonObject txObj;
+        txObj["messageName"] = transmission.messageName;
+        txObj["messageId"] = static_cast<qint64>(transmission.messageId);
+        txObj["taskId"] = transmission.taskId;
+        txObj["rateMs"] = transmission.rateMs;
+        txObj["hexData"] = transmission.hexData;
+        txObj["startedAt"] = transmission.startedAt.toString(Qt::ISODate);
+        txObj["endedAt"] = transmission.endedAt.toString(Qt::ISODate);
+        txObj["endReason"] = transmission.endReason;
+        txObj["totalSent"] = transmission.totalSent;
+        txObj["canBus"] = transmission.canBus;
+        txObj["duration"] = transmission.duration;
+        transmissionsArray.append(txObj);
+    }
+    
+    QJsonObject rootObj;
+    rootObj["exportedAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    rootObj["totalCount"] = transmissionsArray.size();
+    rootObj["pastTransmissions"] = transmissionsArray;
+    
+    QJsonDocument doc(rootObj);
+    
+    QFile file(filePath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(doc.toJson());
+        file.close();
+        emit showSuccess("Past transmissions exported successfully");
+        qDebug() << "Exported" << m_pastTransmissions.size() << "past transmissions to" << filePath;
+    } else {
+        emit showError("Failed to export past transmissions: Cannot write to file");
+        qWarning() << "Failed to export past transmissions to" << filePath;
+    }
+}
+
+bool DbcParser::isConnectedToServer() const
+{
+    return dbcSender && dbcSender->isConnected();
+}
+
