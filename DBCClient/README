@@ -1,10 +1,95 @@
-README
+# CAN Bus Scheduler
 
-Instructions:
-Compile the server and client using the Makefile.
-Configure the server.conf and client.conf files with the appropriate port number and server IP address.
-Run the server application.
-Run the client application.
+A multi-threaded TCP server and companion client for scheduling recurring or one-shot `cansend` transmissions on Linux CAN/vCAN interfaces. Tasks are executed through a deadline-aware thread pool that forks the system `cansend` utility.
+
+## Features
+- Deadline + priority thread pool for CAN message scheduling.
+- Support for recurring (`CANSEND#...`) and single-shot (`SEND_TASK#...`) jobs.
+- Per-client task management (pause/resume/kill/list).
+- Dynamic discovery of available CAN interfaces.
+- Centralized logging with configurable verbosity.
+
+## Repository Layout
+- `server.cpp` — TCP server, command dispatcher, scheduling logic, CAN discovery.
+- `client.cpp` — interactive CLI client for sending commands.
+- `test_server.cpp` — unit tests for command parsing.
+- `test_integration.cpp` — lightweight integration test harness.
+- `output/server.conf` & `output/client.conf` — example configuration files.
+- `Makefile` — build targets for server, client, and tests.
+
+## Prerequisites
+- Linux with POSIX sockets and pthreads.
+- `g++` supporting C++20.
+- `iproute2` and CAN utils (`cansend`, `candump`).
+- Optional: virtual CAN setup for local testing.
+
+### Creating a vCAN interface
+```bash
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+```
+
+## Build
+```bash
+make all         # build server -> output/server
+make client      # build client -> output/client
+make test        # build & run test_server.cpp
+make clean       # remove binaries
+```
+
+## Configuration
+### Server (`output/server.conf`)
+```
+PORT=50123
+LOG_LEVEL=DEBUG        # DEBUG|INFO|WARNING|ERROR|NOLOG
+WORKER_THREADS=2       # optional, defaults to min(cores, value) with floor of 1
+```
+
+### Client (`output/client.conf`)
+```
+SERVER_IP=127.0.0.1
+SERVER_PORT=50123
+```
+
+## Running
+Terminal 1:
+```bash
+./output/server output/server.conf
+```
+
+Terminal 2:
+```bash
+./output/client output/client.conf
+```
+
+## Protocol Reference
+- `CANSEND#<id>#<payload>#<interval_ms>#<bus>[#priority]` — recurring transmissions.
+- `SEND_TASK#<id>#<payload>#<delay_ms>#<bus>[#priority]` — one-shot transmission.
+- `LIST_TASKS`, `PAUSE <task_id>`, `RESUME <task_id>`, `KILL_TASK <task_id>`, `KILL_ALL_TASKS`.
+- `LIST_CAN_INTERFACES` — refreshes and lists CAN/vCAN devices.
+- `SET_LOG_LEVEL <level>`, `LIST_THREADS`, `KILL_THREAD <id>`, `KILL_ALL`, `SHUTDOWN`, `RESTART` (placeholder).
+
+Priority defaults to 5 and accepts digits `0–9` (higher runs earlier when deadlines tie). `interval_ms`/`delay_ms` accept optional `ms` suffix.
+
+## Observability
+- Runtime logs are appended to `server.log` relative to the launch directory.
+- `LIST_TASKS` returns status plus error strings for failed tasks.
+- Child process failures (non-zero exit, signal) are tracked per task.
+
+## Testing & Diagnostics
+- `make test` runs parsing unit tests (gtest not required).
+- `test_integration.cpp` expects a running server on `127.0.0.1:50123`.
+- Use `candump -tz vcan0` to verify transmitted frames on vCAN.
+
+## Troubleshooting
+- **No CAN interfaces**: ensure `vcan0` exists or physical CAN devices are up.
+- **`cansend` not found**: install `can-utils` and confirm it is on `PATH`.
+- **Fork failures**: check system process limits (`ulimit -u`).
+- **Permission denied**: bring interfaces up as root or with appropriate capabilities.
+
+## License
+MIT — see [LICENSE](./LICENSE).
 
 
 
