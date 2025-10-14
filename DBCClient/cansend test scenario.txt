@@ -1,0 +1,15 @@
+cansend test scenario
+run server
+run client
+candump -tz vcan0
+
+cansend vcan0 123#deadbeef 1000ms (optional: priority #)
+cansend vcan0 456#cabcadfe 1500ms 
+
+CANSEND#0x123#DEADBEEF#1000#INTERFACE
+CANSEND#123#00000000#1000#vcan0
+
+To verify your vcan0 interface exists, run:
+ip link show vcan0
+ls -la /sys/class/net/vcan0/
+cat /sys/class/net/vcan0/type  # Should show 280
