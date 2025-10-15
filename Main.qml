@@ -306,7 +306,7 @@ ApplicationWindow {
             // Top section with messages and signals
             SplitView {
                 id: topSplitView
-                SplitView.preferredHeight: parent.height * 0.7
+                SplitView.fillHeight: true
                 SplitView.minimumHeight: 300
                 orientation: Qt.Horizontal
                 
@@ -1090,42 +1090,69 @@ ApplicationWindow {
                                                     }
                                                     
                                                     Button {
-                                                        Layout.preferredWidth: 50
-                                                        Layout.preferredHeight: 28
+                                                        Layout.preferredWidth: 60
+                                                        Layout.preferredHeight: 32
                                                         text: "Bits"
-                                                        z: 1 // Ensure button is above other elements
+                                                        z: 10 // Higher z-index to ensure it's clickable
+                                                        hoverEnabled: true
 
                                                         contentItem: Text {
                                                             text: parent.text
-                                                            color: parent.enabled ? "#4CAF50" : "#CCCCCC"
+                                                            color: parent.hovered ? "white" : "#4CAF50"
                                                             horizontalAlignment: Text.AlignHCenter
                                                             verticalAlignment: Text.AlignVCenter
-                                                            font.pixelSize: 11
-                                                            font.weight: Font.Medium
+                                                            font.pixelSize: 12
+                                                            font.weight: Font.Bold
+                                                            anchors.centerIn: parent
                                                         }
 
                                                         background: Rectangle {
-                                                            color: parent.pressed ? "#E8F5E9" :
-                                                                   (parent.hovered ? "#F1F8E9" : "transparent")
-                                                            border.color: parent.enabled ? "#4CAF50" : "#CCCCCC"
-                                                            border.width: 1
-                                                            radius: 4
+                                                            anchors.fill: parent
+                                                            color: parent.pressed ? "#2E7D32" :
+                                                                   (parent.hovered ? "#4CAF50" : "transparent")
+                                                            border.color: "#4CAF50"
+                                                            border.width: 2
+                                                            radius: 6
+
+                                                            // Glow effect on hover
+                                                            Rectangle {
+                                                                anchors.fill: parent
+                                                                color: "transparent"
+                                                                border.color: "#81C784"
+                                                                border.width: parent.parent.hovered ? 3 : 0
+                                                                radius: 6
+                                                                opacity: parent.parent.hovered ? 0.8 : 0
+                                                                
+                                                                Behavior on opacity {
+                                                                    NumberAnimation { duration: 150 }
+                                                                }
+                                                                
+                                                                Behavior on border.width {
+                                                                    NumberAnimation { duration: 150 }
+                                                                }
+                                                            }
 
                                                             Behavior on color {
-                                                                ColorAnimation { duration: 100 }
+                                                                ColorAnimation { duration: 200 }
                                                             }
                                                         }
 
-                                                        onClicked: {
-                                                            signalListView.currentIndex = index
-                                                            bitsSection.signalName = modelData.name
-                                                            // Get the current value from the backend instead of cached modelData
-                                                            bitsSection.signalValue = dbcParser.getSignalValue(modelData.name)
-                                                            bitsSection.signalStartBit = modelData.startBit
-                                                            bitsSection.signalLength = modelData.length
-                                                            bitsSection.signalLittleEndian = modelData.littleEndian
-                                                            bitsSection.visible = true
-                                                            bitsSection.initializeDisplay()
+                                                        // Enhanced mouse area to ensure full button is clickable
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: {
+                                                                signalListView.currentIndex = index
+                                                                bitsSection.signalName = modelData.name
+                                                                // Get the current value from the backend instead of cached modelData
+                                                                bitsSection.signalValue = dbcParser.getSignalValue(modelData.name)
+                                                                bitsSection.signalStartBit = modelData.startBit
+                                                                bitsSection.signalLength = modelData.length
+                                                                bitsSection.signalLittleEndian = modelData.littleEndian
+                                                                bitsSection.visible = true
+                                                                bitsSection.initializeDisplay()
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1160,8 +1187,8 @@ ApplicationWindow {
             // Bits Section - Replaces the Generated Frame section
             Rectangle {
                 id: bitsSection
-                SplitView.preferredHeight: parent.height * 0.3
-                SplitView.minimumHeight: 200
+                SplitView.fillHeight: true
+                SplitView.minimumHeight: 350
                 color: "#f9f9f9"
                 visible: true
                 
