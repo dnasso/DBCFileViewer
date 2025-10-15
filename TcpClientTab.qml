@@ -455,7 +455,6 @@ Rectangle {
                         height: 30
                         enabled: tcpClient.connected
                         selectByMouse: true
-                        placeholderText: "Type command here (e.g., LIST_TASKS)"
 
                         background: Rectangle {
                             color: parent.enabled ? "white" : "#F5F5F5"

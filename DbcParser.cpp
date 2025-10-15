@@ -2703,14 +2703,168 @@ void DbcParser::updateActiveTransmissions()
 
 bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
 {
-    qDebug() << "Load active transmissions config called with URL:" << loadUrl;
-    return false;
+    QString filePath = loadUrl.toLocalFile();
+    qDebug() << "Loading config - Original URL:" << loadUrl.toString();
+    qDebug() << "Loading config - Local file path:" << filePath;
+    
+    // Check if DBC file is loaded first
+    if (messages.empty()) {
+        emit showError("Cannot load configuration: No DBC file is currently loaded. Please load a DBC file first.");
+        qWarning() << "Cannot load config: No DBC file loaded";
+        return false;
+    }
+    
+    // Check if file path is valid
+    if (filePath.isEmpty()) {
+        emit showError("Invalid file path for loading configuration");
+        qWarning() << "Invalid file path for loading active transmissions config";
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit showError("Cannot read configuration file: " + QFileInfo(filePath).fileName());
+        qWarning() << "Cannot read active transmissions config file:" << filePath;
+        qWarning() << "File exists:" << QFile::exists(filePath);
+        qWarning() << "File error:" << file.errorString();
+        return false;
+    }
+
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    
+    if (parseError.error != QJsonParseError::NoError) {
+        emit showError("Configuration file has invalid JSON format: " + parseError.errorString());
+        qWarning() << "JSON parse error in config file:" << parseError.errorString();
+        return false;
+    }
+
+    QJsonObject rootObj = doc.object();
+    QString configVersion = rootObj["configVersion"].toString();
+    QJsonArray transmissionsArray = rootObj["activeTransmissions"].toArray();
+
+    qDebug() << "Loading active transmissions config version:" << configVersion;
+    qDebug() << "Found" << transmissionsArray.size() << "transmission configurations";
+    qDebug() << "Current DBC has" << messages.size() << "messages loaded";
+
+    int loadedCount = 0;
+    int skippedCount = 0;
+
+    for (const QJsonValue& value : transmissionsArray) {
+        QJsonObject transmissionObj = value.toObject();
+        QString messageName = transmissionObj["messageName"].toString();
+        int rateMs = transmissionObj["rateMs"].toInt();
+        bool autoStart = transmissionObj["autoStart"].toBool();
+        bool enabled = transmissionObj["enabled"].toBool(true); // Default to enabled
+        
+        // Validate the configuration
+        if (messageName.isEmpty() || rateMs <= 0) {
+            emit showWarning("Invalid configuration for transmission: " + messageName);
+            qWarning() << "Invalid transmission config: messageName=" << messageName << "rateMs=" << rateMs;
+            skippedCount++;
+            continue;
+        }
+        
+        // Check if message exists in current DBC
+        if (!messageExists(messageName)) {
+            emit showWarning("Message '" + messageName + "' not found in current DBC file - skipping");
+            qWarning() << "Message" << messageName << "not found in current DBC - skipping";
+            skippedCount++;
+            continue;
+        }
+        
+        // Check if transmission already active
+        bool alreadyActive = false;
+        for (const auto& existing : m_activeTransmissions) {
+            if (existing.messageName == messageName) {
+                qDebug() << "Transmission for" << messageName << "already active - skipping";
+                alreadyActive = true;
+                skippedCount++;
+                break;
+            }
+        }
+        
+        if (alreadyActive) continue;
+        
+        // Start transmission only if enabled and autoStart is true
+        if (enabled && autoStart) {
+            if (startTransmission(messageName, rateMs)) {
+                loadedCount++;
+                qDebug() << "Started transmission:" << messageName << "at" << rateMs << "ms";
+            } else {
+                qWarning() << "Failed to start transmission:" << messageName;
+                skippedCount++;
+            }
+        } else {
+            qDebug() << "Skipping transmission" << messageName << "(enabled:" << enabled << ", autoStart:" << autoStart << ")";
+            skippedCount++;
+        }
+    }
+
+    updateActiveTransmissions();
+    
+    qDebug() << "Configuration load complete. Loaded:" << loadedCount << "Skipped:" << skippedCount;
+    
+    if (loadedCount > 0) {
+        emit showSuccess(QString("Configuration loaded successfully! Started %1 transmissions, skipped %2").arg(loadedCount).arg(skippedCount));
+    } else if (skippedCount > 0) {
+        emit showWarning(QString("Configuration loaded but no transmissions started. %1 items were skipped").arg(skippedCount));
+    } else {
+        emit showError("No valid transmissions found in configuration file");
+    }
+    
+    return loadedCount > 0; // Return true if at least one transmission was loaded
 }
 
 bool DbcParser::saveActiveTransmissionsConfig(const QUrl &saveUrl)
 {
-    qDebug() << "Save active transmissions config called with URL:" << saveUrl;
-    return false;
+    QString filePath = saveUrl.toLocalFile();
+    if (filePath.isEmpty()) {
+        emit showError("Invalid file path for saving configuration");
+        return false;
+    }
+
+    QJsonDocument doc;
+    QJsonObject rootObj;
+    QJsonArray transmissionsArray;
+
+    for (const auto& transmission : m_activeTransmissions) {
+        QJsonObject transmissionObj;
+        transmissionObj["messageName"] = transmission.messageName;
+        transmissionObj["messageId"] = static_cast<qint64>(transmission.messageId);
+        transmissionObj["rateMs"] = transmission.rateMs;
+        transmissionObj["hexData"] = transmission.hexData;
+        
+        // Configuration-specific settings (not runtime status)
+        transmissionObj["description"] = QString("Auto-transmission for %1 every %2ms").arg(transmission.messageName).arg(transmission.rateMs);
+        transmissionObj["autoStart"] = true; // Default to auto-start on load
+        transmissionObj["enabled"] = true;   // Allow enabling/disabling without removing
+        
+        transmissionsArray.append(transmissionObj);
+    }
+
+    rootObj["activeTransmissions"] = transmissionsArray;
+    rootObj["configVersion"] = "1.0";
+    rootObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    rootObj["description"] = QString("Active transmission configuration saved with %1 transmissions").arg(transmissionsArray.size());
+    
+    doc.setObject(rootObj);
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        emit showError("Cannot write configuration file: " + QFileInfo(filePath).fileName());
+        qWarning() << "Cannot write active transmissions config to file:" << filePath;
+        return false;
+    }
+
+    file.write(doc.toJson());
+    file.close();
+    qDebug() << "Saved active transmissions configuration to:" << filePath;
+    emit showSuccess("Configuration saved successfully: " + QFileInfo(filePath).fileName());
+    return true;
 }
 
 bool DbcParser::mergeActiveTransmissionsConfig(const QUrl &fileUrl, bool replaceExisting)

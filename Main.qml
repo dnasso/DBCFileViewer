@@ -1745,53 +1745,58 @@ ApplicationWindow {
                             color: "#F5F5F5"
                             radius: 4
                             
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 15
-                                anchors.rightMargin: 15
-                                spacing: 25
-                                
-                                Text {
-                                    Layout.preferredWidth: 100
-                                    text: "Message ID"
-                                    font.bold: true
-                                    color: "#424242"
-                                }
-                                
-                                Text {
-                                    Layout.preferredWidth: 180
-                                    text: "Message Name"
-                                    font.bold: true
-                                    color: "#424242"
-                                }
-                                
-                                Text {
-                                    Layout.preferredWidth: 120
-                                    text: "Interval (ms)"
-                                    font.bold: true
-                                    color: "#424242"
-                                }
-                                
-                                Text {
-                                    Layout.preferredWidth: 100
-                                    text: "Status"
-                                    font.bold: true
-                                    color: "#424242"
-                                }
-                                
-                                Text {
-                                    Layout.preferredWidth: 140
-                                    text: "Started At"
-                                    font.bold: true
-                                    color: "#424242"
-                                }
-                                
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: "Actions"
-                                    font.bold: true
-                                    color: "#424242"
-                                }
+                            // Fixed positioned header texts - expanded for full width
+                            Text {
+                                x: 20
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 120
+                                text: "Message ID"
+                                font.bold: true
+                                color: "#424242"
+                            }
+                            
+                            Text {
+                                x: 160
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 200
+                                text: "Message Name"
+                                font.bold: true
+                                color: "#424242"
+                            }
+                            
+                            Text {
+                                x: 380
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 120
+                                text: "Interval (ms)"
+                                font.bold: true
+                                color: "#424242"
+                            }
+                            
+                            Text {
+                                x: 520
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 120
+                                text: "Status"
+                                font.bold: true
+                                color: "#424242"
+                            }
+                            
+                            Text {
+                                x: 660
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 120
+                                text: "Started At"
+                                font.bold: true
+                                color: "#424242"
+                            }
+                            
+                            Text {
+                                x: 800
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Actions"
+                                font.bold: true
+                                color: "#424242"
                             }
                         }
                         
@@ -1816,112 +1821,116 @@ ApplicationWindow {
                                         color: "#E0E0E0"
                                     }
                                     
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 15
-                                        anchors.rightMargin: 15
-                                        spacing: 25
+                                    // Fixed positioned content - expanded for full width
+                                    Text {
+                                        x: 20
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 120
+                                        text: modelData.messageId
+                                        color: "#424242"
+                                    }
+                                    
+                                    Text {
+                                        x: 160
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 200
+                                        text: modelData.messageName
+                                        color: "#424242"
+                                        elide: Text.ElideRight
+                                    }
+                                    
+                                    Text {
+                                        x: 380
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 120
+                                        text: modelData.rateMs.toString()
+                                        color: "#424242"
+                                    }
+                                    
+                                    Rectangle {
+                                        x: 520
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 120
+                                        height: 24
+                                        color: modelData.status === "Active" ? "#C8E6C9" : 
+                                               modelData.status === "Paused" ? "#FFE0B2" : 
+                                               modelData.status === "Stopping" ? "#FFF3E0" : "#FFCDD2"
+                                        radius: 12
                                         
                                         Text {
-                                            Layout.preferredWidth: 100
-                                            text: "0x" + modelData.messageId.toString(16).toUpperCase()
-                                            color: "#424242"
-                                        }
-                                        
-                                        Text {
-                                            Layout.preferredWidth: 180
-                                            text: modelData.messageName
-                                            color: "#424242"
-                                            elide: Text.ElideRight
-                                        }
-                                        
-                                        Text {
-                                            Layout.preferredWidth: 120
-                                            text: modelData.interval.toString()
-                                            color: "#424242"
-                                        }
-                                        
-                                        Rectangle {
-                                            Layout.preferredWidth: 100
-                                            Layout.preferredHeight: 24
-                                            color: modelData.status === "Active" ? "#C8E6C9" : 
-                                                   modelData.status === "Paused" ? "#FFE0B2" : 
-                                                   modelData.status === "Stopping" ? "#FFF3E0" : "#FFCDD2"
-                                            radius: 12
-                                            
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData.status
-                                                color: modelData.status === "Active" ? "#2E7D32" : 
-                                                       modelData.status === "Paused" ? "#F57C00" : 
-                                                       modelData.status === "Stopping" ? "#FF6F00" : "#C62828"
-                                                font.pixelSize: 12
-                                                font.bold: true
-                                            }
-                                        }
-                                        
-                                        Text {
-                                            Layout.preferredWidth: 140
-                                            text: Qt.formatDateTime(modelData.startedAt, "hh:mm:ss")
-                                            color: "#757575"
+                                            anchors.centerIn: parent
+                                            text: modelData.status
+                                            color: modelData.status === "Active" ? "#2E7D32" : 
+                                                   modelData.status === "Paused" ? "#F57C00" : 
+                                                   modelData.status === "Stopping" ? "#FF6F00" : "#C62828"
                                             font.pixelSize: 12
+                                            font.bold: true
+                                        }
+                                    }
+                                    
+                                    Text {
+                                        x: 660
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 120
+                                        text: modelData.startedAt
+                                        color: "#757575"
+                                        font.pixelSize: 12
+                                    }
+                                    
+                                    // Fixed positioned buttons - expanded for full width
+                                    Button {
+                                        x: 800
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 70
+                                        height: 36
+                                        text: modelData.status === "Paused" ? "Resume" : "Pause"
+                                        enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
+                                        
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 11
                                         }
                                         
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 5
-                                            
-                                            Button {
-                                                Layout.preferredWidth: 60
-                                                Layout.preferredHeight: 36
-                                                text: modelData.status === "Paused" ? "Resume" : "Pause"
-                                                enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
-                                                
-                                                contentItem: Text {
-                                                    text: parent.text
-                                                    color: "white"
-                                                    horizontalAlignment: Text.AlignHCenter
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    font.pixelSize: 11
-                                                }
-                                                
-                                                background: Rectangle {
-                                                    color: parent.enabled ? (parent.pressed ? "#F57C00" : (parent.hovered ? "#FB8C00" : "#FF9800")) : "#BDBDBD"
-                                                    radius: 4
-                                                }
-                                                
-                                                onClicked: {
-                                                    if (modelData.status === "Paused") {
-                                                        dbcParser.resumeTransmission(modelData.messageName)
-                                                    } else {
-                                                        dbcParser.pauseTransmission(modelData.messageName)
-                                                    }
-                                                }
+                                        background: Rectangle {
+                                            color: parent.enabled ? (parent.pressed ? "#F57C00" : (parent.hovered ? "#FB8C00" : "#FF9800")) : "#BDBDBD"
+                                            radius: 4
+                                        }
+                                        
+                                        onClicked: {
+                                            if (modelData.status === "Paused") {
+                                                dbcParser.resumeTransmission(modelData.messageName)
+                                            } else {
+                                                dbcParser.pauseTransmission(modelData.messageName)
                                             }
-                                            
-                                            Button {
-                                                Layout.preferredWidth: 50
-                                                Layout.preferredHeight: 36
-                                                text: modelData.status === "Stopping" ? "..." : "Stop"
-                                                enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
-                                                
-                                                contentItem: Text {
-                                                    text: parent.text
-                                                    color: "white"
-                                                    horizontalAlignment: Text.AlignHCenter
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    font.pixelSize: 11
-                                                }
-                                                
-                                                background: Rectangle {
-                                                    color: parent.enabled ? (parent.pressed ? "#D32F2F" : (parent.hovered ? "#E53935" : "#F44336")) : "#BDBDBD"
-                                                    radius: 4
-                                                }
-                                                
-                                                onClicked: {
-                                                    dbcParser.stopTransmission(modelData.messageName)
-                                                }
-                                            }
+                                        }
+                                    }
+                                    
+                                    Button {
+                                        x: 885
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 60
+                                        height: 36
+                                        text: modelData.status === "Stopping" ? "..." : "Stop"
+                                        enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
+                                        
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 11
+                                        }
+                                        
+                                        background: Rectangle {
+                                            color: parent.enabled ? (parent.pressed ? "#D32F2F" : (parent.hovered ? "#E53935" : "#F44336")) : "#BDBDBD"
+                                            radius: 4
+                                        }
+                                        
+                                        onClicked: {
+                                            dbcParser.stopTransmission(modelData.messageName)
                                         }
                                     }
                                 }
@@ -1962,7 +1971,13 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         nameFilters: ["JSON Files (*.json)"]
         onAccepted: {
-            dbcParser.saveActiveTransmissionsConfig(selectedFile)
+            console.log("Saving config file:", selectedFile)
+            var success = dbcParser.saveActiveTransmissionsConfig(selectedFile)
+            if (success) {
+                console.log("Configuration saved successfully")
+            } else {
+                console.log("Failed to save configuration")
+            }
         }
     }
     
