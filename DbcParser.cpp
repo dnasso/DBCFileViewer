@@ -1084,33 +1084,160 @@ int DbcParser::getBitIndexInRawValue(int bitPosition, int startBit, bool littleE
     }
 }
 QString DbcParser::getModifiedDbcText() const {
-    QString output;
-    QTextStream stream(&output);
-
+    // If no messages loaded, return the original text unchanged
+    if (messages.empty()) {
+        return originalDbcText.trimmed();
+    }
+    
+    // Start with the original text and only modify specific messages that have changed
+    QStringList lines = originalDbcText.split('\n');
+    QStringList result;
+    
+    // Parse original file to create a map of message ID -> original lines
+    QMap<unsigned long, QStringList> originalMessages;
+    QMap<unsigned long, int> originalMessageLineNumbers;
+    
+    // Parse the current in-memory messages to create a map of message ID -> current state
+    QMap<unsigned long, QStringList> currentMessages;
     for (const auto& msg : messages) {
-        stream << QString("BO_ %1 %2: %3 Vector__XXX\n")
-                      .arg(msg.id)
-                      .arg(QString::fromStdString(msg.name))
-                      .arg(msg.length);
+        QStringList msgLines;
+        msgLines << QString("BO_ %1 %2: %3 Vector__XXX")
+                       .arg(msg.id)
+                       .arg(QString::fromStdString(msg.name))
+                       .arg(msg.length);
 
         for (const auto& sig : msg.signalList) {
             QString endian = sig.littleEndian ? "1" : "0";
-            stream << QString("   SG_ %1 : %2|%3@%4+ (%5,%6) [%7|%8] \"%9\" Vector__XXX\n")
-                      .arg(QString::fromStdString(sig.name))
-                      .arg(sig.startBit)
-                      .arg(sig.length)
-                      .arg(endian)
-                      .arg(sig.factor)
-                      .arg(sig.offset)
-                      .arg(sig.min)
-                      .arg(sig.max)
-                      .arg(QString::fromStdString(sig.unit));
+            msgLines << QString("   SG_ %1 : %2|%3@%4+ (%5,%6) [%7|%8] \"%9\" Vector__XXX")
+                           .arg(QString::fromStdString(sig.name))
+                           .arg(sig.startBit)
+                           .arg(sig.length)
+                           .arg(endian)
+                           .arg(sig.factor)
+                           .arg(sig.offset)
+                           .arg(sig.min)
+                           .arg(sig.max)
+                           .arg(QString::fromStdString(sig.unit));
         }
-
-        stream << "\n";
+        
+        // Add an empty line after each message to match original formatting
+        msgLines << "";
+        
+        currentMessages[msg.id] = msgLines;
     }
-
-    return output.trimmed();
+    
+    // Now parse the original file to extract the original message structures
+    int i = 0;
+    while (i < lines.size()) {
+        QString line = lines[i].trimmed();
+        
+        // Check if this line starts a message
+        if (line.startsWith("BO_")) {
+            // Extract message ID from the BO_ line
+            QStringList parts = line.split(" ", Qt::SkipEmptyParts);
+            if (parts.size() >= 2) {
+                bool ok;
+                unsigned long msgId = parts[1].toULong(&ok);
+                if (ok) {
+                    // Collect all lines for this message (BO_ line + all SG_ lines)
+                    QStringList originalMsgLines;
+                    originalMsgLines << lines[i]; // The BO_ line
+                    originalMessageLineNumbers[msgId] = i;
+                    
+                    int j = i + 1;
+                    // Collect all signal lines that belong to this message
+                    while (j < lines.size()) {
+                        QString sigLine = lines[j].trimmed();
+                        if (sigLine.startsWith("SG_") || sigLine.contains(" SG_")) {
+                            originalMsgLines << lines[j];
+                            j++;
+                        } else if (sigLine.isEmpty()) {
+                            // Keep empty lines within the message - they are part of the original formatting
+                            originalMsgLines << lines[j];
+                            j++;
+                        } else {
+                            // Hit a non-signal, non-empty line - message definition is done
+                            break;
+                        }
+                    }
+                    
+                    originalMessages[msgId] = originalMsgLines;
+                    i = j - 1; // -1 because the loop will increment i
+                }
+            }
+        }
+        i++;
+    }
+    
+    // Now rebuild the file, line by line
+    i = 0;
+    while (i < lines.size()) {
+        QString line = lines[i].trimmed();
+        
+        // Check if this line starts a message
+        if (line.startsWith("BO_")) {
+            // Extract message ID
+            QStringList parts = line.split(" ", Qt::SkipEmptyParts);
+            if (parts.size() >= 2) {
+                bool ok;
+                unsigned long msgId = parts[1].toULong(&ok);
+                if (ok && currentMessages.contains(msgId)) {
+                    // Check if this message has actually changed
+                    QStringList originalMsgLines = originalMessages.value(msgId);
+                    QStringList currentMsgLines = currentMessages.value(msgId);
+                    
+                    if (originalMsgLines == currentMsgLines) {
+                        // Message unchanged - copy original lines exactly
+                        for (const QString& origLine : originalMsgLines) {
+                            result << origLine;
+                        }
+                    } else {
+                        // Message changed - use current version
+                        for (const QString& currentLine : currentMsgLines) {
+                            result << currentLine;
+                        }
+                    }
+                    
+                    // Skip over the rest of this message in the original file
+                    i++; // Move past the BO_ line
+                    while (i < lines.size()) {
+                        QString nextLine = lines[i].trimmed();
+                        if (nextLine.startsWith("SG_") || nextLine.contains(" SG_") || nextLine.isEmpty()) {
+                            i++; // Skip signal lines and empty lines
+                        } else {
+                            i--; // Back up one so the outer loop will process this line
+                            break;
+                        }
+                    }
+                } else {
+                    // Message not found in current messages - copy original line
+                    result << lines[i];
+                }
+            } else {
+                // Malformed BO_ line - copy as-is
+                result << lines[i];
+            }
+        } else {
+            // Non-message line - copy as-is (headers, attributes, comments, etc.)
+            result << lines[i];
+        }
+        
+        i++;
+    }
+    
+    // After processing all original lines, add any new messages that weren't in the original file
+    for (auto it = currentMessages.begin(); it != currentMessages.end(); ++it) {
+        unsigned long msgId = it.key();
+        if (!originalMessages.contains(msgId)) {
+            // This is a new message - add it to the result
+            QStringList newMsgLines = it.value();
+            for (const QString& newLine : newMsgLines) {
+                result << newLine;
+            }
+        }
+    }
+    
+    return result.join('\n').trimmed();
 }
 QString DbcParser::getOriginalDbcText() const {
     return originalDbcText.trimmed();
@@ -1166,6 +1293,123 @@ QStringList DbcParser::getDbcDiffLines() {
 
     return diff;
 }
+
+QVariantMap DbcParser::getStructuredDiff() {
+    QString originalText = originalDbcText;
+    QString modifiedText = getModifiedDbcText();
+    
+    QVariantList originalContent;
+    QVariantList modifiedContent;
+    
+    // Quick check: if the texts are identical, show the entire file with no changes marked
+    if (originalText == modifiedText) {
+        // Show all lines of the original file
+        QStringList originalLines = originalText.split('\n');
+        for (int i = 0; i < originalLines.size(); i++) {
+            QVariantMap lineData;
+            lineData["text"] = originalLines[i];
+            lineData["changed"] = false;
+            lineData["lineNumber"] = i + 1;
+            originalContent.append(lineData);
+        }
+        
+        // For the modified side, show a message indicating no changes were made
+        QVariantMap noChangesData;
+        noChangesData["text"] = "No changes made to the DBC file";
+        noChangesData["changed"] = false;
+        noChangesData["lineNumber"] = 1;
+        modifiedContent.append(noChangesData);
+        
+        QVariantMap result;
+        result["original"] = originalContent;
+        result["modified"] = modifiedContent;
+        return result;
+    }
+    
+    QStringList originalLines = originalText.split('\n');
+    QStringList modifiedLines = modifiedText.split('\n');
+    
+    // Find lines that are actually different
+    QSet<int> changedOriginalLines;
+    QSet<int> changedModifiedLines;
+    
+    // Check if files have different line counts or content
+    bool hasRealChanges = false;
+    
+    // Compare line by line exactly
+    int maxLines = qMax(originalLines.size(), modifiedLines.size());
+    for (int i = 0; i < maxLines; i++) {
+        QString origLine = (i < originalLines.size()) ? originalLines[i] : "";
+        QString modLine = (i < modifiedLines.size()) ? modifiedLines[i] : "";
+        
+        if (origLine != modLine) {
+            hasRealChanges = true;
+            if (i < originalLines.size()) changedOriginalLines.insert(i);
+            if (i < modifiedLines.size()) changedModifiedLines.insert(i);
+            
+            // Add context around changed lines (1 line before and after)
+            for (int j = qMax(0, i-1); j <= qMin(originalLines.size()-1, i+1); j++) {
+                changedOriginalLines.insert(j);
+            }
+            for (int j = qMax(0, i-1); j <= qMin(modifiedLines.size()-1, i+1); j++) {
+                changedModifiedLines.insert(j);
+            }
+        }
+    }
+    
+    // If no real changes detected, show the entire original file and indicate no changes
+    if (!hasRealChanges) {
+        for (int i = 0; i < originalLines.size(); i++) {
+            QVariantMap lineData;
+            lineData["text"] = originalLines[i];
+            lineData["changed"] = false;
+            lineData["lineNumber"] = i + 1;
+            originalContent.append(lineData);
+        }
+        
+        // For the modified side, show a message indicating no changes were made
+        QVariantMap noChangesData;
+        noChangesData["text"] = "No changes made to the DBC file";
+        noChangesData["changed"] = false;
+        noChangesData["lineNumber"] = 1;
+        modifiedContent.append(noChangesData);
+    } else {
+        // Show only changed sections and their context
+        QList<int> originalLinesToShow = changedOriginalLines.values();
+        std::sort(originalLinesToShow.begin(), originalLinesToShow.end());
+        
+        for (int lineNum : originalLinesToShow) {
+            if (lineNum < originalLines.size()) {
+                QVariantMap lineData;
+                lineData["text"] = originalLines[lineNum];
+                lineData["changed"] = (originalLines[lineNum] != 
+                    (lineNum < modifiedLines.size() ? modifiedLines[lineNum] : ""));
+                lineData["lineNumber"] = lineNum + 1;
+                originalContent.append(lineData);
+            }
+        }
+        
+        QList<int> modifiedLinesToShow = changedModifiedLines.values();
+        std::sort(modifiedLinesToShow.begin(), modifiedLinesToShow.end());
+        
+        for (int lineNum : modifiedLinesToShow) {
+            if (lineNum < modifiedLines.size()) {
+                QVariantMap lineData;
+                lineData["text"] = modifiedLines[lineNum];
+                lineData["changed"] = (modifiedLines[lineNum] != 
+                    (lineNum < originalLines.size() ? originalLines[lineNum] : ""));
+                lineData["lineNumber"] = lineNum + 1;
+                modifiedContent.append(lineData);
+            }
+        }
+    }
+    
+    QVariantMap result;
+    result["original"] = originalContent;
+    result["modified"] = modifiedContent;
+    return result;
+}
+
 // Add these implementations to DbcParser.cpp
 
 bool DbcParser::addMessage(const QString &name, unsigned long id, int length)

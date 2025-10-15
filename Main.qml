@@ -232,8 +232,7 @@ ApplicationWindow {
                     }
 
                     onClicked: {
-                        diffDialog.diffLines = dbcParser.getDbcDiffLines()
-                        diffDialog.open()
+                        diffDialog.showDiff()
                     }
                 }
 
@@ -1698,48 +1697,7 @@ ApplicationWindow {
                             }
                         }
                         
-                        Button {
-                            text: "Test Config"
-                            
-                            contentItem: Text {
-                                text: parent.text
-                                color: "white"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            
-                            background: Rectangle {
-                                color: parent.pressed ? "#FF6F00" : (parent.hovered ? "#FF8F00" : "#FF9800")
-                                radius: 4
-                            }
-                            
-                            onClicked: {
-                                var result = dbcParser.testConfigLoad()
-                                console.log("CONFIG TEST RESULT:", result)
-                                showStatusMessage("Config test completed - check console for details", false)
-                            }
-                        }
-                        
-                        Button {
-                            text: "Refresh Tasks"
-                            
-                            contentItem: Text {
-                                text: parent.text
-                                color: "white"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            
-                            background: Rectangle {
-                                color: parent.pressed ? "#7B1FA2" : (parent.hovered ? "#8E24AA" : "#9C27B0")
-                                radius: 4
-                            }
-                            
-                            onClicked: {
-                                dbcParser.refreshTasksFromClient()
-                                showStatusMessage("Task list refreshed from client", false)
-                            }
-                        }
+
                         
                         Button {
                             text: "Kill All"
@@ -1915,7 +1873,7 @@ ApplicationWindow {
                                             
                                             Button {
                                                 Layout.preferredWidth: 60
-                                                Layout.preferredHeight: 28
+                                                Layout.preferredHeight: 36
                                                 text: modelData.status === "Paused" ? "Resume" : "Pause"
                                                 enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
                                                 
@@ -1943,7 +1901,7 @@ ApplicationWindow {
                                             
                                             Button {
                                                 Layout.preferredWidth: 50
-                                                Layout.preferredHeight: 28
+                                                Layout.preferredHeight: 36
                                                 text: modelData.status === "Stopping" ? "..." : "Stop"
                                                 enabled: modelData.status !== "Stopped" && modelData.status !== "Stopping"
                                                 
@@ -2031,51 +1989,467 @@ ApplicationWindow {
     id: diffDialog
     modal: true
     title: "Compare and Download Updated DBC"
-    standardButtons: Dialog.Cancel
-    width: 1200
-    height: 700
+    width: 1400
+    height: 800
 
+    property var originalContent: []
+    property var modifiedContent: []
     property var diffLines: []
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 10
+        anchors.margins: 15
+        spacing: 15
 
-        ListView {
-            id: diffView
+        // Header with file info
+        Rectangle {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            model: diffDialog.diffLines
+            height: 50
+            color: "#F6F8FA"
+            border.color: "#D0D7DE"
+            border.width: 1
 
-            delegate: Rectangle {
-                width: parent.width
-                height: 24
-                color: modelData.startsWith("+") ? "#E8F5E9" :
-                       modelData.startsWith("-") ? "#FFEBEE" : "white"
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 15
 
-                Row {
-                    anchors.fill: parent
-                    spacing: 5
+                Rectangle {
+                    width: 6
+                    height: 25
+                    color: "#0969DA"
+                    radius: 3
+                }
 
-                    Text {
-                        text: modelData
-                        color: modelData.startsWith("+") ? "#2E7D32" :
-                               modelData.startsWith("-") ? "#C62828" : "#424242"
-                        font.family: "Monaco"
-                        elide: Text.ElideRight
+                Text {
+                    text: "File Comparison"
+                    font.pixelSize: 16
+                    font.bold: true
+                    color: "#24292F"
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 20
+                    color: "#D0D7DE"
+                }
+
+                Text {
+                    id: changesSummary
+                    text: "Only showing changed sections"
+                    font.pixelSize: 12
+                    color: "#656D76"
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // Legend
+                RowLayout {
+                    spacing: 15
+
+                    RowLayout {
+                        spacing: 5
+                        Rectangle {
+                            width: 12
+                            height: 12
+                            color: "#FFC107"
+                            radius: 2
+                        }
+                        Text {
+                            text: "Original"
+                            font.pixelSize: 11
+                            color: "#656D76"
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 5
+                        Rectangle {
+                            width: 12
+                            height: 12
+                            color: "#2DA44E"
+                            radius: 2
+                        }
+                        Text {
+                            text: "Modified"
+                            font.pixelSize: 11
+                            color: "#656D76"
+                        }
                     }
                 }
             }
         }
 
-        Button {
-            text: "Download Updated DBC"
-            Layout.alignment: Qt.AlignRight
-            onClicked: {
-                fileSaveDialog.open()
+        // Split view for comparison
+        SplitView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            orientation: Qt.Horizontal
+
+            // Original file panel
+            Rectangle {
+                SplitView.preferredWidth: parent.width * 0.5
+                SplitView.minimumWidth: 350
+                color: "white"
+                border.color: "#D0D7DE"
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    // Header for original
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        color: "#F6F8FA"
+                        border.color: "#D0D7DE"
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 15
+                            anchors.rightMargin: 15
+
+                            Rectangle {
+                                width: 4
+                                height: 20
+                                color: "#656D76"
+                                radius: 2
+                            }
+
+                            Text {
+                                text: "Original DBC File"
+                                font.pixelSize: 13
+                                font.bold: true
+                                color: "#24292F"
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+                    }
+
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                        ListView {
+                            id: originalView
+                            model: diffDialog.originalContent
+                            spacing: 0
+
+                            delegate: Rectangle {
+                                width: Math.max(originalView.width, originalRowLayout.implicitWidth + 20)
+                                height: Math.max(22, originalText.contentHeight + 4)
+                                color: modelData.changed ? "#FFF8C5" : (index % 2 === 0 ? "#FAFBFC" : "white")
+
+                                RowLayout {
+                                    id: originalRowLayout
+                                    anchors.fill: parent
+                                    spacing: 0
+
+                                    // Line number
+                                    Rectangle {
+                                        Layout.preferredWidth: 50
+                                        Layout.fillHeight: true
+                                        color: "#F6F8FA"
+                                        border.color: "#D0D7DE"
+                                        border.width: modelData.changed ? 0 : 0
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.lineNumber || (index + 1)
+                                            font.family: "Monaco"
+                                            font.pixelSize: 10
+                                            color: "#656D76"
+                                        }
+                                    }
+
+                                    // Change indicator
+                                    Rectangle {
+                                        Layout.preferredWidth: 4
+                                        Layout.fillHeight: true
+                                        color: modelData.changed ? "#FFC107" : "transparent"
+                                    }
+
+                                    // Content
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        color: "transparent"
+
+                                        Text {
+                                            id: originalText
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.leftMargin: 8
+                                            anchors.rightMargin: 8
+                                            text: modelData.text
+                                            font.family: "Monaco"
+                                            font.pixelSize: 11
+                                            color: "#24292F"
+                                            wrapMode: Text.Wrap
+                                        }
+                                    }
+                                }
+
+                                // Bottom border for changed lines
+                                Rectangle {
+                                    anchors.bottom: parent.bottom
+                                    width: parent.width
+                                    height: modelData.changed ? 1 : 0
+                                    color: "#FFC107"
+                                    opacity: 0.3
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Modified file panel
+            Rectangle {
+                SplitView.preferredWidth: parent.width * 0.5
+                SplitView.minimumWidth: 350
+                color: "white"
+                border.color: "#D0D7DE"
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    // Header for modified
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        color: "#F6F8FA"
+                        border.color: "#D0D7DE"
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 15
+                            anchors.rightMargin: 15
+
+                            Rectangle {
+                                width: 4
+                                height: 20
+                                color: "#2DA44E"
+                                radius: 2
+                            }
+
+                            Text {
+                                text: "Modified DBC File"
+                                font.pixelSize: 13
+                                font.bold: true
+                                color: "#24292F"
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+                    }
+
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                        ListView {
+                            id: modifiedView
+                            model: diffDialog.modifiedContent
+                            spacing: 0
+
+                            delegate: Rectangle {
+                                width: Math.max(modifiedView.width, modifiedRowLayout.implicitWidth + 20)
+                                height: Math.max(22, modifiedText.contentHeight + 4)
+                                color: modelData.changed ? "#DCFCE7" : (index % 2 === 0 ? "#FAFBFC" : "white")
+
+                                RowLayout {
+                                    id: modifiedRowLayout
+                                    anchors.fill: parent
+                                    spacing: 0
+
+                                    // Line number
+                                    Rectangle {
+                                        Layout.preferredWidth: 50
+                                        Layout.fillHeight: true
+                                        color: "#F6F8FA"
+                                        border.color: "#D0D7DE"
+                                        border.width: 0
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.lineNumber || (index + 1)
+                                            font.family: "Monaco"
+                                            font.pixelSize: 10
+                                            color: "#656D76"
+                                        }
+                                    }
+
+                                    // Change indicator
+                                    Rectangle {
+                                        Layout.preferredWidth: 4
+                                        Layout.fillHeight: true
+                                        color: modelData.changed ? "#2DA44E" : "transparent"
+                                    }
+
+                                    // Content
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        color: "transparent"
+
+                                        Text {
+                                            id: modifiedText
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.leftMargin: 8
+                                            anchors.rightMargin: 8
+                                            text: modelData.text
+                                            font.family: "Monaco"
+                                            font.pixelSize: 11
+                                            color: "#24292F"
+                                            wrapMode: Text.Wrap
+                                        }
+                                    }
+                                }
+
+                                // Bottom border for changed lines
+                                Rectangle {
+                                    anchors.bottom: parent.bottom
+                                    width: parent.width
+                                    height: modelData.changed ? 1 : 0
+                                    color: "#2DA44E"
+                                    opacity: 0.3
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        // Action buttons
+        Rectangle {
+            Layout.fillWidth: true
+            height: 60
+            color: "#F6F8FA"
+            border.color: "#D0D7DE"
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 12
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Download Updated DBC"
+                    Layout.preferredWidth: 180
+                    Layout.preferredHeight: 40
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
+                    }
+
+                    background: Rectangle {
+                        color: parent.pressed ? "#0A69DA" : (parent.hovered ? "#1F6FEB" : "#0969DA")
+                        radius: 6
+                        border.color: "transparent"
+
+                        // Subtle shadow
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.topMargin: 1
+                            color: "#000000"
+                            opacity: 0.1
+                            radius: 6
+                            z: -1
+                        }
+
+                        Behavior on color {
+                            ColorAnimation { duration: 120 }
+                        }
+                    }
+
+                    onClicked: {
+                        fileSaveDialog.open()
+                    }
+                }
+
+                Button {
+                    text: "Cancel"
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 40
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#24292F"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 13
+                    }
+
+                    background: Rectangle {
+                        color: parent.pressed ? "#EAEEF2" : (parent.hovered ? "#F3F4F6" : "#F6F8FA")
+                        radius: 6
+                        border.color: "#D0D7DE"
+                        border.width: 1
+
+                        Behavior on color {
+                            ColorAnimation { duration: 120 }
+                        }
+                    }
+
+                    onClicked: {
+                        diffDialog.close()
+                    }
+                }
+            }
+        }
+    }
+
+    // Function to populate the dialog with diff data
+    function showDiff() {
+        var diffData = dbcParser.getStructuredDiff()
+        originalContent = diffData.original
+        modifiedContent = diffData.modified
+        
+        // Update summary
+        var originalChanges = 0
+        var modifiedChanges = 0
+        
+        for (var i = 0; i < originalContent.length; i++) {
+            if (originalContent[i].changed) originalChanges++
+        }
+        
+        for (var j = 0; j < modifiedContent.length; j++) {
+            if (modifiedContent[j].changed) modifiedChanges++
+        }
+        
+        if (originalChanges === 0 && modifiedChanges === 0) {
+            changesSummary.text = "No changes detected - file is identical to original"
+            changesSummary.color = "#656D76"
+        } else {
+            changesSummary.text = originalChanges + " lines in original, " + modifiedChanges + " lines modified"
+            changesSummary.color = "#0969DA"
+        }
+        
+        open()
     }
 }
 

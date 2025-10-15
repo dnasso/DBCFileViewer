@@ -22,24 +22,36 @@ Dialog {
     }
 
     header: Rectangle {
-        height: 70
+        height: 80
         color: "#4CAF50"
         radius: 12
 
-        Text {
+        ColumnLayout {
             anchors.centerIn: parent
-            text: addSignalDialog.title + (currentMessageName ? " - " + currentMessageName : "")
-            font.pixelSize: 20
-            font.weight: Font.Bold
-            color: "white"
-            elide: Text.ElideRight
-            maximumLineCount: 1
+            spacing: 4
+
+            Text {
+                text: "Add New Signal"
+                font.pixelSize: 22
+                font.weight: Font.Bold
+                color: "white"
+                Layout.alignment: Qt.AlignHCenter
+            }
+            
+            Text {
+                text: currentMessageName ? "to message: " + currentMessageName : ""
+                font.pixelSize: 14
+                font.weight: Font.Medium
+                color: "#E8F5E9"
+                Layout.alignment: Qt.AlignHCenter
+                visible: currentMessageName !== ""
+            }
         }
 
         Rectangle {
             anchors.bottom: parent.bottom
             width: parent.width
-            height: 1
+            height: 2
             color: "#388E3C"
         }
     }
@@ -55,26 +67,38 @@ Dialog {
         ColumnLayout {
             width: Math.min(500, parent.width)
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 25            // Signal Name
+            spacing: 30
+            
+            // Title section
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 4
+                color: "#4CAF50"
+                radius: 2
+                Layout.topMargin: 10
+            }
+            
+            // Signal Name
             ColumnLayout {
-                spacing: 12
+                spacing: 8
                 Layout.alignment: Qt.AlignHCenter
                 Layout.fillWidth: true
-                Layout.topMargin: 20
+                Layout.topMargin: 15
 
                 Text {
                     text: "Signal Name:"
                     font.pixelSize: 16
                     font.weight: Font.DemiBold
                     color: "#2E7D32"
-                    Layout.alignment: Qt.AlignHCenter
+                    Layout.alignment: Qt.AlignLeft
+                    Layout.leftMargin: 10
                 }
 
                 TextField {
                     id: signalNameField
                     Layout.preferredWidth: 380
+                    Layout.preferredHeight: 50
                     Layout.alignment: Qt.AlignHCenter
-                    placeholderText: "Enter unique signal name"
                     font.pixelSize: 16
                     selectByMouse: true
                     padding: 16
@@ -84,10 +108,37 @@ Dialog {
                     rightPadding: 20
 
                     background: Rectangle {
-                        color: "#FAFAFA"
+                        color: parent.enabled ? "#FFFFFF" : "#F5F5F5"
                         radius: 8
-                        border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                        border.color: {
+                            if (parent.activeFocus) return "#4CAF50"
+                            if (parent.text.length === 0) return "#FF5722"
+                            return "#CCCCCC"
+                        }
                         border.width: parent.activeFocus ? 2 : 1.5
+                        
+                        // Add a subtle shadow effect
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.topMargin: 2
+                            color: "transparent"
+                            radius: parent.radius
+                            border.color: "#00000010"
+                            border.width: 1
+                            z: -1
+                        }
+                    }
+                    
+                    // Custom validation indicator
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 6
+                        height: 6
+                        radius: 3
+                        color: parent.text.length > 0 ? "#4CAF50" : "#FF5722"
+                        visible: parent.text.length > 0 || parent.activeFocus
                     }
                 }
             }
@@ -376,23 +427,26 @@ Dialog {
                         Text {
                             text: "Factor:"
                             font.pixelSize: 15
-                            font.weight: Font.Medium
-                            color: "#424242"
-                            Layout.alignment: Qt.AlignHCenter
+                            font.weight: Font.DemiBold
+                            color: "#2E7D32"
+                            Layout.alignment: Qt.AlignLeft
+                            Layout.leftMargin: 25
                         }
 
                         TextField {
                             id: factorField
                             Layout.preferredWidth: 200
+                            Layout.preferredHeight: 50
                             Layout.alignment: Qt.AlignHCenter
                             text: "1.0"
                             font.pixelSize: 16
                             selectByMouse: true
                             padding: 16
                             horizontalAlignment: Text.AlignHCenter
+                            validator: DoubleValidator { bottom: -999999; top: 999999; decimals: 6 }
 
                             background: Rectangle {
-                                color: "#FAFAFA"
+                                color: "#FFFFFF"
                                 radius: 8
                                 border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
                                 border.width: parent.activeFocus ? 2 : 1.5
@@ -409,23 +463,26 @@ Dialog {
                         Text {
                             text: "Offset:"
                             font.pixelSize: 15
-                            font.weight: Font.Medium
-                            color: "#424242"
-                            Layout.alignment: Qt.AlignHCenter
+                            font.weight: Font.DemiBold
+                            color: "#2E7D32"
+                            Layout.alignment: Qt.AlignLeft
+                            Layout.leftMargin: 25
                         }
 
                         TextField {
                             id: offsetField
                             Layout.preferredWidth: 200
+                            Layout.preferredHeight: 50
                             Layout.alignment: Qt.AlignHCenter
                             text: "0.0"
                             font.pixelSize: 16
                             selectByMouse: true
                             padding: 16
                             horizontalAlignment: Text.AlignHCenter
+                            validator: DoubleValidator { bottom: -999999; top: 999999; decimals: 6 }
 
                             background: Rectangle {
-                                color: "#FAFAFA"
+                                color: "#FFFFFF"
                                 radius: 8
                                 border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
                                 border.width: parent.activeFocus ? 2 : 1.5
@@ -516,18 +573,19 @@ Dialog {
                 Layout.topMargin: 15
 
                 Text {
-                    text: "Unit:"
+                    text: "Unit (optional):"
                     font.pixelSize: 16
                     font.weight: Font.DemiBold
                     color: "#2E7D32"
-                    Layout.alignment: Qt.AlignHCenter
+                    Layout.alignment: Qt.AlignLeft
+                    Layout.leftMargin: 10
                 }
 
                 TextField {
                     id: unitField
                     Layout.preferredWidth: 380
+                    Layout.preferredHeight: 50
                     Layout.alignment: Qt.AlignHCenter
-                    placeholderText: "e.g., km/h, °C, %, rpm"
                     font.pixelSize: 16
                     selectByMouse: true
                     padding: 16
@@ -536,11 +594,21 @@ Dialog {
                     rightPadding: 20
 
                     background: Rectangle {
-                        color: "#FAFAFA"
+                        color: "#FFFFFF"
                         radius: 8
                         border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
                         border.width: parent.activeFocus ? 2 : 1.5
                         implicitHeight: 50
+                        
+                        // Placeholder text overlay
+                        Text {
+                            anchors.centerIn: parent
+                            text: "e.g., km/h, °C, %, rpm, A, V"
+                            color: "#999999"
+                            font.pixelSize: 14
+                            font.italic: true
+                            visible: parent.parent.text.length === 0 && !parent.parent.activeFocus
+                        }
                     }
                 }
             }            // Error Label - Centered
@@ -567,75 +635,109 @@ Dialog {
         }
     }
 
-    footer: DialogButtonBox {
-        padding: 25
-        background: Rectangle {
-            color: "#F5F5F5"
-            radius: 12
-        }
+    footer: Rectangle {
+        color: "#F8F9FA"
+        height: 80
+        radius: 12
+        
+        RowLayout {
+            anchors.centerIn: parent
+            spacing: 20
 
-        Button {
-            text: "Cancel"
-            DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
-            Layout.preferredWidth: 120
-            Layout.alignment: Qt.AlignHCenter
+            Button {
+                text: "Cancel"
+                Layout.preferredWidth: 140
+                Layout.preferredHeight: 50
+                
+                contentItem: Text {
+                    text: parent.text
+                    color: "#666666"
+                    font.pixelSize: 16
+                    font.weight: Font.Medium
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
 
-            contentItem: Text {
-                text: parent.text
-                color: "#666666"
-                font.pixelSize: 15
-                font.weight: Font.Medium
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                anchors.centerIn: parent
+                background: Rectangle {
+                    color: parent.hovered ? "#F0F0F0" : "#FFFFFF"
+                    radius: 10
+                    border.color: "#CCCCCC"
+                    border.width: 2
+                    
+                    // Subtle shadow
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.topMargin: 2
+                        color: "transparent"
+                        radius: parent.radius
+                        border.color: "#00000015"
+                        border.width: 1
+                        z: -1
+                    }
+                }
+                
+                onClicked: addSignalDialog.reject()
             }
 
-            background: Rectangle {
-                color: parent.pressed ? "#E0E0E0" : "transparent"
-                radius: 8
-                implicitHeight: 45
-                border.color: "#CCCCCC"
-                border.width: 1
-            }
-        }
+            Button {
+                text: "Add Signal"
+                Layout.preferredWidth: 140
+                Layout.preferredHeight: 50
+                enabled: signalNameField.text.trim().length > 0
 
-        Button {
-            text: "Add Signal"
-            DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-            Layout.preferredWidth: 120
-            Layout.alignment: Qt.AlignHCenter
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.enabled ? "white" : "#CCCCCC"
+                    font.pixelSize: 16
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
 
-            contentItem: Text {
-                text: parent.text
-                color: "white"
-                font.pixelSize: 15
-                font.weight: Font.Medium
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                anchors.centerIn: parent
-            }
-
-            background: Rectangle {
-                color: parent.pressed ? "#388E3C" : "#4CAF50"
-                radius: 8
-                implicitHeight: 45
+                background: Rectangle {
+                    color: {
+                        if (!parent.enabled) return "#E0E0E0"
+                        if (parent.pressed) return "#388E3C"
+                        if (parent.hovered) return "#66BB6A"
+                        return "#4CAF50"
+                    }
+                    radius: 10
+                    
+                    // Subtle shadow
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.topMargin: 2
+                        color: "transparent"
+                        radius: parent.radius
+                        border.color: "#00000020"
+                        border.width: 1
+                        z: -1
+                        visible: parent.parent.enabled
+                    }
+                }
+                
+                onClicked: {
+                    // Custom validation and signal addition logic
+                    addSignalLogic()
+                }
             }
         }
     }
 
 
-    onAccepted: {
+    function addSignalLogic() {
         errorLabel.text = ""
+        errorLabel.color = "#D32F2F"  // Reset to error color
 
         // Validate input
         if (signalNameField.text.trim() === "") {
             errorLabel.text = "Please enter a signal name"
-            return;
+            return false;
         }
 
         if (currentMessageName === "") {
             errorLabel.text = "No message selected"
-            return;
+            return false;
         }
 
         var isLittleEndian = (byteOrderCombo.currentIndex === 0)
@@ -651,7 +753,7 @@ Dialog {
         
         if (validationError !== "") {
             errorLabel.text = validationError
-            return;
+            return false;
         }
 
         // Add the signal
@@ -670,7 +772,7 @@ Dialog {
 
         if (!success) {
             errorLabel.text = "Failed to add signal due to an unexpected error"
-            return;
+            return false;
         }
 
         // Clear fields for next use but keep dialog open for multiple additions
@@ -681,11 +783,13 @@ Dialog {
         startBitSpinBox.value += lengthSpinBox.value
 
         // Show success message temporarily
-        errorLabel.text = "Signal added successfully! You can add another signal."
+        errorLabel.text = "Signal '" + signalNameField.text.trim() + "' added successfully! You can add another signal or click Cancel to close."
         errorLabel.color = "#2E7D32"
 
         // Reset error color after delay
         timer.restart()
+        
+        return true;
     }
 
     onRejected: {

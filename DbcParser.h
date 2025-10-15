@@ -121,6 +121,7 @@ public:
     Q_INVOKABLE QString getModifiedDbcText() const;
     Q_INVOKABLE bool saveModifiedDbcToFile(const QUrl &saveUrl);
     Q_INVOKABLE QStringList getDbcDiffLines();
+    Q_INVOKABLE QVariantMap getStructuredDiff();
 
     // Methods for adding/removing messages and signals
     Q_INVOKABLE bool addMessage(const QString &name, unsigned long id, int length);

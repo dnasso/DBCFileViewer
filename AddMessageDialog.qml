@@ -207,7 +207,10 @@ Dialog {
 
         Button {
             text: "Add Message"
-            DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            
+            onClicked: {
+                addMessageLogic()
+            }
 
             contentItem: Text {
                 text: parent.text
@@ -223,20 +226,18 @@ Dialog {
         }
     }
 
-    onAccepted: {
+    function addMessageLogic() {
         errorLabel.text = ""
 
         // Validate input
         if (nameField.text.trim() === "") {
             errorLabel.text = "Please enter a message name"
-            open()
-            return
+            return false
         }
 
         if (idField.text.trim() === "") {
             errorLabel.text = "Please enter a message ID"
-            open()
-            return
+            return false
         }
 
         // Parse ID (handle both hex and decimal)
@@ -244,29 +245,30 @@ Dialog {
 
         if (isNaN(idValue)) {
             errorLabel.text = "Invalid message ID format"
-            open()
-            return
+            return false
         }
 
         // Use enhanced validation
         var validationError = dbcParser.validateMessageData(nameField.text.trim(), idValue, lengthSpinBox.value)
         if (validationError !== "") {
             errorLabel.text = validationError
-            open()
-            return
+            return false
         }
 
         // Add the message
         if (!dbcParser.addMessage(nameField.text.trim(), idValue, lengthSpinBox.value)) {
             errorLabel.text = "Failed to add message due to an unexpected error"
-            open()
-            return
+            return false
         }
 
         // Clear fields for next use
         nameField.text = ""
         idField.text = ""
         lengthSpinBox.value = 8
+        
+        // Close dialog on success
+        addMessageDialog.accept()
+        return true
     }
 
     onRejected: {
