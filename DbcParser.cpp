@@ -2121,6 +2121,23 @@ bool DbcParser::sendCanMessageOnce(const QString &messageName, const QString &ca
         QString taskId = dbcSender->getLastTaskId();
         qDebug() << "One-shot message task ID:" << taskId;
         
+        // Add to one-shot message history
+        OneShotMessage oneShotMsg;
+        oneShotMsg.messageName = messageName;
+        oneShotMsg.messageId = getMessageId(messageName);
+        oneShotMsg.hexData = getMessageHexData(messageName);
+        oneShotMsg.sentAt = QDateTime::currentDateTime();
+        oneShotMsg.canBus = canBus.isEmpty() ? "vcan0" : canBus;
+        
+        // Add to beginning of list (most recent first)
+        m_oneShotMessages.prepend(oneShotMsg);
+        
+        // Limit history to 50 messages
+        if (m_oneShotMessages.size() > 50) {
+            m_oneShotMessages.removeLast();
+        }
+        
+        emit oneShotMessagesChanged();
         emit messageSendStatus(messageName, true, "Message sent once successfully!");
         return true;
     } else if (result == 2) {
@@ -2128,6 +2145,23 @@ bool DbcParser::sendCanMessageOnce(const QString &messageName, const QString &ca
         // The message was likely sent successfully but no response received
         qDebug() << "One-shot message sent but no acknowledgment received:" << messageData;
         
+        // Add to one-shot message history even with no acknowledgment
+        OneShotMessage oneShotMsg;
+        oneShotMsg.messageName = messageName;
+        oneShotMsg.messageId = getMessageId(messageName);
+        oneShotMsg.hexData = getMessageHexData(messageName);
+        oneShotMsg.sentAt = QDateTime::currentDateTime();
+        oneShotMsg.canBus = canBus.isEmpty() ? "vcan0" : canBus;
+        
+        // Add to beginning of list (most recent first)
+        m_oneShotMessages.prepend(oneShotMsg);
+        
+        // Limit history to 50 messages
+        if (m_oneShotMessages.size() > 50) {
+            m_oneShotMessages.removeLast();
+        }
+        
+        emit oneShotMessagesChanged();
         emit messageSendStatus(messageName, true, "Message sent once (no acknowledgment received)");
         return true; // Consider this a success since message was transmitted
     } else {
@@ -2720,6 +2754,27 @@ bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
         qWarning() << "Invalid file path for loading active transmissions config";
         return false;
     }
+    
+    // Validate file exists and is readable
+    QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists()) {
+        emit showError("Active transmissions configuration file does not exist: " + fileInfo.fileName());
+        qWarning() << "Active transmissions config file does not exist:" << filePath;
+        return false;
+    }
+    
+    if (!fileInfo.isReadable()) {
+        emit showError("Cannot read active transmissions configuration file (permission denied): " + fileInfo.fileName());
+        qWarning() << "Cannot read active transmissions config file (permissions):" << filePath;
+        return false;
+    }
+    
+    // Validate file extension (should be .json)
+    if (fileInfo.suffix().compare("json", Qt::CaseInsensitive) != 0) {
+        emit showError("Invalid file type. Active transmissions configuration files must have .json extension. Selected: " + fileInfo.fileName());
+        qWarning() << "Invalid file extension for active transmissions config:" << fileInfo.suffix();
+        return false;
+    }
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -2743,6 +2798,20 @@ bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
     }
 
     QJsonObject rootObj = doc.object();
+    
+    // Validate file type - check if this is actually an active transmissions config
+    if (rootObj.contains("oneShotMessages")) {
+        emit showError("This appears to be a One-Shot Messages configuration file, not an Active Transmissions configuration file. Please select the correct file type.");
+        qWarning() << "Wrong file type: One-shot messages config loaded as active transmissions config";
+        return false;
+    }
+    
+    if (!rootObj.contains("activeTransmissions")) {
+        emit showError("Invalid active transmissions configuration file: Missing 'activeTransmissions' data. Please select a valid active transmissions configuration file.");
+        qWarning() << "Invalid active transmissions config: Missing activeTransmissions array";
+        return false;
+    }
+    
     QString configVersion = rootObj["configVersion"].toString();
     QJsonArray transmissionsArray = rootObj["activeTransmissions"].toArray();
 
@@ -2811,9 +2880,13 @@ bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
     if (loadedCount > 0) {
         emit showSuccess(QString("Configuration loaded successfully! Started %1 transmissions, skipped %2").arg(loadedCount).arg(skippedCount));
     } else if (skippedCount > 0) {
-        emit showWarning(QString("Configuration loaded but no transmissions started. %1 items were skipped").arg(skippedCount));
+        emit showWarning(QString("Configuration loaded but no transmissions started. %1 items were skipped (possibly due to missing DBC messages or already active transmissions)").arg(skippedCount));
     } else {
-        emit showError("No valid transmissions found in configuration file");
+        if (transmissionsArray.isEmpty()) {
+            emit showError("Configuration file contains no transmission data. The file may be empty or corrupted.");
+        } else {
+            emit showError("No valid transmissions found in configuration file. Check that the DBC file contains the required messages and no transmissions are already active.");
+        }
     }
     
     return loadedCount > 0; // Return true if at least one transmission was loaded
@@ -2824,6 +2897,22 @@ bool DbcParser::saveActiveTransmissionsConfig(const QUrl &saveUrl)
     QString filePath = saveUrl.toLocalFile();
     if (filePath.isEmpty()) {
         emit showError("Invalid file path for saving configuration");
+        return false;
+    }
+    
+    // Validate file extension
+    QFileInfo fileInfo(filePath);
+    if (fileInfo.suffix().compare("json", Qt::CaseInsensitive) != 0) {
+        // Auto-add .json extension if missing
+        if (fileInfo.suffix().isEmpty()) {
+            filePath += ".json";
+            fileInfo.setFile(filePath);
+        }
+    }
+    
+    // Check if we have any transmissions to save
+    if (m_activeTransmissions.isEmpty()) {
+        emit showError("No active transmissions to save. Start some transmissions first to create a configuration.");
         return false;
     }
 
@@ -2855,7 +2944,7 @@ bool DbcParser::saveActiveTransmissionsConfig(const QUrl &saveUrl)
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
-        emit showError("Cannot write configuration file: " + QFileInfo(filePath).fileName());
+        emit showError("Cannot write active transmissions configuration file: " + QFileInfo(filePath).fileName());
         qWarning() << "Cannot write active transmissions config to file:" << filePath;
         return false;
     }
@@ -3207,5 +3296,388 @@ void DbcParser::exportPastTransmissions(const QUrl &saveUrl)
 bool DbcParser::isConnectedToServer() const
 {
     return dbcSender && dbcSender->isConnected();
+}
+
+// One-shot message implementations
+bool DbcParser::sendRawCanMessage(const QString &messageId, const QString &hexData, const QString &canBus, const QString &messageName)
+{
+    qDebug() << "Send raw CAN message called with ID:" << messageId << "data:" << hexData << "bus:" << canBus << "name:" << messageName;
+    
+    if (!dbcSender) {
+        qWarning() << "DbcSender not initialized";
+        emit showError("Error: CAN sender not initialized. Please check your connection setup.");
+        return false;
+    }
+
+    if (!dbcSender->isConnected()) {
+        qDebug() << "Error: Not connected to server";
+        emit showError("Error: Not connected to server");
+        return false;
+    }
+
+    // Validate message ID is not empty
+    if (messageId.trimmed().isEmpty()) {
+        qWarning() << "Empty message ID provided";
+        emit showError("Message ID cannot be empty");
+        return false;
+    }
+    
+    // Parse message ID - handle both hex (0x123) and decimal formats
+    bool ok;
+    unsigned long canId;
+    QString trimmedMessageId = messageId.trimmed();
+    if (trimmedMessageId.startsWith("0x", Qt::CaseInsensitive)) {
+        canId = trimmedMessageId.mid(2).toULong(&ok, 16);
+    } else {
+        canId = trimmedMessageId.toULong(&ok, 16);
+        if (!ok) {
+            canId = trimmedMessageId.toULong(&ok, 10);
+        }
+    }
+    
+    if (!ok) {
+        qWarning() << "Invalid message ID format:" << messageId;
+        emit showError("Invalid message ID format: " + messageId);
+        return false;
+    }
+    
+    // Validate CAN ID range (supporting both 11-bit and 29-bit identifiers)
+    if (canId > 0x1FFFFFFF) { // 29-bit CAN ID maximum
+        qWarning() << "CAN ID out of range:" << canId << "(max: 0x1FFFFFFF)";
+        emit showError(QString("CAN ID out of range: 0x%1 (maximum: 0x1FFFFFFF)").arg(canId, 0, 16).toUpper());
+        return false;
+    }
+
+    // Validate and clean hex data (remove spaces and common separators)
+    QString trimmedHexData = hexData.trimmed();
+    if (trimmedHexData.isEmpty()) {
+        qWarning() << "Empty hex data provided";
+        emit showError("Hex data cannot be empty");
+        return false;
+    }
+    
+    QString cleanHexData = trimmedHexData;
+    cleanHexData.remove(" ");
+    cleanHexData.remove("-");  // Remove hyphens sometimes used as separators
+    cleanHexData.remove(":");  // Remove colons sometimes used as separators
+    cleanHexData.remove("\t"); // Remove tabs
+    cleanHexData.remove("\n"); // Remove newlines
+    
+    // Final check after cleaning
+    if (cleanHexData.isEmpty()) {
+        qWarning() << "Hex data is empty after cleaning:" << hexData;
+        emit showError("Hex data contains only separators and spaces");
+        return false;
+    }
+    
+    if (cleanHexData.length() % 2 != 0) {
+        qWarning() << "Invalid hex data length (must be even number of characters):" << hexData;
+        emit showError("Invalid hex data length: " + hexData + " (must be even number of characters)");
+        return false;
+    }
+    
+    if (cleanHexData.length() > 16) {
+        qWarning() << "Hex data too long (max 8 bytes = 16 hex characters):" << hexData;
+        emit showError("Hex data too long: " + hexData + " (maximum 8 bytes = 16 hex characters)");
+        return false;
+    }
+    
+    // Validate that all characters are valid hex digits
+    QRegularExpression hexRegex("^[0-9A-Fa-f]+$");
+    if (!hexRegex.match(cleanHexData).hasMatch()) {
+        qWarning() << "Invalid hex data contains non-hex characters:" << hexData;
+        emit showError("Invalid hex data: " + hexData + " (only 0-9, A-F characters allowed)");
+        return false;
+    }
+
+    // Format message: "canid#canmessage#rate#canbus" (rate=0 for one-shot)
+    QString busToUse = canBus.isEmpty() ? "vcan0" : canBus;
+    QString messageData = QString("%1#%2#0#%3").arg(canId, 0, 16).arg(cleanHexData).arg(busToUse);
+    
+    qDebug() << "Sending one-shot raw message:" << messageData;
+
+    // Send the one-shot message
+    qint8 result = dbcSender->sendOneShotMessage(messageData, 0);
+    
+    if (result == 0 || result == 2) {
+        qDebug() << "Successfully sent raw one-shot CAN message";
+        
+        // Add to one-shot message history
+        OneShotMessage oneShotMsg;
+        oneShotMsg.messageName = messageName.isEmpty() ? 
+            QString("Raw Message (0x%1)").arg(canId, 0, 16).toUpper() : messageName;
+        oneShotMsg.messageId = canId;
+        oneShotMsg.hexData = hexData;
+        oneShotMsg.sentAt = QDateTime::currentDateTime();
+        oneShotMsg.canBus = busToUse;
+        
+        // Add to beginning of list (most recent first)
+        m_oneShotMessages.prepend(oneShotMsg);
+        
+        // Limit history to 50 messages
+        if (m_oneShotMessages.size() > 50) {
+            m_oneShotMessages.removeLast();
+        }
+        
+        emit oneShotMessagesChanged();
+        
+        // Log successful transmission details
+        qDebug() << "Added message to one-shot history. Total messages in history:" << m_oneShotMessages.size();
+        qDebug() << "Message details - Name:" << oneShotMsg.messageName << "ID:" << QString("0x%1").arg(oneShotMsg.messageId, 0, 16) << "Data:" << oneShotMsg.hexData << "Bus:" << oneShotMsg.canBus;
+        
+        if (result == 0) {
+            emit showSuccess("Raw message sent successfully!");
+        } else {
+            emit showSuccess("Raw message sent (no acknowledgment received)");
+        }
+        return true;
+    } else {
+        QString errorMsg = QString("Send failed with error code: %1").arg(result);
+        qWarning() << "Failed to send raw CAN message. Error code:" << result;
+        emit showError(errorMsg);
+        return false;
+    }
+}
+
+QVariantList DbcParser::oneShotMessages() const
+{
+    QVariantList result;
+    for (const auto &message : m_oneShotMessages) {
+        QVariantMap map;
+        map["messageName"] = message.messageName;
+        map["messageId"] = QString("0x%1").arg(message.messageId, 0, 16).toUpper();
+        map["hexData"] = message.hexData;
+        map["sentAt"] = message.sentAt.toString("hh:mm:ss");
+        map["sentAtFull"] = message.sentAt.toString("yyyy-MM-dd hh:mm:ss");
+        map["canBus"] = message.canBus;
+        result.append(map);
+    }
+    return result;
+}
+
+bool DbcParser::saveOneShotMessagesConfig(const QUrl &saveUrl)
+{
+    QString filePath = saveUrl.toLocalFile();
+    if (filePath.isEmpty()) {
+        emit showError("Invalid file path for saving one-shot messages configuration");
+        return false;
+    }
+    
+    // Validate file extension
+    QFileInfo fileInfo(filePath);
+    if (fileInfo.suffix().compare("json", Qt::CaseInsensitive) != 0) {
+        // Auto-add .json extension if missing
+        if (fileInfo.suffix().isEmpty()) {
+            filePath += ".json";
+            fileInfo.setFile(filePath);
+        }
+    }
+    
+    // Check if we have any messages to save
+    if (m_oneShotMessages.isEmpty()) {
+        emit showError("No one-shot messages to save. Send some messages first to create history.");
+        return false;
+    }
+
+    QJsonDocument doc;
+    QJsonObject rootObj;
+    QJsonArray messagesArray;
+
+    for (const auto& message : m_oneShotMessages) {
+        QJsonObject messageObj;
+        messageObj["messageName"] = message.messageName;
+        messageObj["messageId"] = static_cast<qint64>(message.messageId);
+        messageObj["hexData"] = message.hexData;
+        messageObj["sentAt"] = message.sentAt.toString(Qt::ISODate);
+        messageObj["canBus"] = message.canBus;
+        messagesArray.append(messageObj);
+    }
+
+    rootObj["oneShotMessages"] = messagesArray;
+    rootObj["configVersion"] = "1.0";
+    rootObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    rootObj["description"] = QString("One-shot message history with %1 messages").arg(messagesArray.size());
+    
+    doc.setObject(rootObj);
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        emit showError("Cannot write one-shot messages configuration file: " + QFileInfo(filePath).fileName());
+        qWarning() << "Cannot write one-shot messages config to file:" << filePath;
+        return false;
+    }
+
+    file.write(doc.toJson());
+    file.close();
+    qDebug() << "Saved one-shot messages configuration to:" << filePath;
+    emit showSuccess("One-shot messages configuration saved successfully: " + QFileInfo(filePath).fileName());
+    return true;
+}
+
+bool DbcParser::loadOneShotMessagesConfig(const QUrl &loadUrl)
+{
+    QString filePath = loadUrl.toLocalFile();
+    if (filePath.isEmpty()) {
+        emit showError("Invalid file path for loading one-shot messages configuration");
+        return false;
+    }
+    
+    // Validate file exists and is readable
+    QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists()) {
+        emit showError("One-shot messages configuration file does not exist: " + fileInfo.fileName());
+        qWarning() << "One-shot config file does not exist:" << filePath;
+        return false;
+    }
+    
+    if (!fileInfo.isReadable()) {
+        emit showError("Cannot read one-shot messages configuration file (permission denied): " + fileInfo.fileName());
+        qWarning() << "Cannot read one-shot config file (permissions):" << filePath;
+        return false;
+    }
+    
+    // Validate file extension (should be .json)
+    if (fileInfo.suffix().compare("json", Qt::CaseInsensitive) != 0) {
+        emit showError("Invalid file type. One-shot messages configuration files must have .json extension. Selected: " + fileInfo.fileName());
+        qWarning() << "Invalid file extension for one-shot config:" << fileInfo.suffix();
+        return false;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit showError("Cannot read one-shot messages configuration file: " + QFileInfo(filePath).fileName());
+        qWarning() << "Cannot read one-shot messages config file:" << filePath;
+        return false;
+    }
+
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    
+    if (parseError.error != QJsonParseError::NoError) {
+        emit showError("One-shot messages configuration file has invalid JSON format: " + parseError.errorString());
+        qWarning() << "JSON parse error in one-shot messages config file:" << parseError.errorString();
+        return false;
+    }
+
+    QJsonObject rootObj = doc.object();
+    
+    // Validate file type - check if this is actually a one-shot messages config
+    if (rootObj.contains("activeTransmissions")) {
+        emit showError("This appears to be an Active Transmissions configuration file, not a One-Shot Messages configuration file. Please select the correct file type.");
+        qWarning() << "Wrong file type: Active transmissions config loaded as one-shot config";
+        return false;
+    }
+    
+    if (!rootObj.contains("oneShotMessages")) {
+        emit showError("Invalid one-shot messages configuration file: Missing 'oneShotMessages' data. Please select a valid one-shot messages configuration file.");
+        qWarning() << "Invalid one-shot config: Missing oneShotMessages array";
+        return false;
+    }
+    
+    QString configVersion = rootObj["configVersion"].toString();
+    QJsonArray messagesArray = rootObj["oneShotMessages"].toArray();
+
+    qDebug() << "Loading one-shot messages config version:" << configVersion;
+    qDebug() << "Found" << messagesArray.size() << "one-shot message records";
+    
+    // If no messages found, that's also an error condition
+    if (messagesArray.isEmpty()) {
+        emit showError("One-shot messages configuration file is empty or contains no valid messages.");
+        qWarning() << "One-shot config file contains no messages";
+        return false;
+    }
+
+    // Clear existing history and load from config
+    m_oneShotMessages.clear();
+
+    int validMessages = 0;
+    int skippedMessages = 0;
+    
+    for (const QJsonValue& value : messagesArray) {
+        if (!value.isObject()) {
+            qWarning() << "Invalid message entry in config file - not an object, skipping";
+            skippedMessages++;
+            continue;
+        }
+        
+        QJsonObject messageObj = value.toObject();
+        
+        OneShotMessage message;
+        message.messageName = messageObj["messageName"].toString();
+        message.messageId = static_cast<unsigned long>(messageObj["messageId"].toInteger());
+        message.hexData = messageObj["hexData"].toString();
+        message.sentAt = QDateTime::fromString(messageObj["sentAt"].toString(), Qt::ISODate);
+        message.canBus = messageObj["canBus"].toString();
+        
+        // Validate the message data thoroughly
+        if (message.messageName.isEmpty()) {
+            qWarning() << "Invalid one-shot message: empty message name - skipping";
+            skippedMessages++;
+            continue;
+        }
+        
+        if (message.hexData.isEmpty()) {
+            qWarning() << "Invalid one-shot message: empty hex data - skipping";
+            skippedMessages++;
+            continue;
+        }
+        
+        // Validate hex data format
+        QString cleanHexData = message.hexData;
+        cleanHexData.remove(" ");
+        QRegularExpression hexRegex("^[0-9A-Fa-f]+$");
+        if (cleanHexData.length() % 2 != 0 || !hexRegex.match(cleanHexData).hasMatch()) {
+            qWarning() << "Invalid one-shot message: invalid hex data format" << message.hexData << "- skipping";
+            skippedMessages++;
+            continue;
+        }
+        
+        // Validate CAN ID range
+        if (message.messageId > 0x1FFFFFFF) {
+            qWarning() << "Invalid one-shot message: CAN ID out of range" << message.messageId << "- skipping";
+            skippedMessages++;
+            continue;
+        }
+        
+        // Validate timestamp
+        if (!message.sentAt.isValid()) {
+            qWarning() << "Invalid one-shot message: invalid timestamp - using current time";
+            message.sentAt = QDateTime::currentDateTime();
+        }
+        
+        // Set default CAN bus if empty
+        if (message.canBus.isEmpty()) {
+            message.canBus = "vcan0";
+        }
+        
+        m_oneShotMessages.append(message);
+        validMessages++;
+    }
+
+    emit oneShotMessagesChanged();
+    
+    qDebug() << "One-shot messages configuration load complete. Loaded:" << validMessages << "valid messages, skipped:" << skippedMessages << "invalid messages";
+    
+    if (validMessages == 0) {
+        emit showError("No valid one-shot messages could be loaded from the configuration file.");
+        return false;
+    } else if (skippedMessages > 0) {
+        emit showSuccess(QString("One-shot messages configuration loaded! Loaded %1 valid messages, skipped %2 invalid messages").arg(validMessages).arg(skippedMessages));
+    } else {
+        emit showSuccess(QString("One-shot messages configuration loaded successfully! Loaded %1 messages").arg(validMessages));
+    }
+    
+    return true;
+}
+
+void DbcParser::clearOneShotMessageHistory()
+{
+    qDebug() << "Clearing one-shot message history";
+    m_oneShotMessages.clear();
+    emit oneShotMessagesChanged();
+    emit showInfo("One-shot message history cleared");
 }
 

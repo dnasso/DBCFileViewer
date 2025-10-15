@@ -9,6 +9,10 @@
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QFileInfo>
 #include <vector>
 #include <string>
 #include <set>
@@ -76,6 +80,15 @@ struct ConfigFileEntry {
     int messageCount;
 };
 
+// Data structure for one-shot message history
+struct OneShotMessage {
+    QString messageName;
+    unsigned long messageId;
+    QString hexData;
+    QDateTime sentAt;
+    QString canBus;
+};
+
 class DbcParser : public QObject
 {
     Q_OBJECT
@@ -86,6 +99,7 @@ class DbcParser : public QObject
     Q_PROPERTY(QVariantList activeTransmissions READ activeTransmissions NOTIFY activeTransmissionsChanged)
     Q_PROPERTY(QVariantList pastTransmissions READ pastTransmissions NOTIFY pastTransmissionsChanged)
     Q_PROPERTY(QVariantList configFiles READ configFiles NOTIFY configFilesChanged)
+    Q_PROPERTY(QVariantList oneShotMessages READ oneShotMessages NOTIFY oneShotMessagesChanged)
     Q_PROPERTY(bool isDbcLoaded READ isDbcLoaded NOTIFY dbcLoadedChanged)
 
 public:
@@ -187,6 +201,12 @@ public:
     // Helper method to stop existing transmission for the same message (prevents duplicates)
     bool stopExistingTransmission(const QString &messageName);
 
+    // One-shot message management
+    Q_INVOKABLE bool sendRawCanMessage(const QString &messageId, const QString &hexData, const QString &canBus = "vcan0", const QString &messageName = QString());
+    Q_INVOKABLE bool saveOneShotMessagesConfig(const QUrl &saveUrl);
+    Q_INVOKABLE bool loadOneShotMessagesConfig(const QUrl &loadUrl);
+    Q_INVOKABLE void clearOneShotMessageHistory();
+
     // Enhanced configuration management
     Q_INVOKABLE QString getActiveTransmissionsConfigInfo(const QUrl &fileUrl);
     Q_INVOKABLE bool validateConfigFile(const QUrl &fileUrl);
@@ -216,6 +236,7 @@ public:
     QVariantList activeTransmissions() const;
     QVariantList pastTransmissions() const;
     QVariantList configFiles() const;
+    QVariantList oneShotMessages() const;
     bool isDbcLoaded() const;
     
 
@@ -228,6 +249,7 @@ signals:
     void activeTransmissionsChanged();
     void pastTransmissionsChanged();
     void configFilesChanged();
+    void oneShotMessagesChanged();
     void transmissionStatusChanged(const QString &messageName, const QString &status);
     void dbcLoadedChanged();
     
@@ -270,6 +292,9 @@ private:
     
     // Past transmissions tracking
     QList<PastTransmission> m_pastTransmissions;
+    
+    // One-shot messages history
+    QList<OneShotMessage> m_oneShotMessages;
     
     // Config file browser
     QList<ConfigFileEntry> m_configFiles;

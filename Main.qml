@@ -503,8 +503,7 @@ ApplicationWindow {
                                         }
 
                                         background: Rectangle {
-                                            color: parent.pressed ? "#E8F5E9" :
-                                                   (parent.hovered ? "#F1F8E9" : "transparent")
+                                            color: parent.pressed ? "#E8F5E9" : "transparent"
                                             border.color: "#4CAF50"
                                             border.width: 1
                                             radius: 4
@@ -515,7 +514,7 @@ ApplicationWindow {
                                         }
 
                                         ToolTip {
-                                            visible: parent.hovered
+                                           
                                             text: "Send this CAN message"
                                             delay: 500
                                             background: Rectangle {
@@ -1100,7 +1099,7 @@ ApplicationWindow {
 
                                                         contentItem: Text {
                                                             text: parent.text
-                                                            color: parent.hovered ? "white" : "#4CAF50"
+                                                            color: "white"
                                                             horizontalAlignment: Text.AlignHCenter
                                                             verticalAlignment: Text.AlignVCenter
                                                             font.pixelSize: 12
@@ -1110,8 +1109,7 @@ ApplicationWindow {
 
                                                         background: Rectangle {
                                                             anchors.fill: parent
-                                                            color: parent.pressed ? "#2E7D32" :
-                                                                   (parent.hovered ? "#4CAF50" : "transparent")
+                                                            color: parent.pressed ? "#2E7D32" : "#4CAF50"
                                                             border.color: "#4CAF50"
                                                             border.width: 2
                                                             radius: 6
@@ -1950,6 +1948,231 @@ ApplicationWindow {
                         }
                     }
                 }
+                
+                // One-Shot Messages Management Section
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: "white"
+                    radius: 8
+                    
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        spacing: 15
+                        
+                        // Header with buttons
+                        RowLayout {
+                            Layout.fillWidth: true
+                            
+                            Text {
+                                text: "One-Shot Messages History"
+                                font.pixelSize: 18
+                                font.bold: true
+                                color: "#1976D2"
+                            }
+                            
+                            Item { Layout.fillWidth: true }
+                            
+                            Button {
+                                text: "Save Config"
+                                enabled: dbcParser.oneShotMessages.length > 0
+                                
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "white"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                
+                                background: Rectangle {
+                                    color: parent.enabled ? "#1976D2" : "#CCCCCC"
+                                    radius: 6
+                                }
+                                
+                                onClicked: {
+                                    saveOneShotConfigDialog.open()
+                                }
+                            }
+                            
+                            Button {
+                                text: "Load Config"
+                                
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "white"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                
+                                background: Rectangle {
+                                    color: "#4CAF50"
+                                    radius: 6
+                                }
+                                
+                                onClicked: {
+                                    loadOneShotConfigDialog.open()
+                                }
+                            }
+                            
+                            Button {
+                                text: "Clear History"
+                                enabled: dbcParser.oneShotMessages.length > 0
+                                
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "white"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                
+                                background: Rectangle {
+                                    color: parent.enabled ? "#F44336" : "#CCCCCC"
+                                    radius: 6
+                                }
+                                
+                                onClicked: {
+                                    clearOneShotHistoryDialog.open()
+                                }
+                            }
+                        }
+                        
+                        // One-shot messages list
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: "#f5f5f5"
+                            radius: 8
+                            border.color: "#E0E0E0"
+                            
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                
+                                ListView {
+                                    id: oneShotMessagesListView
+                                    model: dbcParser.oneShotMessages
+                                    
+                                    delegate: Rectangle {
+                                        width: oneShotMessagesListView.width
+                                        height: 80
+                                        color: index % 2 === 0 ? "white" : "#F8F8F8"
+                                        
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 15
+                                            anchors.rightMargin: 15
+                                            spacing: 15
+                                            
+                                            // Message info
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 5
+                                                
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    
+                                                    Text {
+                                                        text: modelData.messageName
+                                                        font.pixelSize: 14
+                                                        font.bold: true
+                                                        color: "#2E7D32"
+                                                    }
+                                                    
+                                                    Text {
+                                                        text: "(" + modelData.messageId + ")"
+                                                        font.pixelSize: 12
+                                                        color: "#757575"
+                                                    }
+                                                    
+                                                    Item { Layout.fillWidth: true }
+                                                    
+                                                    Text {
+                                                        text: modelData.sentAt
+                                                        font.pixelSize: 12
+                                                        color: "#757575"
+                                                    }
+                                                }
+                                                
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    
+                                                    Text {
+                                                        text: "Data: " + modelData.hexData
+                                                        font.pixelSize: 12
+                                                        color: "#424242"
+                                                        font.family: "monospace"
+                                                    }
+                                                    
+                                                    Item { Layout.fillWidth: true }
+                                                    
+                                                    Text {
+                                                        text: "Bus: " + modelData.canBus
+                                                        font.pixelSize: 12
+                                                        color: "#757575"
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Send Again button
+                                            Button {
+                                                text: "Send Again"
+                                                Layout.preferredWidth: 100
+                                                
+                                                contentItem: Text {
+                                                    text: parent.text
+                                                    color: "white"
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    font.pixelSize: 12
+                                                }
+                                                
+                                                background: Rectangle {
+                                                    color: "#FF9800"
+                                                    radius: 4
+                                                }
+                                                
+                                                onClicked: {
+                                                    // Validate required data before attempting to resend
+                                                    if (!modelData.messageId || !modelData.hexData || !modelData.messageName) {
+                                                        showError("Cannot resend message: Missing required data")
+                                                        console.error("Cannot resend message - missing data:", modelData)
+                                                        return
+                                                    }
+                                                    
+                                                    try {
+                                                        // Parse message ID and send raw message again with original name
+                                                        var messageId = modelData.messageId.replace("0x", "").replace("0X", "")
+                                                        var canBus = modelData.canBus || "vcan0"  // Default to vcan0 if undefined
+                                                        
+                                                        var success = dbcParser.sendRawCanMessage(messageId, modelData.hexData, canBus, modelData.messageName)
+                                                        if (success) {
+                                                            console.log("Resent one-shot message:", modelData.messageName)
+                                                        } else {
+                                                            console.log("Failed to resend one-shot message:", modelData.messageName)
+                                                        }
+                                                    } catch (e) {
+                                                        showError("Error resending message: " + e.message)
+                                                        console.error("Exception in Send Again:", e)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Empty state
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "No one-shot messages sent yet"
+                                        color: "#757575"
+                                        font.pixelSize: 16
+                                        visible: oneShotMessagesListView.count === 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1999,6 +2222,56 @@ ApplicationWindow {
             } else {
                 console.log("Failed to load configuration")
                 showStatusMessage("Failed to load configuration file!", true)
+            }
+        }
+    }
+    
+    // One-Shot Messages Dialogs
+    FileDialog {
+        id: saveOneShotConfigDialog
+        title: "Save One-Shot Messages Configuration"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["JSON Files (*.json)"]
+        onAccepted: {
+            dbcParser.saveOneShotMessagesConfig(selectedFile)
+        }
+    }
+    
+    FileDialog {
+        id: loadOneShotConfigDialog
+        title: "Load One-Shot Messages Configuration"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["JSON Files (*.json)"]
+        onAccepted: {
+            dbcParser.loadOneShotMessagesConfig(selectedFile)
+        }
+    }
+    
+    Dialog {
+        id: clearOneShotHistoryDialog
+        modal: true
+        title: "Clear History"
+        anchors.centerIn: parent
+        
+        ColumnLayout {
+            Text {
+                text: "Clear all one-shot message history?"
+                Layout.fillWidth: true
+            }
+            
+            RowLayout {
+                Button {
+                    text: "Cancel"
+                    onClicked: clearOneShotHistoryDialog.close()
+                }
+                
+                Button {
+                    text: "Clear"
+                    onClicked: {
+                        dbcParser.clearOneShotMessageHistory()
+                        clearOneShotHistoryDialog.close()
+                    }
+                }
             }
         }
     }

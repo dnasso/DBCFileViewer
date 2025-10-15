@@ -1,0 +1,28 @@
+{
+    "configVersion": "1.0",
+    "description": "One-shot message history with 3 messages",
+    "oneShotMessages": [
+        {
+            "canBus": "vcan0",
+            "hexData": "00 00 00 00 00 00 00 00",
+            "messageId": 853,
+            "messageName": "RAW MESSAGE (0X355)",
+            "sentAt": "2025-10-15T17:59:59"
+        },
+        {
+            "canBus": "vcan0",
+            "hexData": "00 00 00 00 00 00 00 00",
+            "messageId": 853,
+            "messageName": "RAW MESSAGE (0X355)",
+            "sentAt": "2025-10-15T17:59:48"
+        },
+        {
+            "canBus": "vcan0",
+            "hexData": "00 00 00 00 00 00 00 00",
+            "messageId": 853,
+            "messageName": "SimpBMS_SOC (0x355)",
+            "sentAt": "2025-10-15T17:59:31"
+        }
+    ],
+    "timestamp": "2025-10-15T18:00:12"
+}
