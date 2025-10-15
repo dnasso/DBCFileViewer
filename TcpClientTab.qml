@@ -21,7 +21,7 @@ Rectangle {
             // Notify the parent application about connection status change
             // The DbcParser should automatically sync because it was set up with setTcpClient
             messageHistory.append({
-                "timestamp": new Date().toLocaleTimeString(),
+                "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                 "type": "system",
                 "content": connected ? "Connected to server" : "Disconnected from server"
             })
@@ -30,7 +30,7 @@ Rectangle {
 
         onResponseReceived: {
             // Add response to the message history
-            var timestamp = new Date().toLocaleTimeString()
+            var timestamp = new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss")
             messageHistory.append({
                 "timestamp": timestamp,
                 "type": "response",
@@ -212,7 +212,7 @@ Rectangle {
                                     parent.parent.parent.parent.parent.showError("Please enter a valid IP address")
                                 }
                                 messageHistory.append({
-                                    "timestamp": new Date().toLocaleTimeString(),
+                                    "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                                     "type": "error",
                                     "content": "Connection failed: IP address is required"
                                 })
@@ -225,7 +225,7 @@ Rectangle {
                                     parent.parent.parent.parent.parent.showError("Please enter a valid port number (1-65535)")
                                 }
                                 messageHistory.append({
-                                    "timestamp": new Date().toLocaleTimeString(),
+                                    "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                                     "type": "error",
                                     "content": "Connection failed: Invalid port number"
                                 })
@@ -236,7 +236,7 @@ Rectangle {
                             var success = tcpClient.connectToServer(ipField.text, parseInt(portField.text))
                             if (success) {
                                 messageHistory.append({
-                                    "timestamp": new Date().toLocaleTimeString(),
+                                    "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                                     "type": "system",
                                     "content": "Connected to " + ipField.text + ":" + portField.text
                                 })
@@ -247,7 +247,7 @@ Rectangle {
                                 }
                             } else {
                                 messageHistory.append({
-                                    "timestamp": new Date().toLocaleTimeString(),
+                                    "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                                     "type": "error",
                                     "content": "Failed to connect to " + ipField.text + ":" + portField.text
                                 })
@@ -297,10 +297,12 @@ Rectangle {
                 ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 100
+                    Layout.minimumHeight: 150
+                    Layout.preferredHeight: 200
                     clip: true
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    contentWidth: -1  // Disable horizontal scrolling
 
                     ListView {
                         id: messageListView
@@ -313,10 +315,11 @@ Rectangle {
 
                         delegate: Rectangle {
                             width: messageListView.width
-                            height: Math.max(40, messageContent.implicitHeight + 20)
+                            height: Math.max(40, contentLayout.implicitHeight + 20)
                             color: index % 2 === 0 ? "#FAFAFA" : "white"
 
                             RowLayout {
+                                id: contentLayout
                                 anchors.fill: parent
                                 anchors.margins: 10
                                 spacing: 10
@@ -324,8 +327,9 @@ Rectangle {
                                 Text {
                                     text: model.timestamp
                                     font.pixelSize: 11
+                                    font.family: "Monaco, Consolas, monospace"
                                     color: "#757575"
-                                    Layout.preferredWidth: 80
+                                    Layout.preferredWidth: 70
                                     Layout.alignment: Qt.AlignTop
                                     verticalAlignment: Text.AlignTop
                                 }
@@ -347,9 +351,12 @@ Rectangle {
                                     Layout.alignment: Qt.AlignTop
                                     text: model.content || ""
                                     font.pixelSize: 13
+                                    font.family: "Monaco, Consolas, monospace"
                                     color: model.type === "error" ? "#D32F2F" : "#424242"
-                                    wrapMode: Text.Wrap
+                                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                                     elide: Text.ElideNone
+                                    textFormat: Text.PlainText
+                                    Layout.maximumWidth: parent.width - 110 // Account for timestamp and indicator
                                 }
                             }
                         }
@@ -499,7 +506,7 @@ Rectangle {
 
                                 // Add sent message to history
                                 messageHistory.append({
-                                    "timestamp": new Date().toLocaleTimeString(),
+                                    "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                                     "type": "sent",
                                     "content": message
                                 })
@@ -510,7 +517,7 @@ Rectangle {
                                 // If there was an error (not handled by onResponseReceived), add it to history
                                 if (response && !tcpClient.connected) {
                                     messageHistory.append({
-                                        "timestamp": new Date().toLocaleTimeString(),
+                                        "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
                                         "type": "error",
                                         "content": response
                                     })

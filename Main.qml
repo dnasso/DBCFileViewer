@@ -265,6 +265,9 @@ ApplicationWindow {
             Layout.margins: 10
             text: "No DBC file loaded"
             color: "#757575"
+            wrapMode: Text.WordWrap
+            elide: Text.ElideRight
+            maximumLineCount: 2
         }
         
         // Main content area with tabs
