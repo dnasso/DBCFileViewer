@@ -1786,14 +1786,23 @@ ApplicationWindow {
                             Text {
                                 x: 660
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 120
+                                width: 100
                                 text: "Started At"
                                 font.bold: true
                                 color: "#424242"
                             }
                             
                             Text {
-                                x: 800
+                                x: 780
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 80
+                                text: "CAN Bus"
+                                font.bold: true
+                                color: "#424242"
+                            }
+                            
+                            Text {
+                                x: 880
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Actions"
                                 font.bold: true
@@ -1872,15 +1881,24 @@ ApplicationWindow {
                                     Text {
                                         x: 660
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 120
+                                        width: 100
                                         text: modelData.startedAt
+                                        color: "#757575"
+                                        font.pixelSize: 12
+                                    }
+                                    
+                                    Text {
+                                        x: 780
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 80
+                                        text: modelData.canBus
                                         color: "#757575"
                                         font.pixelSize: 12
                                     }
                                     
                                     // Fixed positioned buttons - expanded for full width
                                     Button {
-                                        x: 800
+                                        x: 880
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 70
                                         height: 36
@@ -1910,7 +1928,7 @@ ApplicationWindow {
                                     }
                                     
                                     Button {
-                                        x: 885
+                                        x: 970
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 60
                                         height: 36

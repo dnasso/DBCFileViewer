@@ -1570,8 +1570,12 @@ bool DbcParser::removeSignal(const QString &messageName, const QString &signalNa
 
 bool DbcParser::messageExists(const QString &messageName)
 {
+    // Extract the clean message name (remove ID part if present)
+    int parenthesisPos = messageName.indexOf(" (");
+    QString cleanMessageName = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
+    
     for (const auto& msg : messages) {
-        if (QString::fromStdString(msg.name) == messageName) {
+        if (QString::fromStdString(msg.name) == cleanMessageName) {
             return true;
         }
     }
@@ -2177,8 +2181,8 @@ bool DbcParser::startTransmission(const QString &messageName, int rateMs, const 
 {
     qDebug() << "Starting transmission for message:" << messageName << "rate:" << rateMs << "ms on bus:" << canBus;
 
-    // Stop any existing transmission for this message first
-    stopExistingTransmission(messageName);
+    // Stop any existing transmission for this message on the same CAN bus only
+    stopExistingTransmission(messageName, canBus);
 
     if (!dbcSender || !dbcSender->isConnected()) {
         qDebug() << "Error: Not connected to server";
@@ -2390,6 +2394,13 @@ QString DbcParser::getCurrentMessageBinData()
 // Transmission management methods
 bool DbcParser::stopExistingTransmission(const QString &messageName)
 {
+    // This method stops ALL transmissions for the given message name (regardless of CAN bus)
+    // Use this when you want to stop all instances of a message across all buses
+    return stopExistingTransmission(messageName, QString()); // Empty string means all buses
+}
+
+bool DbcParser::stopExistingTransmission(const QString &messageName, const QString &canBus)
+{
     // Extract the clean message name (remove ID part if present)
     int parenthesisPos = messageName.indexOf(" (");
     QString cleanMessageName = parenthesisPos > 0 ? messageName.left(parenthesisPos) : messageName;
@@ -2401,8 +2412,15 @@ bool DbcParser::stopExistingTransmission(const QString &messageName)
         int existingParenthesisPos = it->messageName.indexOf(" (");
         QString existingCleanName = existingParenthesisPos > 0 ? it->messageName.left(existingParenthesisPos) : it->messageName;
         
-        if (existingCleanName == cleanMessageName) {
-            qDebug() << "Found existing transmission for message:" << cleanMessageName << "- stopping it";
+        // Check if message name matches
+        bool messageMatches = (existingCleanName == cleanMessageName);
+        
+        // Check if CAN bus matches (empty canBus means match all buses)
+        bool busMatches = canBus.isEmpty() || (it->canBus == canBus);
+        
+        if (messageMatches && busMatches) {
+            qDebug() << "Found existing transmission for message:" << cleanMessageName 
+                     << "on bus:" << it->canBus << "- stopping it";
             
             // Stop the transmission on the server
             if (dbcSender && isConnectedToServer() && !it->taskId.isEmpty()) {
@@ -2420,8 +2438,20 @@ bool DbcParser::stopExistingTransmission(const QString &messageName)
             m_activeTransmissions.erase(it);
             foundAndStopped = true;
             
-            qDebug() << "Successfully stopped existing transmission for:" << cleanMessageName;
-            break; // Only stop the first match (there should only be one anyway)
+            qDebug() << "Successfully stopped existing transmission for:" << cleanMessageName 
+                     << "on bus:" << (canBus.isEmpty() ? "all buses" : canBus);
+            
+            // If we're looking for a specific bus, stop after first match
+            // If canBus is empty (all buses), continue to remove all matches
+            if (!canBus.isEmpty()) {
+                break;
+            }
+            // Reset iterator since we modified the container
+            it = m_activeTransmissions.begin();
+            if (it == m_activeTransmissions.end()) {
+                break;
+            }
+            --it; // Will be incremented by for loop
         }
     }
     
@@ -2826,6 +2856,7 @@ bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
         QJsonObject transmissionObj = value.toObject();
         QString messageName = transmissionObj["messageName"].toString();
         int rateMs = transmissionObj["rateMs"].toInt();
+        QString canBus = transmissionObj["canBus"].toString("vcan0"); // Default to vcan0 if not specified
         bool autoStart = transmissionObj["autoStart"].toBool();
         bool enabled = transmissionObj["enabled"].toBool(true); // Default to enabled
         
@@ -2845,11 +2876,19 @@ bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
             continue;
         }
         
-        // Check if transmission already active
+        // Check if transmission already active (now considering CAN bus)
         bool alreadyActive = false;
         for (const auto& existing : m_activeTransmissions) {
-            if (existing.messageName == messageName) {
-                qDebug() << "Transmission for" << messageName << "already active - skipping";
+            // Extract clean name from existing transmission (remove ID part if present)
+            int existingParenthesisPos = existing.messageName.indexOf(" (");
+            QString existingCleanName = existingParenthesisPos > 0 ? existing.messageName.left(existingParenthesisPos) : existing.messageName;
+            
+            // Extract clean name from config message name
+            int configParenthesisPos = messageName.indexOf(" (");
+            QString configCleanName = configParenthesisPos > 0 ? messageName.left(configParenthesisPos) : messageName;
+            
+            if (existingCleanName == configCleanName && existing.canBus == canBus) {
+                qDebug() << "Transmission for" << messageName << "on bus" << canBus << "already active - skipping";
                 alreadyActive = true;
                 skippedCount++;
                 break;
@@ -2860,15 +2899,15 @@ bool DbcParser::loadActiveTransmissionsConfig(const QUrl &loadUrl)
         
         // Start transmission only if enabled and autoStart is true
         if (enabled && autoStart) {
-            if (startTransmission(messageName, rateMs)) {
+            if (startTransmission(messageName, rateMs, canBus)) {
                 loadedCount++;
-                qDebug() << "Started transmission:" << messageName << "at" << rateMs << "ms";
+                qDebug() << "Started transmission:" << messageName << "at" << rateMs << "ms on bus:" << canBus;
             } else {
-                qWarning() << "Failed to start transmission:" << messageName;
+                qWarning() << "Failed to start transmission:" << messageName << "on bus:" << canBus;
                 skippedCount++;
             }
         } else {
-            qDebug() << "Skipping transmission" << messageName << "(enabled:" << enabled << ", autoStart:" << autoStart << ")";
+            qDebug() << "Skipping transmission" << messageName << "on bus" << canBus << "(enabled:" << enabled << ", autoStart:" << autoStart << ")";
             skippedCount++;
         }
     }
@@ -2926,9 +2965,10 @@ bool DbcParser::saveActiveTransmissionsConfig(const QUrl &saveUrl)
         transmissionObj["messageId"] = static_cast<qint64>(transmission.messageId);
         transmissionObj["rateMs"] = transmission.rateMs;
         transmissionObj["hexData"] = transmission.hexData;
+        transmissionObj["canBus"] = transmission.canBus; // Include CAN bus information
         
         // Configuration-specific settings (not runtime status)
-        transmissionObj["description"] = QString("Auto-transmission for %1 every %2ms").arg(transmission.messageName).arg(transmission.rateMs);
+        transmissionObj["description"] = QString("Auto-transmission for %1 every %2ms on %3").arg(transmission.messageName).arg(transmission.rateMs).arg(transmission.canBus);
         transmissionObj["autoStart"] = true; // Default to auto-start on load
         transmissionObj["enabled"] = true;   // Allow enabling/disabling without removing
         

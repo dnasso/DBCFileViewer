@@ -200,6 +200,7 @@ public:
     
     // Helper method to stop existing transmission for the same message (prevents duplicates)
     bool stopExistingTransmission(const QString &messageName);
+    bool stopExistingTransmission(const QString &messageName, const QString &canBus);
 
     // One-shot message management
     Q_INVOKABLE bool sendRawCanMessage(const QString &messageId, const QString &hexData, const QString &canBus = "vcan0", const QString &messageName = QString());
