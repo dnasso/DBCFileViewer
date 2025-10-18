@@ -9,7 +9,7 @@ Dialog {
     modal: true
     anchors.centerIn: parent
     width: 750  // Increased width for better centering
-    height: 750
+    height: 850  // Increased height to accommodate all fields
     padding: 0
 
     property string currentMessageName: ""
@@ -63,8 +63,10 @@ Dialog {
         ScrollBar.horizontal.policy: ScrollBar.Never
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
         contentWidth: availableWidth
+        contentHeight: contentLayout.implicitHeight + 50  // Add extra space at bottom
         
         ColumnLayout {
+            id: contentLayout
             width: Math.min(500, parent.width)
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 30
@@ -571,6 +573,7 @@ Dialog {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.fillWidth: true
                 Layout.topMargin: 15
+                Layout.bottomMargin: 30  // Add bottom margin for better accessibility
 
                 Text {
                     text: "Unit (optional):"
@@ -619,7 +622,7 @@ Dialog {
                 color: errorLabel.visible ? "#FFEBEE" : "transparent"
                 radius: 8
                 visible: errorLabel.visible
-                Layout.bottomMargin: 20
+                Layout.bottomMargin: 40  // Increased bottom margin for better spacing
 
                 Text {
                     id: errorLabel
