@@ -1709,30 +1709,12 @@ ApplicationWindow {
                             TextField {
                                 id: physicalValueField
                                 Layout.preferredWidth: 120
-                                text: bitsSection.signalValue.toString()
-                                validator: DoubleValidator {
-                                    bottom: {
-                                        // Find current signal's min value
-                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
-                                            var signal = dbcParser.signalModel[i];
-                                            if (signal.name === bitsSection.signalName) {
-                                                return signal.min;
-                                            }
-                                        }
-                                        return -999999;
-                                    }
-                                    top: {
-                                        // Find current signal's max value
-                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
-                                            var signal = dbcParser.signalModel[i];
-                                            if (signal.name === bitsSection.signalName) {
-                                                return signal.max;
-                                            }
-                                        }
-                                        return 999999;
-                                    }
-                                }
+                                text: "0"
                                 selectByMouse: true
+                                validator: DoubleValidator {
+                                    bottom: -999999999
+                                    top: 999999999
+                                }
                                 onTextChanged: {
                                     // Update immediately when text changes, regardless of focus
                                     if (text && text.length > 0) {
@@ -1746,8 +1728,21 @@ ApplicationWindow {
                                             for (var i = 0; i < dbcParser.signalModel.length; i++) {
                                                 var signal = dbcParser.signalModel[i];
                                                 if (signal.name === bitsSection.signalName) {
-                                                    minValue = signal.min;
-                                                    maxValue = signal.max;
+                                                    // If min/max are both 0, use the full range that the bits can hold
+                                                    if (signal.min === 0 && signal.max === 0) {
+                                                        var bitMax = Math.pow(2, signal.length) - 1;
+                                                        // Handle negative factor properly
+                                                        if (signal.factor < 0) {
+                                                            minValue = bitMax * signal.factor + signal.offset;
+                                                            maxValue = 0 * signal.factor + signal.offset;
+                                                        } else {
+                                                            minValue = 0 * signal.factor + signal.offset;
+                                                            maxValue = bitMax * signal.factor + signal.offset;
+                                                        }
+                                                    } else {
+                                                        minValue = signal.min;
+                                                        maxValue = signal.max;
+                                                    }
                                                     break;
                                                 }
                                             }
@@ -1765,9 +1760,9 @@ ApplicationWindow {
                                             bitsSection.rawValue = dbcParser.calculateRawValue(bitsSection.signalName, physValue);
                                             rawValueField.text = Math.round(bitsSection.rawValue).toString();
                                             dbcParser.updateSignalValue(bitsSection.signalName, physValue);
-                                            updateCalculationText();
-                                            updateBitDisplay();
-                                            updateDataDisplay();
+                                            bitsSection.updateCalculationText();
+                                            bitsSection.updateBitDisplay();
+                                            bitsSection.updateDataDisplay();
                                         }
                                     }
                                 }
@@ -1782,6 +1777,19 @@ ApplicationWindow {
                                         if (signal.name === bitsSection.signalName) {
                                             if (signal.min === signal.max) {
                                                 return "[constant: " + signal.min + "]";
+                                            } else if (signal.min === 0 && signal.max === 0) {
+                                                // Show the actual range based on bit length
+                                                var bitMax = Math.pow(2, signal.length) - 1;
+                                                // Handle negative factor properly
+                                                var physMin, physMax;
+                                                if (signal.factor < 0) {
+                                                    physMin = bitMax * signal.factor + signal.offset;
+                                                    physMax = 0 * signal.factor + signal.offset;
+                                                } else {
+                                                    physMin = 0 * signal.factor + signal.offset;
+                                                    physMax = bitMax * signal.factor + signal.offset;
+                                                }
+                                                return "[" + physMin.toFixed(3) + " to " + physMax.toFixed(3) + " (full bit range)]";
                                             } else {
                                                 return "[" + signal.min + " to " + signal.max + "]";
                                             }
@@ -1804,32 +1812,11 @@ ApplicationWindow {
                                 id: rawValueField
                                 Layout.preferredWidth: 120
                                 text: "0"
-                                validator: IntValidator {
-                                    bottom: {
-                                        // Calculate min raw value from signal's physical min
-                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
-                                            var signal = dbcParser.signalModel[i];
-                                            if (signal.name === bitsSection.signalName) {
-                                                var rawMin = Math.round((signal.min - signal.offset) / signal.factor);
-                                                return Math.max(0, rawMin);
-                                            }
-                                        }
-                                        return 0;
-                                    }
-                                    top: {
-                                        // Calculate max raw value from signal's physical max
-                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
-                                            var signal = dbcParser.signalModel[i];
-                                            if (signal.name === bitsSection.signalName) {
-                                                var rawMax = Math.round((signal.max - signal.offset) / signal.factor);
-                                                var bitMax = Math.pow(2, signal.length) - 1;
-                                                return Math.min(bitMax, rawMax);
-                                            }
-                                        }
-                                        return 65535; // Default for 16-bit
-                                    }
-                                }
                                 selectByMouse: true
+                                validator: IntValidator {
+                                    bottom: -999999999
+                                    top: 999999999
+                                }
                                 onTextChanged: {
                                     // Update immediately when text changes, regardless of focus
                                     if (text && text.length > 0) {
@@ -1841,14 +1828,33 @@ ApplicationWindow {
                                             for (var i = 0; i < dbcParser.signalModel.length; i++) {
                                                 var signal = dbcParser.signalModel[i];
                                                 if (signal.name === bitsSection.signalName) {
-                                                    // Calculate raw bounds from physical Min/Max
-                                                    minRawValue = Math.round((signal.min - signal.offset) / signal.factor);
-                                                    maxRawValue = Math.round((signal.max - signal.offset) / signal.factor);
-                                                    
-                                                    // Ensure bounds are within bit length constraints
-                                                    var bitMax = Math.pow(2, signal.length) - 1;
-                                                    minRawValue = Math.max(0, Math.min(bitMax, minRawValue));
-                                                    maxRawValue = Math.max(0, Math.min(bitMax, maxRawValue));
+                                                    // If min/max are both 0, use the full range that the bits can hold
+                                                    if (signal.min === 0 && signal.max === 0) {
+                                                        var bitMax = Math.pow(2, signal.length) - 1;
+                                                        minRawValue = 0;
+                                                        maxRawValue = bitMax;
+                                                    } else {
+                                                        // Calculate raw bounds from physical Min/Max
+                                                        // Handle negative factor properly
+                                                        if (signal.factor !== 0) {
+                                                            var rawMin = (signal.min - signal.offset) / signal.factor;
+                                                            var rawMax = (signal.max - signal.offset) / signal.factor;
+                                                            
+                                                            // If factor is negative, min and max are swapped
+                                                            if (signal.factor < 0) {
+                                                                minRawValue = Math.round(rawMax);
+                                                                maxRawValue = Math.round(rawMin);
+                                                            } else {
+                                                                minRawValue = Math.round(rawMin);
+                                                                maxRawValue = Math.round(rawMax);
+                                                            }
+                                                            
+                                                            // Ensure bounds are within bit length constraints
+                                                            var bitMax = Math.pow(2, signal.length) - 1;
+                                                            minRawValue = Math.max(0, Math.min(bitMax, minRawValue));
+                                                            maxRawValue = Math.max(0, Math.min(bitMax, maxRawValue));
+                                                        }
+                                                    }
                                                     break;
                                                 }
                                             }
@@ -1867,9 +1873,9 @@ ApplicationWindow {
                                             bitsSection.signalValue = physValue;
                                             physicalValueField.text = physValue.toString();
                                             dbcParser.updateSignalFromRawValue(bitsSection.signalName, bitsSection.rawValue);
-                                            updateCalculationText();
-                                            updateBitDisplay();
-                                            updateDataDisplay();
+                                            bitsSection.updateCalculationText();
+                                            bitsSection.updateBitDisplay();
+                                            bitsSection.updateDataDisplay();
                                         }
                                     }
                                 }
@@ -1882,19 +1888,35 @@ ApplicationWindow {
                                     for (var i = 0; i < dbcParser.signalModel.length; i++) {
                                         var signal = dbcParser.signalModel[i];
                                         if (signal.name === bitsSection.signalName) {
-                                            // Calculate raw range from physical Min/Max values
-                                            var rawMin = Math.round((signal.min - signal.offset) / signal.factor);
-                                            var rawMax = Math.round((signal.max - signal.offset) / signal.factor);
-                                            
-                                            // Ensure raw values are within bit length constraints
-                                            var bitMax = Math.pow(2, signal.length) - 1;
-                                            rawMin = Math.max(0, Math.min(bitMax, rawMin));
-                                            rawMax = Math.max(0, Math.min(bitMax, rawMax));
-                                            
-                                            if (rawMin === rawMax) {
-                                                return "[constant: " + rawMin + "]";
+                                            if (signal.min === 0 && signal.max === 0) {
+                                                // Show the actual range based on bit length
+                                                var bitMax = Math.pow(2, signal.length) - 1;
+                                                return "[0 to " + bitMax + " (full bit range)]";
                                             } else {
-                                                return "[" + rawMin + " to " + rawMax + "]";
+                                                // Calculate raw range from physical Min/Max values
+                                                // Handle negative factor properly
+                                                if (signal.factor !== 0) {
+                                                    var rawMin = (signal.min - signal.offset) / signal.factor;
+                                                    var rawMax = (signal.max - signal.offset) / signal.factor;
+                                                    
+                                                    // If factor is negative, min and max are swapped
+                                                    if (signal.factor < 0) {
+                                                        var temp = rawMin;
+                                                        rawMin = rawMax;
+                                                        rawMax = temp;
+                                                    }
+                                                    
+                                                    // Ensure raw values are within bit length constraints
+                                                    var bitMax = Math.pow(2, signal.length) - 1;
+                                                    rawMin = Math.max(0, Math.min(bitMax, Math.round(rawMin)));
+                                                    rawMax = Math.max(0, Math.min(bitMax, Math.round(rawMax)));
+                                                    
+                                                    if (rawMin === rawMax) {
+                                                        return "[constant: " + rawMin + "]";
+                                                    } else {
+                                                        return "[" + rawMin + " to " + rawMax + "]";
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -2136,6 +2158,7 @@ ApplicationWindow {
                     // Get raw value from the current signal value
                     bitsSection.rawValue = dbcParser.calculateRawValue(bitsSection.signalName, bitsSection.signalValue);
                     rawValueField.text = Math.round(bitsSection.rawValue).toString();
+                    physicalValueField.text = bitsSection.signalValue.toString();
                     
                     // Update calculation text
                     updateCalculationText();
