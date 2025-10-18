@@ -281,6 +281,10 @@ ApplicationWindow {
                         radius: 4
                     }
 
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Compare and download the modified DBC file with your changes"
+                    ToolTip.delay: 500
+
                     onClicked: {
                         diffDialog.showDiff()
                     }
@@ -302,6 +306,10 @@ ApplicationWindow {
                         color: parent.hovered ? Qt.lighter("#388E3C", 1.1) : "#388E3C"
                         radius: 4
                     }
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Load a DBC file to view and edit CAN messages and signals"
+                    ToolTip.delay: 500
                     
                     onClicked: fileDialog.open()
                 }
@@ -334,16 +342,28 @@ ApplicationWindow {
                 TabButton {
                     text: "DBC Editor"
                     width: implicitWidth
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Edit CAN messages and signals in the DBC file"
+                    ToolTip.delay: 500
                 }
                 
                 TabButton {
                     text: "Active Transmissions"
                     width: implicitWidth
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: "View and manage actively transmitting CAN messages"
+                    ToolTip.delay: 500
                 }
                 
                 TabButton {
                     text: "Client"
                     width: implicitWidth
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: "TCP client for connecting to CAN server"
+                    ToolTip.delay: 500
                 }
             }
             
@@ -376,7 +396,7 @@ ApplicationWindow {
                         // Panel header with buttons - FIXED ALIGNMENT
                         Rectangle {
                             Layout.fillWidth: true
-                            height: deletionModeActive ? 80 : 45
+                            height: deletionModeActive ? 90 : 55
                             color: "#FAFAFA"
 
                             ColumnLayout {
@@ -438,7 +458,7 @@ ApplicationWindow {
                                         text: deletionModeActive ? 
                                               ("Delete Messages (" + getSelectedMessageCount() + " selected)") : 
                                               "CAN Messages"
-                                        font.pixelSize: 15
+                                        font.pixelSize: 18
                                         font.weight: Font.DemiBold
                                         color: deletionModeActive ? "#F44336" : "#2E7D32"
                                     }
@@ -555,6 +575,10 @@ ApplicationWindow {
                                         Layout.preferredHeight: 28
                                         onClicked: selectAllMessages(true)
                                         
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Select all messages for deletion"
+                                        ToolTip.delay: 500
+                                        
                                         background: Rectangle {
                                             color: parent.pressed ? "#E3F2FD" : (parent.hovered ? "#F3E5F5" : "transparent")
                                             border.color: "#2196F3"
@@ -575,6 +599,10 @@ ApplicationWindow {
                                         text: "Deselect All"
                                         Layout.preferredHeight: 28
                                         onClicked: selectAllMessages(false)
+                                        
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Clear all message selections"
+                                        ToolTip.delay: 500
                                         
                                         background: Rectangle {
                                             color: parent.pressed ? "#FFF3E0" : (parent.hovered ? "#FFF8E1" : "transparent")
@@ -712,8 +740,8 @@ ApplicationWindow {
                                         }
 
                                         ToolTip {
-                                           
-                                            text: "Send this CAN message"
+                                            visible: parent.hovered
+                                            text: "Send this CAN message once to the connected server"
                                             delay: 500
                                             background: Rectangle {
                                                 color: "#424242"
@@ -756,7 +784,7 @@ ApplicationWindow {
                         // Panel header with buttons - FIXED ALIGNMENT
                         Rectangle {
                             Layout.fillWidth: true
-                            height: deletionModeActive ? 80 : 45
+                            height: deletionModeActive ? 90 : 55
                             color: "#FAFAFA"
 
                             ColumnLayout {
@@ -826,7 +854,7 @@ ApplicationWindow {
                                         text: deletionModeActive ? 
                                               ("Delete Signals (" + getSelectedSignalCount() + " selected)") : 
                                               "Signal Details"
-                                        font.pixelSize: 15
+                                        font.pixelSize: 18
                                         font.weight: Font.DemiBold
                                         color: deletionModeActive ? "#F44336" : "#2E7D32"
                                     }
@@ -946,6 +974,10 @@ ApplicationWindow {
                                         Layout.preferredHeight: 28
                                         onClicked: selectAllSignals(true)
                                         
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Select all signals for deletion"
+                                        ToolTip.delay: 500
+                                        
                                         background: Rectangle {
                                             color: parent.pressed ? "#E3F2FD" : (parent.hovered ? "#F3E5F5" : "transparent")
                                             border.color: "#2196F3"
@@ -966,6 +998,10 @@ ApplicationWindow {
                                         text: "Deselect All"
                                         Layout.preferredHeight: 28
                                         onClicked: selectAllSignals(false)
+                                        
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Clear all signal selections"
+                                        ToolTip.delay: 500
                                         
                                         background: Rectangle {
                                             color: parent.pressed ? "#FFF3E0" : (parent.hovered ? "#FFF8E1" : "transparent")
@@ -1474,6 +1510,11 @@ ApplicationWindow {
                                                             anchors.fill: parent
                                                             hoverEnabled: true
                                                             cursorShape: Qt.PointingHandCursor
+                                                            
+                                                            ToolTip.visible: hovered
+                                                            ToolTip.text: "Open bit editor for this signal"
+                                                            ToolTip.delay: 500
+                                                            
                                                             onClicked: {
                                                                 signalListView.currentIndex = index
                                                                 bitsSection.signalName = modelData.name
@@ -2005,6 +2046,10 @@ ApplicationWindow {
                                 radius: 4
                             }
                             
+                            ToolTip.visible: hovered
+                            ToolTip.text: "Save current active transmissions to a configuration file"
+                            ToolTip.delay: 500
+                            
                             onClicked: {
                                 saveConfigDialog.open()
                             }
@@ -2024,6 +2069,10 @@ ApplicationWindow {
                                 color: parent.pressed ? "#1976D2" : (parent.hovered ? "#1E88E5" : "#2196F3")
                                 radius: 4
                             }
+                            
+                            ToolTip.visible: hovered
+                            ToolTip.text: "Load saved transmission configuration from file"
+                            ToolTip.delay: 500
                             
                             onClicked: {
                                 loadConfigDialog.open()
@@ -2047,6 +2096,10 @@ ApplicationWindow {
                                 color: parent.enabled ? (parent.pressed ? "#C62828" : (parent.hovered ? "#D32F2F" : "#F44336")) : "#BDBDBD"
                                 radius: 4
                             }
+                            
+                            ToolTip.visible: hovered && enabled
+                            ToolTip.text: "Stop all active CAN message transmissions immediately"
+                            ToolTip.delay: 500
                             
                             onClicked: {
                                 if (dbcParser.killAllTransmissions()) {
