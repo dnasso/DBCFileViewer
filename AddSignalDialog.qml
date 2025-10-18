@@ -8,11 +8,99 @@ Dialog {
     title: "Add New Signal"
     modal: true
     anchors.centerIn: parent
-    width: 750  // Increased width for better centering
-    height: 850  // Increased height to accommodate all fields
+    width: 650  // Optimal width for clean layout
+    height: 700  // Reduced height since we simplified the UI
     padding: 0
 
     property string currentMessageName: ""
+    
+    // Signal emitted when a signal is successfully added
+    signal signalAdded(string signalName, string messageName)
+    
+    // Error popup dialog
+    Dialog {
+        id: errorPopup
+        title: "Signal Addition Error"
+        modal: true
+        anchors.centerIn: parent
+        width: 400
+        height: 200
+        
+        property alias errorText: errorMessage.text
+        
+        background: Rectangle {
+            color: "#FFFFFF"
+            radius: 12
+            border.color: "#D32F2F"
+            border.width: 2
+        }
+        
+        header: Rectangle {
+            height: 60
+            color: "#D32F2F"
+            radius: 12
+            
+            Text {
+                anchors.centerIn: parent
+                text: "Error"
+                font.pixelSize: 18
+                font.weight: Font.Bold
+                color: "white"
+            }
+        }
+        
+        contentItem: Rectangle {
+            color: "transparent"
+            
+            Text {
+                id: errorMessage
+                anchors.centerIn: parent
+                width: parent.width - 40
+                wrapMode: Text.WordWrap
+                font.pixelSize: 14
+                font.weight: Font.Medium
+                color: "#D32F2F"
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+        
+        footer: Rectangle {
+            color: "#F8F9FA"
+            height: 60
+            radius: 12
+            
+            Button {
+                anchors.centerIn: parent
+                text: "OK"
+                width: 100
+                height: 40
+                
+                background: Rectangle {
+                    color: parent.hovered ? "#C62828" : "#D32F2F"
+                    radius: 8
+                }
+                
+                contentItem: Text {
+                    text: parent.text
+                    color: "white"
+                    font.pixelSize: 14
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                
+                onClicked: errorPopup.close()
+            }
+        }
+        
+        onClosed: {
+            // Don't automatically reset start bit to avoid infinite loops
+            // User can manually adjust or try again
+            console.log("AddSignalDialog: Error popup closed")
+        }
+    }
+    
+
 
     background: Rectangle {
         color: "#FFFFFF"
@@ -114,7 +202,7 @@ Dialog {
                         radius: 8
                         border.color: {
                             if (parent.activeFocus) return "#4CAF50"
-                            if (parent.text.length === 0) return "#FF5722"
+                            if (parent.text.length === 0) return "#9E9E9E"
                             return "#CCCCCC"
                         }
                         border.width: parent.activeFocus ? 2 : 1.5
@@ -139,8 +227,22 @@ Dialog {
                         width: 6
                         height: 6
                         radius: 3
-                        color: parent.text.length > 0 ? "#4CAF50" : "#FF5722"
+                        color: parent.text.length > 0 ? "#4CAF50" : "#9E9E9E"
                         visible: parent.text.length > 0 || parent.activeFocus
+                    }
+                    
+                    // Clear errors when user types
+                    onTextChanged: {
+                        if (text.trim().length > 0) {
+                            clearError()
+                        }
+                    }
+                    
+                    // Force sync when focus changes
+                    onActiveFocusChanged: {
+                        if (!activeFocus) {
+                            console.log("AddSignalDialog: Signal name field lost focus, current text:", text)
+                        }
                     }
                 }
             }
@@ -160,12 +262,64 @@ Dialog {
                         Layout.preferredWidth: 250  // Fixed width for consistent sizing
                         Layout.alignment: Qt.AlignHCenter
 
-                        Text {
-                            text: "Start Bit:"
-                            font.pixelSize: 15
-                            font.weight: Font.Medium
-                            color: "#424242"
+                        RowLayout {
+                            spacing: 8
                             Layout.alignment: Qt.AlignHCenter
+                            
+                            Text {
+                                text: "Start Bit:"
+                                font.pixelSize: 15
+                                font.weight: Font.Medium
+                                color: "#424242"
+                            }
+                            
+                            Button {
+                                text: "Auto"
+                                Layout.preferredWidth: 60
+                                Layout.preferredHeight: 32
+                                font.pixelSize: 12
+                                
+                                background: Rectangle {
+                                    color: {
+                                        if (parent.pressed) return "#388E3C"
+                                        if (parent.hovered) return "#66BB6A"
+                                        return "#4CAF50"
+                                    }
+                                    radius: 8
+                                    border.color: "#2E7D32"
+                                    border.width: 1
+                                    
+                                    // Subtle shadow effect
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        anchors.topMargin: 2
+                                        color: "transparent"
+                                        radius: parent.radius
+                                        border.color: "#00000015"
+                                        border.width: 1
+                                        z: -1
+                                    }
+                                }
+                                
+                                contentItem: Text {
+                                    text: parent.text
+                                    font.pixelSize: 12
+                                    font.weight: Font.Medium
+                                    color: "white"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                
+                                onClicked: {
+                                    console.log("AddSignalDialog: User clicked Auto button - current length:", lengthSpinBox.value)
+                                    setNextAvailableStartBit()
+                                    console.log("AddSignalDialog: After Auto button - start bit set to:", startBitSpinBox.value)
+                                }
+                                
+                                ToolTip.visible: hovered
+                                ToolTip.text: "Auto-assign start bit to next available position"
+                                ToolTip.delay: 500
+                            }
                         }
 
                         SpinBox {
@@ -176,6 +330,17 @@ Dialog {
                             to: 63
                             value: 0
                             editable: true
+                            
+                            // Update bit visualization when start bit changes
+                            onValueChanged: {
+                                if (addSignalDialog.visible) {
+                                    console.log("AddSignalDialog: Start bit changed to:", value)
+                                    // Clear any existing errors when user manually changes start bit
+                                    clearError()
+                                    // Force refresh of bit visualization
+                                    updateBitVisualization()
+                                }
+                            }
 
                             contentItem: TextField {
                                 text: parent.value
@@ -257,6 +422,21 @@ Dialog {
                             to: 64
                             value: 8
                             editable: true
+                            
+                            // Update start bit when length changes
+                            onValueChanged: {
+                                if (addSignalDialog.visible) {
+                                    console.log("AddSignalDialog: Length changed to:", value)
+                                    // Clear any existing errors when user changes length
+                                    clearError()
+                                    // Only auto-adjust start bit if current start bit + length would exceed 64
+                                    if (startBitSpinBox.value + value > 64) {
+                                        console.log("AddSignalDialog: Signal would exceed 64 bits, finding new start bit")
+                                        setNextAvailableStartBit()
+                                    }
+                                    updateBitVisualization()
+                                }
+                            }
 
                             contentItem: TextField {
                                 text: parent.value
@@ -315,7 +495,11 @@ Dialog {
                             }
                         }
                     }
-                }            // Byte Order - Centered
+                }
+
+
+
+            // Byte Order - Centered
             ColumnLayout {
                 spacing: 12
                 Layout.alignment: Qt.AlignHCenter
@@ -614,26 +798,11 @@ Dialog {
                         }
                     }
                 }
-            }            // Error Label - Centered
-            Rectangle {
-                Layout.preferredWidth: 380
-                Layout.alignment: Qt.AlignHCenter
-                height: errorLabel.visible ? errorLabel.implicitHeight + 20 : 0
-                color: errorLabel.visible ? "#FFEBEE" : "transparent"
-                radius: 8
-                visible: errorLabel.visible
-                Layout.bottomMargin: 40  // Increased bottom margin for better spacing
+            }
 
-                Text {
-                    id: errorLabel
-                    anchors.centerIn: parent
-                    width: parent.width - 20
-                    color: "#D32F2F"
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 13
-                    font.weight: Font.Medium
-                    horizontalAlignment: Text.AlignHCenter
-                }
+            // Space for better layout - no more inline errors
+            Item {
+                Layout.preferredHeight: 20  // Just some spacing
             }
         }
     }
@@ -729,68 +898,103 @@ Dialog {
 
 
     function addSignalLogic() {
-        errorLabel.text = ""
-        errorLabel.color = "#D32F2F"  // Reset to error color
+        console.log("AddSignalDialog: Starting addSignalLogic")
+        console.log("AddSignalDialog: currentMessageName =", currentMessageName)
+        console.log("AddSignalDialog: signalName =", signalNameField.text.trim())
+        console.log("AddSignalDialog: Raw SpinBox values - startBit =", startBitSpinBox.value, "length =", lengthSpinBox.value)
 
         // Validate input
         if (signalNameField.text.trim() === "") {
-            errorLabel.text = "Please enter a signal name"
+            errorPopup.errorText = "Please enter a signal name."
+            errorPopup.open()
+            console.log("AddSignalDialog: Error - Signal name is empty")
             return false;
         }
 
         if (currentMessageName === "") {
-            errorLabel.text = "No message selected"
+            errorPopup.errorText = "No message selected. Please select a message first."
+            errorPopup.open()
+            console.log("AddSignalDialog: Error - No message selected")
             return false;
         }
 
         var isLittleEndian = (byteOrderCombo.currentIndex === 0)
 
-        // Use enhanced validation
+        console.log("AddSignalDialog: Validating signal data...")
+        
+        // Get current values
+        var currentStartBit = parseInt(startBitSpinBox.value)
+        var currentLength = parseInt(lengthSpinBox.value)
+        var currentSignalName = signalNameField.text.trim()
+        
+        console.log("AddSignalDialog: Current UI values - Start:", currentStartBit, "Length:", currentLength, "Name:", currentSignalName)
+        
+        // Use enhanced validation with explicit current values
         var validationError = dbcParser.validateSignalData(
             currentMessageName,
-            signalNameField.text.trim(),
-            startBitSpinBox.value,
-            lengthSpinBox.value,
+            currentSignalName,
+            currentStartBit,
+            currentLength,
             isLittleEndian
         )
         
         if (validationError !== "") {
-            errorLabel.text = validationError
+            errorPopup.errorText = "Bit overlap detected!\n\n" + validationError + "\n\nPlease adjust the start bit or reduce the signal length."
+            errorPopup.open()
+            console.log("AddSignalDialog: Validation error:", validationError)
+            return false;
+        }
+        
+        // Check if there's enough space for the signal length at current start bit
+        var nextAvailableBit = dbcParser.getNextAvailableStartBit(currentMessageName, currentLength)
+        if (nextAvailableBit < 0) {
+            errorPopup.errorText = "Cannot fit a " + currentLength + "-bit signal in message '" + currentMessageName + "'.\n\nSolutions:\n• Reduce the signal length\n• Use a different message\n• Delete some existing signals"
+            errorPopup.open()
+            console.log("AddSignalDialog: No space available for", currentLength, "bit signal")
             return false;
         }
 
+        // Get all current values
+        var currentFactor = parseFloat(factorField.text) || 1.0
+        var currentOffset = parseFloat(offsetField.text) || 0.0
+        var currentMin = parseFloat(minField.text) || 0.0
+        var currentMax = parseFloat(maxField.text) || 100.0
+        var currentUnit = unitField.text || ""
+        
+        console.log("AddSignalDialog: Adding signal to backend...")
+        console.log("AddSignalDialog: CALLING dbcParser.addSignal with length =", currentLength)
+        
         // Add the signal
         var success = dbcParser.addSignal(
             currentMessageName,
-            signalNameField.text.trim(),
-            startBitSpinBox.value,
-            lengthSpinBox.value,
+            currentSignalName,
+            currentStartBit,
+            currentLength,
             isLittleEndian,
-            parseFloat(factorField.text),
-            parseFloat(offsetField.text),
-            parseFloat(minField.text),
-            parseFloat(maxField.text),
-            unitField.text
+            currentFactor,
+            currentOffset,
+            currentMin,
+            currentMax,
+            currentUnit
         );
+        
+        console.log("AddSignalDialog: addSignal returned:", success)
 
         if (!success) {
-            errorLabel.text = "Failed to add signal due to an unexpected error"
+            errorPopup.errorText = "Failed to add signal due to an unexpected error.\n\nPlease check the signal parameters and try again."
+            errorPopup.open()
+            console.log("AddSignalDialog: Error - addSignal returned false")
             return false;
         }
 
-        // Clear fields for next use but keep dialog open for multiple additions
-        signalNameField.text = ""
-        signalNameField.forceActiveFocus()
-
-        // Increment start bit for next signal
-        startBitSpinBox.value += lengthSpinBox.value
-
-        // Show success message temporarily
-        errorLabel.text = "Signal '" + signalNameField.text.trim() + "' added successfully! You can add another signal or click Cancel to close."
-        errorLabel.color = "#2E7D32"
-
-        // Reset error color after delay
-        timer.restart()
+        console.log("AddSignalDialog: Signal added successfully! Emitting signalAdded signal")
+        
+        // Emit signal for successful addition
+        signalAdded(currentSignalName, currentMessageName)
+        
+        // Clear fields and close dialog
+        clearFields()
+        addSignalDialog.accept()
         
         return true;
     }
@@ -800,6 +1004,8 @@ Dialog {
     }
 
     function clearFields() {
+        console.log("AddSignalDialog: Clearing fields...")
+        
         signalNameField.text = ""
         startBitSpinBox.value = 0
         lengthSpinBox.value = 8
@@ -809,20 +1015,67 @@ Dialog {
         minField.text = "0.0"
         maxField.text = "100.0"
         unitField.text = ""
-        errorLabel.text = ""
-        errorLabel.color = "#D32F2F"
+        errorPopup.close()  // Close any open error popups
+        
+        console.log("AddSignalDialog: Fields cleared")
+    }
+    
+    // Function to clear error messages (now just closes popup)
+    function clearError() {
+        errorPopup.close()
     }
 
     onOpened: {
         clearFields()
+        // Set the start bit to the next available position
+        setNextAvailableStartBit()
+        // Update bit visualization
+        updateBitVisualization()
         signalNameField.forceActiveFocus()
     }
-
-    Timer {
-        id: timer
-        interval: 2000
-        onTriggered: {
-            errorLabel.text = ""
+    
+    // Function to find and set the next available start bit
+    function setNextAvailableStartBit() {
+        if (currentMessageName === "") {
+            startBitSpinBox.value = 0
+            return
+        }
+        
+        console.log("AddSignalDialog: Finding next available start bit for message:", currentMessageName)
+        
+        // Get the next available start bit from the backend
+        var nextBit = dbcParser.getNextAvailableStartBit(currentMessageName, lengthSpinBox.value)
+        
+        console.log("AddSignalDialog: Next available start bit:", nextBit)
+        
+        if (nextBit >= 0) {
+            startBitSpinBox.value = nextBit
+            // Show a brief info message that start bit was auto-set
+            if (nextBit > 0) {
+                console.log("AddSignalDialog: Auto-set start bit to", nextBit, "to avoid overlaps")
+            }
+        } else {
+            // No space available - just set start bit to 0, don't show popup during length changes
+            startBitSpinBox.value = 0
+            console.log("AddSignalDialog: No available bit space for", lengthSpinBox.value, "bits - start bit set to 0")
         }
     }
+    
+
+    
+
+    
+    // Function to force update of bit visualization (simplified)
+    function updateBitVisualization() {
+        // Simple function for compatibility
+        console.log("AddSignalDialog: Start bit auto-assigned to", startBitSpinBox.value)
+    }
+    
+
+
+    // Timer removed - using popup errors instead
+
+
+
+
 }

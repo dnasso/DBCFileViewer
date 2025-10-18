@@ -154,7 +154,12 @@ public:
     Q_INVOKABLE QString validateMessageData(const QString &name, unsigned long id, int length);
     Q_INVOKABLE QString validateSignalData(const QString &messageName, const QString &signalName,
                                           int startBit, int length, bool littleEndian);
+    QString validateSignalData(const QString &messageName, const QString &signalName,
+                              int startBit, int length, bool littleEndian, const QString &excludeSignal);
     Q_INVOKABLE bool checkSignalOverlap(const QString &messageName, int startBit, int length, bool littleEndian);
+    Q_INVOKABLE int getNextAvailableStartBit(const QString &messageName, int length);
+    Q_INVOKABLE bool isBitOccupied(const QString &messageName, int bitIndex);
+    Q_INVOKABLE QString getBitOccupiedBy(const QString &messageName, int bitIndex);
 
     Q_INVOKABLE QString prepareCanMessage(const QString &messageName, int rateMs = 0);
     Q_INVOKABLE QString prepareCanMessage(const QString &messageName, int rateMs, const QString &canBus);

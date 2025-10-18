@@ -775,34 +775,107 @@ bool DbcParser::updateSignalParameter(const QString &signalName, const QString &
     
     for (auto& sig : msg.signalList) {
         if (QString::fromStdString(sig.name) == signalName) {
-            // Update the specified parameter
+            // Store original values for validation
+            int originalStartBit = sig.startBit;
+            int originalLength = sig.length;
+            
+            // Prepare new values for validation
+            int newStartBit = originalStartBit;
+            int newLength = originalLength;
+            
+            // Update the specified parameter with validation
             if (paramName == "startBit") {
-                sig.startBit = value.toInt();
+                newStartBit = value.toInt();
+                // Basic bounds check
+                if (newStartBit < 0 || newStartBit > 63) {
+                    qDebug() << "updateSignalParameter: Invalid start bit" << newStartBit << "for signal" << signalName;
+                    return false;
+                }
             }
             else if (paramName == "length") {
-                sig.length = value.toInt();
+                newLength = value.toInt();
+                // Basic bounds check
+                if (newLength < 1 || newLength > 64) {
+                    qDebug() << "updateSignalParameter: Invalid length" << newLength << "for signal" << signalName;
+                    return false;
+                }
             }
             else if (paramName == "factor") {
                 sig.factor = value.toDouble();
+                // Notify QML that the signal model has changed
+                emit signalModelChanged();
+                emit generatedCanFrameChanged();
+                return true;
             }
             else if (paramName == "offset") {
                 sig.offset = value.toDouble();
+                // Notify QML that the signal model has changed
+                emit signalModelChanged();
+                emit generatedCanFrameChanged();
+                return true;
             }
             else if (paramName == "min") {
                 sig.min = value.toDouble();
+                // Notify QML that the signal model has changed
+                emit signalModelChanged();
+                emit generatedCanFrameChanged();
+                return true;
             }
             else if (paramName == "max") {
                 sig.max = value.toDouble();
+                // Notify QML that the signal model has changed
+                emit signalModelChanged();
+                emit generatedCanFrameChanged();
+                return true;
             }
             else if (paramName == "unit") {
                 sig.unit = value.toString().toStdString();
+                // Notify QML that the signal model has changed
+                emit signalModelChanged();
+                emit generatedCanFrameChanged();
+                return true;
             }
             else if (paramName == "littleEndian") {
                 sig.littleEndian = value.toBool();
+                // Notify QML that the signal model has changed
+                emit signalModelChanged();
+                emit generatedCanFrameChanged();
+                return true;
             }
             else {
                 // Unknown parameter
                 return false;
+            }
+            
+            // For startBit and length changes, validate against overlaps
+            if (paramName == "startBit" || paramName == "length") {
+                // Check if new start bit + length exceeds 64 bits
+                if (newStartBit + newLength > 64) {
+                    qDebug() << "updateSignalParameter: Signal" << signalName << "would exceed 64 bits with start bit" << newStartBit << "and length" << newLength;
+                    return false;
+                }
+                
+                // Validate against overlaps with other signals (exclude the current signal being edited)
+                QString validationError = validateSignalData(
+                    QString::fromStdString(msg.name),
+                    signalName,
+                    newStartBit,
+                    newLength,
+                    sig.littleEndian,
+                    signalName  // Exclude the current signal from validation
+                );
+                
+                if (!validationError.isEmpty()) {
+                    qDebug() << "updateSignalParameter: Validation failed for signal" << signalName << ":" << validationError;
+                    return false;
+                }
+                
+                // If validation passes, update the parameter
+                if (paramName == "startBit") {
+                    sig.startBit = newStartBit;
+                } else if (paramName == "length") {
+                    sig.length = newLength;
+                }
             }
             
             // Notify QML that the signal model has changed
@@ -1677,6 +1750,12 @@ QString DbcParser::validateMessageData(const QString &name, unsigned long id, in
 QString DbcParser::validateSignalData(const QString &messageName, const QString &signalName,
                                       int startBit, int length, bool littleEndian)
 {
+    return validateSignalData(messageName, signalName, startBit, length, littleEndian, QString());
+}
+
+QString DbcParser::validateSignalData(const QString &messageName, const QString &signalName,
+                                      int startBit, int length, bool littleEndian, const QString &excludeSignal)
+{
     // Check signal name
     if (signalName.trimmed().isEmpty()) {
         return "Signal name cannot be empty";
@@ -1695,10 +1774,12 @@ QString DbcParser::validateSignalData(const QString &messageName, const QString 
         return "Message '" + messageName + "' not found";
     }
     
-    // Check if signal name already exists in this message
-    for (const auto& sig : targetMessage->signalList) {
-        if (QString::fromStdString(sig.name) == signalName) {
-            return "Signal name '" + signalName + "' already exists in message '" + messageName + "'";
+    // Check if signal name already exists in this message (exclude the signal being edited)
+    if (excludeSignal.isEmpty() || signalName != excludeSignal) {
+        for (const auto& sig : targetMessage->signalList) {
+            if (QString::fromStdString(sig.name) == signalName) {
+                return "Signal name '" + signalName + "' already exists in message '" + messageName + "'";
+            }
         }
     }
     
@@ -1726,10 +1807,16 @@ QString DbcParser::validateSignalData(const QString &messageName, const QString 
         }
     }
     
-    // Check for overlaps with existing signals
+    // Check for overlaps with existing signals (exclude the signal being edited)
     for (const auto& sig : targetMessage->signalList) {
-        bool overlap = false;
         QString conflictingSignal = QString::fromStdString(sig.name);
+        
+        // Skip the signal being edited
+        if (!excludeSignal.isEmpty() && conflictingSignal == excludeSignal) {
+            continue;
+        }
+        
+        bool overlap = false;
         
         if (littleEndian && sig.littleEndian) {
             // Both little endian
@@ -1811,6 +1898,123 @@ bool DbcParser::checkSignalOverlap(const QString &messageName, int startBit, int
         }
     }
     return false;
+}
+
+int DbcParser::getNextAvailableStartBit(const QString &messageName, int length)
+{
+    // Find the message
+    const canMessage* targetMessage = nullptr;
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            targetMessage = &msg;
+            break;
+        }
+    }
+    
+    if (!targetMessage) {
+        qWarning() << "Message not found:" << messageName;
+        return 0; // Default to start bit 0 if message not found
+    }
+    
+    int maxBits = targetMessage->length * 8; // Total bits in message
+    
+    // Try each possible start bit position
+    for (int startBit = 0; startBit <= maxBits - length; startBit++) {
+        bool hasOverlap = false;
+        
+        // Check against all existing signals
+        for (const auto& sig : targetMessage->signalList) {
+            bool overlap = false;
+            
+            // Assume little endian for simplicity in auto-assignment
+            int newEndBit = startBit + length - 1;
+            int existingEndBit = sig.startBit + sig.length - 1;
+            
+            if (sig.littleEndian) {
+                // Both little endian
+                overlap = !(newEndBit < sig.startBit || startBit > existingEndBit);
+            } else {
+                // Mixed endianness - use bit position sets for accuracy
+                std::set<int> newBits = getSignalBitPositions(startBit, length, true); // Assume little endian for new signal
+                std::set<int> existingBits = getSignalBitPositions(sig.startBit, sig.length, sig.littleEndian);
+                
+                // Check for intersection
+                for (int bit : newBits) {
+                    if (existingBits.count(bit) > 0) {
+                        overlap = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (overlap) {
+                hasOverlap = true;
+                break;
+            }
+        }
+        
+        if (!hasOverlap) {
+            return startBit; // Found an available position
+        }
+    }
+    
+    // No available position found
+    qWarning() << "No available start bit position found for message" << messageName << "with length" << length;
+    return -1;
+}
+
+bool DbcParser::isBitOccupied(const QString &messageName, int bitIndex)
+{
+    // Find the message
+    const canMessage* targetMessage = nullptr;
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            targetMessage = &msg;
+            break;
+        }
+    }
+    
+    if (!targetMessage) {
+        return false;
+    }
+    
+    // Check if this bit is occupied by any existing signal
+    for (const auto& sig : targetMessage->signalList) {
+        std::set<int> signalBits = getSignalBitPositions(sig.startBit, sig.length, sig.littleEndian);
+        
+        if (signalBits.count(bitIndex) > 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+QString DbcParser::getBitOccupiedBy(const QString &messageName, int bitIndex)
+{
+    // Find the message
+    const canMessage* targetMessage = nullptr;
+    for (const auto& msg : messages) {
+        if (QString::fromStdString(msg.name) == messageName) {
+            targetMessage = &msg;
+            break;
+        }
+    }
+    
+    if (!targetMessage) {
+        return "";
+    }
+    
+    // Find which signal occupies this bit
+    for (const auto& sig : targetMessage->signalList) {
+        std::set<int> signalBits = getSignalBitPositions(sig.startBit, sig.length, sig.littleEndian);
+        
+        if (signalBits.count(bitIndex) > 0) {
+            return QString::fromStdString(sig.name);
+        }
+    }
+    
+    return "";
 }
 
 // Helper function to calculate LSB for Motorola format

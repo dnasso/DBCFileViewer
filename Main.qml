@@ -739,21 +739,6 @@ ApplicationWindow {
                                             }
                                         }
 
-                                        ToolTip {
-                                            visible: parent.hovered
-                                            text: "Send this CAN message once to the connected server"
-                                            delay: 500
-                                            background: Rectangle {
-                                                color: "#424242"
-                                                radius: 4
-                                            }
-                                            contentItem: Text {
-                                                text: parent.text
-                                                color: "white"
-                                                font.pixelSize: 12
-                                            }
-                                        }
-
                                         onClicked: {
                                             // Set the current message as selected
                                             messageListView.currentIndex = index
@@ -1222,10 +1207,49 @@ ApplicationWindow {
                                                     value: modelData.startBit
                                                     editable: true
                                                     
-                                                    // Add change handler to update signal parameter
+                                                    property int lastValidValue: modelData.startBit
+                                                    property bool isReverting: false
+                                                    
+                                                    // Update lastValidValue when model changes
                                                     onValueChanged: {
-                                                        // Signal change to C++ backend
-                                                        dbcParser.updateSignalParameter(modelData.name, "startBit", value)
+                                                        if (isReverting) {
+                                                            isReverting = false
+                                                            return
+                                                        }
+                                                        
+                                                        // Try to update the backend
+                                                        var success = dbcParser.updateSignalParameter(modelData.name, "startBit", value)
+                                                        if (!success) {
+                                                            // Validation failed - show error and revert immediately
+                                                            console.log("Start bit validation failed for signal", modelData.name, "- reverting from", value, "to", lastValidValue)
+                                                            showNotification("error", "Cannot set start bit to " + value + " for signal '" + modelData.name + "'. This would cause bit overlap or exceed boundaries.")
+                                                            
+                                                            // Immediately revert to last valid value
+                                                            isReverting = true
+                                                            value = lastValidValue
+                                                        } else {
+                                                            // Success - update last valid value and refresh bit editor
+                                                            lastValidValue = value
+                                                            if (bitsSection.signalName === modelData.name) {
+                                                                updateBitDisplay()
+                                                                updateCalculationText()
+                                                                updateDataDisplay()
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    // Update lastValidValue when the model data changes (external updates)
+                                                    Component.onCompleted: {
+                                                        lastValidValue = modelData.startBit
+                                                    }
+                                                    
+                                                    Connections {
+                                                        target: dbcParser
+                                                        function onSignalModelChanged() {
+                                                            if (!isReverting) {
+                                                                lastValidValue = modelData.startBit
+                                                            }
+                                                        }
                                                     }
                                                 }
                                                 
@@ -1251,10 +1275,49 @@ ApplicationWindow {
                                                     value: modelData.length
                                                     editable: true
                                                     
-                                                    // Add change handler to update signal parameter
+                                                    property int lastValidValue: modelData.length
+                                                    property bool isReverting: false
+                                                    
+                                                    // Update lastValidValue when model changes
                                                     onValueChanged: {
-                                                        // Signal change to C++ backend
-                                                        dbcParser.updateSignalParameter(modelData.name, "length", value)
+                                                        if (isReverting) {
+                                                            isReverting = false
+                                                            return
+                                                        }
+                                                        
+                                                        // Try to update the backend
+                                                        var success = dbcParser.updateSignalParameter(modelData.name, "length", value)
+                                                        if (!success) {
+                                                            // Validation failed - show error and revert immediately
+                                                            console.log("Length validation failed for signal", modelData.name, "- reverting from", value, "to", lastValidValue)
+                                                            showNotification("error", "Cannot set length to " + value + " bits for signal '" + modelData.name + "'. This would cause bit overlap or exceed 64-bit boundary.")
+                                                            
+                                                            // Immediately revert to last valid value
+                                                            isReverting = true
+                                                            value = lastValidValue
+                                                        } else {
+                                                            // Success - update last valid value and refresh bit editor
+                                                            lastValidValue = value
+                                                            if (bitsSection.signalName === modelData.name) {
+                                                                updateBitDisplay()
+                                                                updateCalculationText()
+                                                                updateDataDisplay()
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    // Update lastValidValue when the model data changes (external updates)
+                                                    Component.onCompleted: {
+                                                        lastValidValue = modelData.length
+                                                    }
+                                                    
+                                                    Connections {
+                                                        target: dbcParser
+                                                        function onSignalModelChanged() {
+                                                            if (!isReverting) {
+                                                                lastValidValue = modelData.length
+                                                            }
+                                                        }
                                                     }
                                                 }
                                                 
@@ -1285,9 +1348,15 @@ ApplicationWindow {
                                                     onEditingFinished: {
                                                         if (text.length > 0) {
                                                             dbcParser.updateSignalParameter(modelData.name, "factor", parseFloat(text))
-                                                            // Force update of the physical value calculation
+                                                            // Refresh bit editor if this signal is currently selected
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                bitsSection.updateCalculationText()
+                                                                updateBitDisplay()
+                                                                updateCalculationText()
+                                                                updateDataDisplay()
+                                                                // Recalculate physical value with new factor
+                                                                var physValue = dbcParser.calculatePhysicalValue(bitsSection.signalName, bitsSection.rawValue);
+                                                                bitsSection.signalValue = physValue;
+                                                                physicalValueField.text = physValue.toString();
                                                             }
                                                         }
                                                     }
@@ -1320,9 +1389,15 @@ ApplicationWindow {
                                                     onEditingFinished: {
                                                         if (text.length > 0) {
                                                             dbcParser.updateSignalParameter(modelData.name, "offset", parseFloat(text))
-                                                            // Force update of the physical value calculation
+                                                            // Refresh bit editor if this signal is currently selected
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                bitsSection.updateCalculationText()
+                                                                updateBitDisplay()
+                                                                updateCalculationText()
+                                                                updateDataDisplay()
+                                                                // Recalculate physical value with new offset
+                                                                var physValue = dbcParser.calculatePhysicalValue(bitsSection.signalName, bitsSection.rawValue);
+                                                                bitsSection.signalValue = physValue;
+                                                                physicalValueField.text = physValue.toString();
                                                             }
                                                         }
                                                     }
@@ -1354,6 +1429,12 @@ ApplicationWindow {
                                                     onEditingFinished: {
                                                         if (text.length > 0) {
                                                             dbcParser.updateSignalParameter(modelData.name, "min", parseFloat(text))
+                                                            // Refresh bit editor if this signal is currently selected
+                                                            if (bitsSection.signalName === modelData.name) {
+                                                                updateBitDisplay()
+                                                                updateCalculationText()
+                                                                updateDataDisplay()
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1384,6 +1465,12 @@ ApplicationWindow {
                                                     onEditingFinished: {
                                                         if (text.length > 0) {
                                                             dbcParser.updateSignalParameter(modelData.name, "max", parseFloat(text))
+                                                            // Refresh bit editor if this signal is currently selected
+                                                            if (bitsSection.signalName === modelData.name) {
+                                                                updateBitDisplay()
+                                                                updateCalculationText()
+                                                                updateDataDisplay()
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1623,20 +1710,89 @@ ApplicationWindow {
                                 id: physicalValueField
                                 Layout.preferredWidth: 120
                                 text: bitsSection.signalValue.toString()
-                                validator: DoubleValidator {}
-                                selectByMouse: true
-                                onTextChanged: {
-                                    if (activeFocus && text && text.length > 0) {
-                                        var physValue = parseFloat(text);
-                                        bitsSection.signalValue = physValue;
-                                        bitsSection.rawValue = dbcParser.calculateRawValue(bitsSection.signalName, physValue);
-                                        rawValueField.text = Math.round(bitsSection.rawValue).toString();
-                                        dbcParser.updateSignalValue(bitsSection.signalName, physValue);
-                                        updateCalculationText();
-                                        updateBitDisplay();
-                                        updateDataDisplay();
+                                validator: DoubleValidator {
+                                    bottom: {
+                                        // Find current signal's min value
+                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                            var signal = dbcParser.signalModel[i];
+                                            if (signal.name === bitsSection.signalName) {
+                                                return signal.min;
+                                            }
+                                        }
+                                        return -999999;
+                                    }
+                                    top: {
+                                        // Find current signal's max value
+                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                            var signal = dbcParser.signalModel[i];
+                                            if (signal.name === bitsSection.signalName) {
+                                                return signal.max;
+                                            }
+                                        }
+                                        return 999999;
                                     }
                                 }
+                                selectByMouse: true
+                                onTextChanged: {
+                                    // Update immediately when text changes, regardless of focus
+                                    if (text && text.length > 0) {
+                                        var physValue = parseFloat(text);
+                                        if (!isNaN(physValue)) {
+                                            // Get the signal's min/max bounds from the signal list
+                                            var minValue = -999999;
+                                            var maxValue = 999999;
+                                            
+                                            // Find the current signal in the signal model to get its bounds
+                                            for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                                var signal = dbcParser.signalModel[i];
+                                                if (signal.name === bitsSection.signalName) {
+                                                    minValue = signal.min;
+                                                    maxValue = signal.max;
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            // Clamp the value to the signal's bounds
+                                            var clampedValue = Math.max(minValue, Math.min(maxValue, physValue));
+                                            
+                                            // If the value was clamped, update the text field
+                                            if (clampedValue !== physValue) {
+                                                text = clampedValue.toString();
+                                                physValue = clampedValue;
+                                            }
+                                            
+                                            bitsSection.signalValue = physValue;
+                                            bitsSection.rawValue = dbcParser.calculateRawValue(bitsSection.signalName, physValue);
+                                            rawValueField.text = Math.round(bitsSection.rawValue).toString();
+                                            dbcParser.updateSignalValue(bitsSection.signalName, physValue);
+                                            updateCalculationText();
+                                            updateBitDisplay();
+                                            updateDataDisplay();
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Range indicator for physical value
+                            Text {
+                                text: {
+                                    // Find current signal's min/max values
+                                    for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                        var signal = dbcParser.signalModel[i];
+                                        if (signal.name === bitsSection.signalName) {
+                                            if (signal.min === signal.max) {
+                                                return "[constant: " + signal.min + "]";
+                                            } else {
+                                                return "[" + signal.min + " to " + signal.max + "]";
+                                            }
+                                        }
+                                    }
+                                    return "";
+                                }
+                                font.pixelSize: 10
+                                color: "#666666"
+                                Layout.alignment: Qt.AlignHCenter
+                                visible: text !== ""
                             }
                             
                             Text {
@@ -1648,20 +1804,106 @@ ApplicationWindow {
                                 id: rawValueField
                                 Layout.preferredWidth: 120
                                 text: "0"
-                                validator: IntValidator {}
-                                selectByMouse: true
-                                onTextChanged: {
-                                    if (activeFocus && text && text.length > 0) {
-                                        bitsSection.rawValue = parseInt(text);
-                                        var physValue = dbcParser.calculatePhysicalValue(bitsSection.signalName, bitsSection.rawValue);
-                                        bitsSection.signalValue = physValue;
-                                        physicalValueField.text = physValue.toString();
-                                        dbcParser.updateSignalFromRawValue(bitsSection.signalName, bitsSection.rawValue);
-                                        updateCalculationText();
-                                        updateBitDisplay();
-                                        updateDataDisplay();
+                                validator: IntValidator {
+                                    bottom: {
+                                        // Calculate min raw value from signal's physical min
+                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                            var signal = dbcParser.signalModel[i];
+                                            if (signal.name === bitsSection.signalName) {
+                                                var rawMin = Math.round((signal.min - signal.offset) / signal.factor);
+                                                return Math.max(0, rawMin);
+                                            }
+                                        }
+                                        return 0;
+                                    }
+                                    top: {
+                                        // Calculate max raw value from signal's physical max
+                                        for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                            var signal = dbcParser.signalModel[i];
+                                            if (signal.name === bitsSection.signalName) {
+                                                var rawMax = Math.round((signal.max - signal.offset) / signal.factor);
+                                                var bitMax = Math.pow(2, signal.length) - 1;
+                                                return Math.min(bitMax, rawMax);
+                                            }
+                                        }
+                                        return 65535; // Default for 16-bit
                                     }
                                 }
+                                selectByMouse: true
+                                onTextChanged: {
+                                    // Update immediately when text changes, regardless of focus
+                                    if (text && text.length > 0) {
+                                        var rawValue = parseInt(text);
+                                        if (!isNaN(rawValue)) {
+                                            // Get the signal's raw value bounds from physical Min/Max
+                                            var minRawValue = 0;
+                                            var maxRawValue = 65535; // Default
+                                            for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                                var signal = dbcParser.signalModel[i];
+                                                if (signal.name === bitsSection.signalName) {
+                                                    // Calculate raw bounds from physical Min/Max
+                                                    minRawValue = Math.round((signal.min - signal.offset) / signal.factor);
+                                                    maxRawValue = Math.round((signal.max - signal.offset) / signal.factor);
+                                                    
+                                                    // Ensure bounds are within bit length constraints
+                                                    var bitMax = Math.pow(2, signal.length) - 1;
+                                                    minRawValue = Math.max(0, Math.min(bitMax, minRawValue));
+                                                    maxRawValue = Math.max(0, Math.min(bitMax, maxRawValue));
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            // Clamp the raw value to the signal's actual valid range
+                                            var clampedRawValue = Math.max(minRawValue, Math.min(maxRawValue, rawValue));
+                                            
+                                            // If the value was clamped, update the text field
+                                            if (clampedRawValue !== rawValue) {
+                                                text = clampedRawValue.toString();
+                                                rawValue = clampedRawValue;
+                                            }
+                                            
+                                            bitsSection.rawValue = rawValue;
+                                            var physValue = dbcParser.calculatePhysicalValue(bitsSection.signalName, bitsSection.rawValue);
+                                            bitsSection.signalValue = physValue;
+                                            physicalValueField.text = physValue.toString();
+                                            dbcParser.updateSignalFromRawValue(bitsSection.signalName, bitsSection.rawValue);
+                                            updateCalculationText();
+                                            updateBitDisplay();
+                                            updateDataDisplay();
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Range indicator for raw value
+                            Text {
+                                text: {
+                                    // Find current signal to calculate raw value range from physical Min/Max
+                                    for (var i = 0; i < dbcParser.signalModel.length; i++) {
+                                        var signal = dbcParser.signalModel[i];
+                                        if (signal.name === bitsSection.signalName) {
+                                            // Calculate raw range from physical Min/Max values
+                                            var rawMin = Math.round((signal.min - signal.offset) / signal.factor);
+                                            var rawMax = Math.round((signal.max - signal.offset) / signal.factor);
+                                            
+                                            // Ensure raw values are within bit length constraints
+                                            var bitMax = Math.pow(2, signal.length) - 1;
+                                            rawMin = Math.max(0, Math.min(bitMax, rawMin));
+                                            rawMax = Math.max(0, Math.min(bitMax, rawMax));
+                                            
+                                            if (rawMin === rawMax) {
+                                                return "[constant: " + rawMin + "]";
+                                            } else {
+                                                return "[" + rawMin + " to " + rawMax + "]";
+                                            }
+                                        }
+                                    }
+                                    return "";
+                                }
+                                font.pixelSize: 10
+                                color: "#666666"
+                                Layout.alignment: Qt.AlignHCenter
+                                visible: text !== ""
                             }
                             
                             Item { Layout.fillWidth: true }
@@ -3169,6 +3411,10 @@ ApplicationWindow {
 
         AddSignalDialog {
             id: addSignalDialog
+            
+            onSignalAdded: function(signalName, messageName) {
+                showSuccess("Signal '" + signalName + "' added successfully to message '" + messageName + "'!")
+            }
         }
         // Send Message Dialog
         SendMessageDialog {
@@ -3573,6 +3819,16 @@ ApplicationWindow {
             if (connectionStatusIndicator) {
                 connectionStatusIndicator.color = connectionStatusIndicator.getConnectionStatus() ? "#2E7D32" : "#D32F2F"
             }
+        }
+    }
+    
+    // Timer to refresh signal model when validation fails
+    Timer {
+        id: refreshTimer
+        interval: 50  // Short delay to ensure UI updates properly
+        onTriggered: {
+            // Force refresh the signal model to revert UI to backend values
+            dbcParser.signalModelChanged()
         }
     }
     
