@@ -1028,7 +1028,7 @@ ApplicationWindow {
                             // Table header
                             Item {
                                 width: Math.max(signalScrollView.width, signalTableRow.width)
-                                height: signalListView.height + 40 // Header height + ListView height
+                                height: signalScrollView.height // Use the ScrollView height instead
                                 
                                 // Fixed header that stays at the top
                                 Rectangle {
@@ -1086,7 +1086,7 @@ ApplicationWindow {
                                     id: signalListView
                                     y: signalTableHeader.height
                                     width: parent.width
-                                    height: signalScrollView.height - signalTableHeader.height
+                                    height: parent.height - signalTableHeader.height
                                     clip: true
                                     model: dbcParser.signalModel
                                     
@@ -1231,9 +1231,9 @@ ApplicationWindow {
                                                             // Success - update last valid value and refresh bit editor
                                                             lastValidValue = value
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                updateBitDisplay()
-                                                                updateCalculationText()
-                                                                updateDataDisplay()
+                                                                bitsSection.updateBitDisplay()
+                                                                bitsSection.updateCalculationText()
+                                                                bitsSection.updateDataDisplay()
                                                             }
                                                         }
                                                     }
@@ -1241,15 +1241,6 @@ ApplicationWindow {
                                                     // Update lastValidValue when the model data changes (external updates)
                                                     Component.onCompleted: {
                                                         lastValidValue = modelData.startBit
-                                                    }
-                                                    
-                                                    Connections {
-                                                        target: dbcParser
-                                                        function onSignalModelChanged() {
-                                                            if (!isReverting) {
-                                                                lastValidValue = modelData.startBit
-                                                            }
-                                                        }
                                                     }
                                                 }
                                                 
@@ -1299,9 +1290,9 @@ ApplicationWindow {
                                                             // Success - update last valid value and refresh bit editor
                                                             lastValidValue = value
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                updateBitDisplay()
-                                                                updateCalculationText()
-                                                                updateDataDisplay()
+                                                                bitsSection.updateBitDisplay()
+                                                                bitsSection.updateCalculationText()
+                                                                bitsSection.updateDataDisplay()
                                                             }
                                                         }
                                                     }
@@ -1309,15 +1300,6 @@ ApplicationWindow {
                                                     // Update lastValidValue when the model data changes (external updates)
                                                     Component.onCompleted: {
                                                         lastValidValue = modelData.length
-                                                    }
-                                                    
-                                                    Connections {
-                                                        target: dbcParser
-                                                        function onSignalModelChanged() {
-                                                            if (!isReverting) {
-                                                                lastValidValue = modelData.length
-                                                            }
-                                                        }
                                                     }
                                                 }
                                                 
@@ -1350,9 +1332,9 @@ ApplicationWindow {
                                                             dbcParser.updateSignalParameter(modelData.name, "factor", parseFloat(text))
                                                             // Refresh bit editor if this signal is currently selected
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                updateBitDisplay()
-                                                                updateCalculationText()
-                                                                updateDataDisplay()
+                                                                bitsSection.updateBitDisplay()
+                                                                bitsSection.updateCalculationText()
+                                                                bitsSection.updateDataDisplay()
                                                                 // Recalculate physical value with new factor
                                                                 var physValue = dbcParser.calculatePhysicalValue(bitsSection.signalName, bitsSection.rawValue);
                                                                 bitsSection.signalValue = physValue;
@@ -1391,9 +1373,9 @@ ApplicationWindow {
                                                             dbcParser.updateSignalParameter(modelData.name, "offset", parseFloat(text))
                                                             // Refresh bit editor if this signal is currently selected
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                updateBitDisplay()
-                                                                updateCalculationText()
-                                                                updateDataDisplay()
+                                                                bitsSection.updateBitDisplay()
+                                                                bitsSection.updateCalculationText()
+                                                                bitsSection.updateDataDisplay()
                                                                 // Recalculate physical value with new offset
                                                                 var physValue = dbcParser.calculatePhysicalValue(bitsSection.signalName, bitsSection.rawValue);
                                                                 bitsSection.signalValue = physValue;
@@ -1431,9 +1413,9 @@ ApplicationWindow {
                                                             dbcParser.updateSignalParameter(modelData.name, "min", parseFloat(text))
                                                             // Refresh bit editor if this signal is currently selected
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                updateBitDisplay()
-                                                                updateCalculationText()
-                                                                updateDataDisplay()
+                                                                bitsSection.updateBitDisplay()
+                                                                bitsSection.updateCalculationText()
+                                                                bitsSection.updateDataDisplay()
                                                             }
                                                         }
                                                     }
@@ -1467,9 +1449,9 @@ ApplicationWindow {
                                                             dbcParser.updateSignalParameter(modelData.name, "max", parseFloat(text))
                                                             // Refresh bit editor if this signal is currently selected
                                                             if (bitsSection.signalName === modelData.name) {
-                                                                updateBitDisplay()
-                                                                updateCalculationText()
-                                                                updateDataDisplay()
+                                                                bitsSection.updateBitDisplay()
+                                                                bitsSection.updateCalculationText()
+                                                                bitsSection.updateDataDisplay()
                                                             }
                                                         }
                                                     }
@@ -1934,7 +1916,7 @@ ApplicationWindow {
                                 id: displayMode
                                 model: ["Decimal", "Hexadecimal", "Binary"]
                                 currentIndex: 0
-                                onCurrentIndexChanged: updateBitDisplay()
+                                onCurrentIndexChanged: bitsSection.updateBitDisplay()
                             }
                         }
                     }
@@ -3811,9 +3793,6 @@ ApplicationWindow {
         if (tcpClientTab && tcpClientTab.tcpClient) {
             dbcParser.setTcpClient(tcpClientTab.tcpClient)
             console.log("Connected DbcParser to TCP Client")
-            
-            // Force update the connection status
-            dbcParser.updateConnectionStatus()
         }
     }
     
@@ -3823,10 +3802,6 @@ ApplicationWindow {
         
         function onConnectionStatusChanged() {
             console.log("Main: TCP Client connection status changed")
-            // Force update the DbcParser connection status
-            if (dbcParser) {
-                dbcParser.updateConnectionStatus()
-            }
             // Update the header indicator
             connectionStatusIndicator.color = connectionStatusIndicator.getConnectionStatus() ? "#2E7D32" : "#D32F2F"
         }

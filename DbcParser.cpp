@@ -30,23 +30,6 @@ DbcParser::DbcParser(QObject *parent)
     // Initialize DbcSender
     dbcSender = new DbcSender(this);
     
-    // Initialize config directory and refresh config files
-    // Get the directory where the executable is located and go to the project root
-    QString execPath = QCoreApplication::applicationDirPath();
-    QDir execDir(execPath);
-    
-    // Navigate to project root (for macOS app bundle, we need to go up several levels)
-    if (execDir.dirName() == "MacOS") {
-        execDir.cdUp(); // Contents
-        execDir.cdUp(); // .app
-        execDir.cdUp(); // build_new
-        execDir.cdUp(); // project root
-    }
-    
-    m_configDirectory = execDir.absolutePath() + "/config_files";
-    qDebug() << "Config directory set to:" << m_configDirectory;
-    refreshConfigFiles();
-    
     // Note: Connection to CAN receiver is now handled through the GUI TCP Client tab
     qDebug() << "DbcParser: Initialized - use TCP Client tab to connect to server";
 }
@@ -3326,129 +3309,33 @@ QVariantList DbcParser::configFiles() const
 // Config file browser methods
 void DbcParser::refreshConfigFiles()
 {
-    qDebug() << "Refreshing config files from directory:" << m_configDirectory;
-    
+    // Config file browser functionality is disabled
+    // This method is kept for compatibility but does nothing
     m_configFiles.clear();
-    
-    if (m_configDirectory.isEmpty()) {
-        // Set default directory to the current working directory
-        m_configDirectory = QDir::currentPath();
-    }
-    
-    QDir dir(m_configDirectory);
-    if (!dir.exists()) {
-        qWarning() << "Config directory does not exist:" << m_configDirectory;
-        emit configFilesChanged();
-        return;
-    }
-    
-    // Look for JSON config files
-    QStringList nameFilters;
-    nameFilters << "*.json";
-    QFileInfoList fileInfos = dir.entryInfoList(nameFilters, QDir::Files | QDir::Readable, QDir::Time);
-    
-    for (const QFileInfo& fileInfo : fileInfos) {
-        ConfigFileEntry entry;
-        entry.fileName = fileInfo.baseName();
-        entry.filePath = fileInfo.absoluteFilePath();
-        entry.lastModified = fileInfo.lastModified();
-        
-        // Try to get basic info from the config file
-        QFile file(entry.filePath);
-        if (file.open(QIODevice::ReadOnly)) {
-            QByteArray data = file.readAll();
-            QJsonParseError error;
-            QJsonDocument doc = QJsonDocument::fromJson(data, &error);
-            
-            if (error.error == QJsonParseError::NoError && doc.isObject()) {
-                QJsonObject obj = doc.object();
-                
-                // Count transmissions
-                if (obj.contains("transmissions") && obj["transmissions"].isArray()) {
-                    entry.messageCount = obj["transmissions"].toArray().size();
-                } else {
-                    entry.messageCount = 0;
-                }
-                
-                // Get description if available
-                if (obj.contains("description")) {
-                    entry.description = obj["description"].toString();
-                } else {
-                    entry.description = QString("Config with %1 messages").arg(entry.messageCount);
-                }
-            } else {
-                entry.messageCount = 0;
-                entry.description = "Invalid JSON file";
-            }
-        } else {
-            entry.messageCount = 0;
-            entry.description = "Cannot read file";
-        }
-        
-        m_configFiles.append(entry);
-    }
-    
-    qDebug() << "Found" << m_configFiles.size() << "config files";
     emit configFilesChanged();
 }
 
 void DbcParser::setConfigDirectory(const QUrl &directoryUrl)
 {
-    QString newDirectory = directoryUrl.toLocalFile();
-    if (newDirectory != m_configDirectory) {
-        m_configDirectory = newDirectory;
-        qDebug() << "Config directory set to:" << m_configDirectory;
-        refreshConfigFiles();
-    }
+    // Config file browser functionality is disabled
+    // This method is kept for compatibility but does nothing
+    Q_UNUSED(directoryUrl)
 }
 
 bool DbcParser::loadConfigByFileName(const QString &fileName)
 {
-    qDebug() << "Loading config by file name:" << fileName;
-    
-    // Find the config file entry
-    QString fullPath;
-    for (const auto& config : m_configFiles) {
-        if (config.fileName == fileName) {
-            fullPath = config.filePath;
-            break;
-        }
-    }
-    
-    if (fullPath.isEmpty()) {
-        qWarning() << "Config file not found:" << fileName;
-        emit showError("Config file not found: " + fileName);
-        return false;
-    }
-    
-    // Load the configuration using the existing method
-    QUrl fileUrl = QUrl::fromLocalFile(fullPath);
-    bool success = loadActiveTransmissionsConfig(fileUrl);
-    
-    if (success) {
-        emit showSuccess("Loaded configuration: " + fileName);
-        qDebug() << "Successfully loaded config:" << fileName;
-    } else {
-        emit showError("Failed to load configuration: " + fileName);
-        qWarning() << "Failed to load config:" << fileName;
-    }
-    
-    return success;
+    // Config file browser functionality is disabled
+    // This method is kept for compatibility but does nothing
+    Q_UNUSED(fileName)
+    qWarning() << "Config file browser functionality is disabled. Use File menu to load configs.";
+    return false;
 }
 
 QString DbcParser::getConfigFileInfo(const QString &fileName)
 {
-    for (const auto& config : m_configFiles) {
-        if (config.fileName == fileName) {
-            QString info = QString("File: %1\n")
-                          .arg(config.fileName);
-            info += QString("Messages: %1\n").arg(config.messageCount);
-            info += QString("Modified: %1\n").arg(config.lastModified.toString("yyyy-MM-dd hh:mm:ss"));
-            info += QString("Description: %1").arg(config.description);
-            return info;
-        }
-    }
-    return "Config file not found";
+    // Config file browser functionality is disabled
+    Q_UNUSED(fileName)
+    return "Config file browser functionality is disabled. Use File menu to manage configs.";
 }
 
 // Past transmissions methods
