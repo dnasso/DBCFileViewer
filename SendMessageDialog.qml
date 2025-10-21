@@ -721,59 +721,6 @@ Dialog {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
                         }
-
-                        Button {
-                            text: dbcParser.isConnectedToServer ? "Disconnect" : "Connect"
-                            Layout.preferredWidth: 120
-                            Layout.preferredHeight: 40
-                            enabled: !sendMessageDialog.isSending
-
-                            background: Rectangle {
-                                color: parent.pressed ? "#E3F2FD" : (parent.hovered ? "#F3E5F5" : "white")
-                                border.color: "#2196F3"
-                                border.width: 1
-                                radius: 6
-                            }
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#2196F3" : "#CCCCCC"
-                                font.pixelSize: 14
-                                font.weight: Font.Medium
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            onClicked: {
-                                if (dbcParser.isConnectedToServer) {
-                                    // Disconnect both TCP Client and DbcParser for consistency
-                                    console.log("SendMessageDialog: Disconnecting from server")
-                                    if (typeof tcpClientTab !== 'undefined' && tcpClientTab && tcpClientTab.tcpClient) {
-                                        tcpClientTab.tcpClient.disconnect()
-                                    }
-                                    dbcParser.disconnectFromServer()
-                                } else {
-                                    // Try to connect through TCP Client for consistency
-                                    console.log("SendMessageDialog: Connecting to server")
-                                    if (typeof tcpClientTab !== 'undefined' && tcpClientTab && tcpClientTab.tcpClient) {
-                                        if (tcpClientTab.tcpClient.connectToServer("127.0.0.1", 8080)) {
-                                            console.log("Connected to server successfully via TCP Client")
-                                        } else {
-                                            console.log("Failed to connect via TCP Client, trying direct connection")
-                                            dbcParser.connectToServer("127.0.0.1", "8080")
-                                        }
-                                    } else {
-                                        // Fallback to direct connection if TCP Client not available
-                                        if (dbcParser.connectToServer("127.0.0.1", "8080")) {
-                                            console.log("Connected to server successfully via direct connection")
-                                        } else {
-                                            console.log("Failed to connect to server")
-                                        }
-                                    }
-                                }
-                                updateConnectionStatus()
-                            }
-                        }
                     }
                 }
             }
