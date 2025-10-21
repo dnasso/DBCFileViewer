@@ -20,12 +20,15 @@ Rectangle {
             
             // Notify the parent application about connection status change
             // The DbcParser should automatically sync because it was set up with setTcpClient
+            var timestamp = new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss")
             messageHistory.append({
-                "timestamp": new Date().toLocaleTimeString(Qt.locale(), "hh:mm:ss"),
+                "timestamp": timestamp,
                 "type": "system",
                 "content": connected ? "Connected to server" : "Disconnected from server"
             })
             messageListView.positionViewAtEnd()
+            var temp = (connected ? "Connected to server" : "Disconnected from server")
+            dbcParser.writeToLog( timestamp + " " + temp)
         }
 
         onResponseReceived: {
@@ -37,6 +40,7 @@ Rectangle {
                 "content": lastResponse
             })
             messageListView.positionViewAtEnd()
+            dbcParser.writeToLog(timestamp + " " + lastResponse)
         }
     }
 

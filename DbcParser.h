@@ -235,6 +235,9 @@ public:
     Q_INVOKABLE QString debugLoadConfig(const QUrl &fileUrl);
     Q_INVOKABLE QString testConfigLoad(); // Simple test method
 
+    // Logging
+    Q_INVOKABLE quint8 writeToLog(QString message);
+
     // Property getters
     QStringList messageModel() const;
     QVariantList signalModel() const;
@@ -244,6 +247,7 @@ public:
     QVariantList configFiles() const;
     QVariantList oneShotMessages() const;
     bool isDbcLoaded() const;
+
     
 
 signals:

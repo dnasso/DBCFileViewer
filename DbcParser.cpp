@@ -20,6 +20,7 @@
 #include <cmath>
 #include <set>
 #include <algorithm>
+#include <fstream>
 
 DbcParser::DbcParser(QObject *parent)
     : QObject(parent), selectedMessageIndex(-1), showAllSignals(false), currentEndian("little"), dbcSender(nullptr)
@@ -2760,6 +2761,16 @@ QString DbcParser::testConfigLoad()
 {
     qDebug() << "Test config load called";
     return "Test config load not implemented";
+}
+
+quint8 DbcParser::writeToLog(QString message)
+{
+    qDebug() << "Testing writeToLog()";
+    std::fstream log("log.txt", std::ios::app);
+    log << message.toStdString() << "\n";
+    log.close();
+    return 0;
+
 }
 
 bool DbcParser::connectToServer(const QString &address, const QString &port)
