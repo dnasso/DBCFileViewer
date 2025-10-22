@@ -1,0 +1,182 @@
+name: Build Releases
+
+on:
+  push:
+    branches: [ main, main-deployment ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder ccache ninja-build git
+          
+      - name: Add Flathub remote
+        run: |
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          
+      - name: Install KDE SDK
+        run: |
+          flatpak install -y --user flathub org.kde.Platform//6.8 org.kde.Sdk//6.8
+
+      # Cache ccache directory to speed up C++ compilation
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-flatpak-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-flatpak-${{ runner.os }}-
+
+      # Cache flatpak-builder downloads and build artifacts
+      - name: Cache flatpak-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            .flatpak-builder
+            flatpak-build
+            flatpak-repo
+          key: flatpak-builder-${{ runner.os }}-${{ hashFiles('com.qtdevs.DBCParser.yml') }}-${{ github.sha }}
+          restore-keys: |
+            flatpak-builder-${{ runner.os }}-${{ hashFiles('com.qtdevs.DBCParser.yml') }}-
+            flatpak-builder-${{ runner.os }}-
+
+      # Configure ccache for faster rebuilds
+      - name: Configure ccache
+        run: |
+          ccache --set-config=max_size=2G
+          ccache --set-config=compression=true
+          ccache --zero-stats
+
+      # Set parallel build flags for ninja
+      - name: Set build parallelism
+        run: |
+          echo "NINJAFLAGS=-j$(nproc)" >> $GITHUB_ENV
+          echo "Building with $(nproc) parallel jobs"
+
+      # Run the flatpak build script
+      - name: Build Flatpak
+        run: |
+          chmod +x ./build-flatpak.sh
+          # Run non-interactively (skip install prompt)
+          echo "n" | ./build-flatpak.sh
+
+      # Show ccache statistics
+      - name: Show ccache stats
+        run: ccache --show-stats
+
+      # Upload the flatpak bundle as an artifact
+      - name: Upload Flatpak bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbc-parser-flatpak
+          path: flatpak/dbc-parser.flatpak
+          if-no-files-found: error
+
+      # Optional: Also upload to GitHub Release if this is a tag
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: flatpak/dbc-parser.flatpak
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          tools: 'tools_mingw1310'
+          cache: true
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Build Windows executable
+        run: |
+          .\build-windows.ps1
+        shell: pwsh
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbc-parser-windows
+          path: |
+            build-release/appDBC_Parser.exe
+            installer/DBCParser-Setup.exe
+          if-no-files-found: warn
+
+      # Optional: Upload to GitHub Release if this is a tag
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build-release/appDBC_Parser.exe
+            installer/DBCParser-Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: dbc-parser:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Optional: Push to registry if this is a tag
+      - name: Login to GitHub Container Registry
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to registry
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dbc-parser:latest
+            ghcr.io/${{ github.repository_owner }}/dbc-parser:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
