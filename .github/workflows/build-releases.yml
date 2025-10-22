@@ -125,6 +125,13 @@ jobs:
           tools: 'tools_mingw1310'
           cache: true
 
+      - name: Set Qt environment variables
+        run: |
+          Write-Host "Qt installed at: $env:Qt6_DIR"
+          Write-Host "Setting CMAKE_PREFIX_PATH..."
+          echo "CMAKE_PREFIX_PATH=$env:Qt6_DIR" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Install Ninja
         run: choco install ninja -y
 
@@ -135,6 +142,8 @@ jobs:
           Get-ChildItem -Filter "*.ps1" | Select-Object Name
           Write-Host "`nChecking if build-windows.ps1 exists:"
           Test-Path "build-windows.ps1"
+          Write-Host "`nQt6_DIR: $env:Qt6_DIR"
+          Write-Host "CMAKE_PREFIX_PATH: $env:CMAKE_PREFIX_PATH"
         shell: pwsh
 
       - name: Build Windows executable
