@@ -10,6 +10,23 @@ This directory contains the configuration files needed to build and distribute D
 - **debian.rules** - Debian package build rules
 - **debian.dbc-file-viewer.desktop** - Desktop entry file for Debian packages
 
+## Common OBS Build Errors - FIXED
+
+### ❌ "nothing provides obs-service-tar/recompress/set_version"
+**CAUSE**: These are OBS server-side services that run during build. They should NOT be in BuildRequires.
+
+**FIX**: Remove any BuildRequires for obs-service-* from your spec file. The _service file is correct as-is.
+
+### ❌ "nothing provides qt6-*"
+**CAUSE**: Qt6 package names differ across distributions (openSUSE vs Fedora vs Debian).
+
+**FIX**: Use conditional BuildRequires in the spec file:
+- openSUSE: `qt6-base-devel`, `qt6-declarative-devel`
+- Fedora/RHEL: `qt6-qtbase-devel`, `qt6-qtdeclarative-devel`
+- Debian/Ubuntu: `qt6-base-dev`, `qt6-declarative-dev`
+
+The spec file now includes distro-specific conditionals.
+
 ## Setting Up OBS Repository
 
 ### 1. Create an Account
@@ -124,16 +141,32 @@ Update the version in `dbc-file-viewer.spec` and commit the change.
 
 ## Troubleshooting
 
-### Build Failures
-- Check the build logs in OBS web interface
-- Verify all Qt6 dependencies are available for your target distribution
-- Some older distributions may not have Qt6 - consider Qt5 for those
+### "nothing provides obs-service-*" Errors
+**This is FIXED.** The OBS services (tar, recompress, set_version) are server-side only and automatically available on OBS. They run during buildtime and do not need to be installed or listed as BuildRequires.
 
-### Missing Dependencies
-If Qt6 packages aren't available, you can:
-1. Adjust build requirements in the spec file
-2. Exclude problematic distributions from build targets
-3. Build Qt6 yourself (advanced)
+### "nothing provides qt6-*" Errors  
+**This is FIXED.** The spec file now uses conditional BuildRequires for different distros:
+- If building on openSUSE/SUSE: uses `qt6-base-devel`
+- If building on Fedora/RHEL: uses `qt6-qtbase-devel`  
+- Debian/Ubuntu use debian.control instead
+
+### Build Failures
+- Check the build logs in OBS web interface (click on failed build → "build log")
+- Verify all Qt6 dependencies are available for your target distribution
+- Some older distributions may not have Qt6 available - exclude them from repositories
+
+### Qt6 Not Available on Older Distros
+If Qt6 packages aren't available on older distros:
+1. Exclude those distributions from your OBS project repositories
+2. Only target newer distributions (Fedora 39+, openSUSE Tumbleweed/Leap 15.5+, Ubuntu 23.04+)
+3. Alternative: Create a Qt5 version of the app (requires code changes)
+
+### Service File Not Working
+If `_service` doesn't fetch sources:
+1. Make sure your GitHub repository is public
+2. Verify the branch name is correct (`main-deployment`)
+3. Click "Trigger Services" manually in OBS web interface
+4. Check that OBS has network access (it should by default)
 
 ## Additional Resources
 

@@ -3,9 +3,7 @@
     <param name="scm">git</param>
     <param name="url">https://github.com/dnasso/DBCFileViewer.git</param>
     <param name="revision">main-deployment</param>
-    <param name="versionformat">0.1.0+git.%cd.%h</param>
-    <param name="versionrewrite-pattern">0.1.0\+git\.(.*)</param>
-    <param name="versionrewrite-replacement">0.1.0~git.\1</param>
+    <param name="versionformat">@PARENT_TAG@</param>
     <param name="changesgenerate">enable</param>
   </service>
   <service name="tar" mode="buildtime"/>

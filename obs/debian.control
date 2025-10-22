@@ -16,10 +16,10 @@ Vcs-Browser: https://github.com/dnasso/DBCFileViewer
 Package: dbc-file-viewer
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
-         qt6-base-abi-6-5-3,
+         libqt6core6,
+         libqt6gui6,
          libqt6qml6,
          libqt6quick6,
-         libqt6quickcontrols2-6,
          qml6-module-qtquick,
          qml6-module-qtquick-controls
 Description: Fast, lightweight viewer for CAN database (.dbc) files

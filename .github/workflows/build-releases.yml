@@ -269,6 +269,17 @@ jobs:
           pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/deploy-windows.ps1" -BuildDir .\build -QtDir "$qtDir" -OutputDir .\deploy\windows
         shell: pwsh
 
+      - name: Verify deployment
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        run: |
+          Write-Host "Checking deploy directory contents:"
+          if (Test-Path "deploy\windows") {
+            Get-ChildItem -Path "deploy\windows" -Recurse | Select-Object FullName
+          } else {
+            Write-Warning "deploy\windows directory not found!"
+          }
+        shell: pwsh
+
       - name: Install Inno Setup
         if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
         run: choco install innosetup -y
@@ -277,6 +288,17 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
         run: |
           pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-installer.ps1"
+        shell: pwsh
+      
+      - name: Verify installer output
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        run: |
+          Write-Host "Checking installer_output directory:"
+          if (Test-Path "installer_output") {
+            Get-ChildItem -Path "installer_output" -Recurse | Select-Object FullName
+          } else {
+            Write-Warning "installer_output directory not found!"
+          }
         shell: pwsh
 
       # Sign Windows executable with Authenticode (if certificate is available)
@@ -322,13 +344,14 @@ jobs:
         shell: pwsh
 
       - name: Upload Windows artifacts
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
         uses: actions/upload-artifact@v4
         with:
           name: dbc-parser-windows
           path: |
             installer_output/DBC_Parser_Setup_*.exe
           compression-level: 0
-          if-no-files-found: warn
+          if-no-files-found: error
 
       # Optional: Upload to GitHub Release if this is a tag
       - name: Upload to Release
