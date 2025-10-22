@@ -11,3 +11,4 @@ Package-List:
  dbc-file-viewer deb devel optional arch=any
 Files:
  db0b79113bc46003cbbfb6ff88705370 465835 dbc-file-viewer_1.0.1.orig.tar.gz
+ 45620be045dda73f345c919b1c23ba9d 1392 dbc-file-viewer_1.0.1-1.debian.tar.xz
