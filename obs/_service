@@ -2,8 +2,8 @@
   <service name="obs_scm">
     <param name="scm">git</param>
     <param name="url">https://github.com/dnasso/DBCFileViewer.git</param>
-    <param name="revision">main-deployment</param>
-    <param name="versionformat">@PARENT_TAG@</param>
+    <param name="revision">v1.0.1</param>
+    <param name="versionformat">1.0.1</param>
     <param name="changesgenerate">enable</param>
   </service>
   <service name="tar" mode="buildtime"/>
