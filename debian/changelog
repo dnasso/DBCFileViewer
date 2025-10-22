@@ -1,0 +1,7 @@
+dbc-file-viewer (1.0.1-1) unstable; urgency=medium
+
+  * Initial release
+  * Fast, lightweight viewer for CAN database (.dbc) files
+  * Qt6-based GUI application
+
+ -- Joseph Ogle <jogle88@gmail.com>  Wed, 22 Oct 2025 07:30:00 +0000
