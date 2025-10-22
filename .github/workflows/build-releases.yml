@@ -14,7 +14,7 @@ on:
       build_windows:
         description: "Build Windows job"
         type: boolean
-        default: true
+        default: false
       build_docker:
         description: "Build Docker job"
         type: boolean
@@ -272,9 +272,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/appDBC_Parser.exe
             installer_output/DBC_Parser_Setup_*.exe
-            deploy/windows/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
