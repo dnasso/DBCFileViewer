@@ -1,0 +1,17 @@
+<services>
+  <service name="obs_scm">
+    <param name="scm">git</param>
+    <param name="url">https://github.com/dnasso/DBCFileViewer.git</param>
+    <param name="revision">main-deployment</param>
+    <param name="versionformat">0.1.0+git.%cd.%h</param>
+    <param name="versionrewrite-pattern">0.1.0\+git\.(.*)</param>
+    <param name="versionrewrite-replacement">0.1.0~git.\1</param>
+    <param name="changesgenerate">enable</param>
+  </service>
+  <service name="tar" mode="buildtime"/>
+  <service name="recompress" mode="buildtime">
+    <param name="file">*.tar</param>
+    <param name="compression">gz</param>
+  </service>
+  <service name="set_version" mode="buildtime"/>
+</services>
