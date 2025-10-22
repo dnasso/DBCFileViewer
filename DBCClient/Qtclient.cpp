@@ -11,7 +11,6 @@ Qt TCP Client Backend for Qt Quick Application
 #include <QCoreApplication>
 #include <iostream>
 #include <string>
-#include <format>
 
 constexpr size_t MAXDATASIZE = 10000;
 
