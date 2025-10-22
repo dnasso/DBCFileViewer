@@ -365,6 +365,15 @@ ApplicationWindow {
                     ToolTip.text: "TCP client for connecting to CAN server"
                     ToolTip.delay: 500
                 }
+                
+                TabButton {
+                    text: "About"
+                    width: implicitWidth
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: "About DBC Parser - Credits and functionality overview"
+                    ToolTip.delay: 500
+                }
             }
             
             // Tab content
@@ -2837,6 +2846,280 @@ ApplicationWindow {
         TcpClientTab {
             id: tcpClientTab
             anchors.fill: parent
+        }
+    }
+    
+    // About Tab
+    Rectangle {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        visible: tabBar.currentIndex === 3
+        color: "#FAFAFA"
+        
+        ScrollView {
+            anchors.fill: parent
+            anchors.margins: 20
+            
+            ColumnLayout {
+                width: parent.width
+                spacing: 30
+                
+                // Header
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 80
+                    color: "#2E7D32"
+                    radius: 8
+                    
+                    RowLayout {
+                        anchors.centerIn: parent
+                        spacing: 20
+                        
+                        Image {
+                            source: "dbctrain.png"
+                            Layout.preferredWidth: 60
+                            Layout.preferredHeight: 60
+                            fillMode: Image.PreserveAspectFit
+                        }
+                        
+                        Text {
+                            text: "About DBC Parser"
+                            font.pixelSize: 28
+                            font.bold: true
+                            color: "white"
+                        }
+                    }
+                }
+                
+                // Credits Section
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: creditsColumn.height + 40
+                    color: "white"
+                    border.color: "#E0E0E0"
+                    border.width: 1
+                    radius: 8
+                    
+                    ColumnLayout {
+                        id: creditsColumn
+                        anchors.centerIn: parent
+                        width: parent.width - 40
+                        spacing: 15
+                        
+                        Text {
+                            text: "Project Credits"
+                            font.pixelSize: 22
+                            font.bold: true
+                            color: "#2E7D32"
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        
+                        Text {
+                            text: "Developed by:"
+                            font.pixelSize: 16
+                            font.bold: true
+                            color: "#424242"
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        
+                        Text {
+                            text: "Kunal Singh\nJoseph Ogle\nDeven Nasso"
+                            font.pixelSize: 18
+                            color: "#1976D2"
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            Layout.alignment: Qt.AlignHCenter
+                            lineHeight: 1.4
+                        }
+                    }
+                }
+                
+                // Functionality Overview
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: functionalityColumn.height + 40
+                    color: "white"
+                    border.color: "#E0E0E0"
+                    border.width: 1
+                    radius: 8
+                    
+                    ColumnLayout {
+                        id: functionalityColumn
+                        anchors.centerIn: parent
+                        width: parent.width - 40
+                        spacing: 20
+                        
+                        Text {
+                            text: "Main Functionality"
+                            font.pixelSize: 22
+                            font.bold: true
+                            color: "#2E7D32"
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        
+                        // DBC Editor Tab
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 15
+                            
+                            Rectangle {
+                                Layout.preferredWidth: 8
+                                Layout.preferredHeight: 40
+                                color: "#4CAF50"
+                                radius: 4
+                            }
+                            
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 5
+                                
+                                Text {
+                                    text: "DBC Editor"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: "#2E7D32"
+                                }
+                                
+                                Text {
+                                    text: "• Load and parse DBC files containing CAN message definitions\n• View and edit CAN messages with their signals and properties\n• Add new messages and signals to the database\n• Modify signal properties (start bit, length, scaling, units)\n• Export and save modified DBC configurations"
+                                    font.pixelSize: 14
+                                    color: "#616161"
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                        
+                        // Active Transmissions Tab
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 15
+                            
+                            Rectangle {
+                                Layout.preferredWidth: 8
+                                Layout.preferredHeight: 40
+                                color: "#FF9800"
+                                radius: 4
+                            }
+                            
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 5
+                                
+                                Text {
+                                    text: "Active Transmissions"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: "#2E7D32"
+                                }
+                                
+                                Text {
+                                    text: "• Monitor actively transmitting CAN messages in real-time\n• Start and stop message transmissions with custom intervals\n• Configure transmission parameters and data values\n• Save and load transmission configurations\n• Send one-shot messages for testing purposes"
+                                    font.pixelSize: 14
+                                    color: "#616161"
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                        
+                        // Client Tab
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 15
+                            
+                            Rectangle {
+                                Layout.preferredWidth: 8
+                                Layout.preferredHeight: 40
+                                color: "#2196F3"
+                                radius: 4
+                            }
+                            
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 5
+                                
+                                Text {
+                                    text: "TCP Client"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: "#2E7D32"
+                                }
+                                
+                                Text {
+                                    text: "• Connect to TCP servers for remote CAN communication\n• Send and receive CAN messages over network connections\n• Configure connection parameters (host, port, protocols)\n• Monitor network traffic and connection status\n• Enable distributed CAN testing and remote diagnostics"
+                                    font.pixelSize: 14
+                                    color: "#616161"
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Disclaimer and License
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: disclaimerColumn.height + 40
+                    color: "white"
+                    border.color: "#E0E0E0"
+                    border.width: 1
+                    radius: 8
+                    
+                    ColumnLayout {
+                        id: disclaimerColumn
+                        anchors.centerIn: parent
+                        width: parent.width - 40
+                        spacing: 15
+                        
+                        Text {
+                            text: "Open Source Project"
+                            font.pixelSize: 22
+                            font.bold: true
+                            color: "#2E7D32"
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        
+                        Text {
+                            text: "This DBC Parser application is an open-source project developed for educational and professional use. The software is provided as-is for CAN bus analysis, message parsing, and network communication purposes."
+                            font.pixelSize: 14
+                            color: "#424242"
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignJustify
+                        }
+                        
+                        Text {
+                            text: "© 2025 Kunal Singh, Joseph Ogle, Deven Nasso. All rights reserved.\n\nThis project and its source code are the intellectual property of the contributors. Users are encouraged to contribute, modify, and distribute under the terms of the project license."
+                            font.pixelSize: 13
+                            color: "#616161"
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignJustify
+                            font.italic: true
+                        }
+                        
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            color: "#E0E0E0"
+                        }
+                        
+                        Text {
+                            text: "For support, contributions, or inquiries, please refer to the project documentation or contact the development team."
+                            font.pixelSize: 12
+                            color: "#757575"
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignCenter
+                            font.italic: true
+                        }
+                    }
+                }
+                
+                Item { Layout.preferredHeight: 20 } // Bottom spacing
+            }
         }
     }
     
