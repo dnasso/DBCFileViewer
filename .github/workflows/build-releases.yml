@@ -3,6 +3,8 @@ name: Build Releases
 on:
   push:
     branches: [ main, main-deployment ]
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0, v1.0.1, etc.
   pull_request:
     branches: [ main ]
   workflow_dispatch:  # Allow manual trigger
@@ -43,6 +45,10 @@ on:
         description: "Create as draft (manual Release)"
         type: boolean
         default: true
+      release_notes:
+        description: "Release notes (markdown) for manual publish"
+        type: string
+        default: ""
 
 jobs:
   changes:
@@ -169,6 +175,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Manual publish (no tag): attach Flatpak to provided release tag
+      - name: Publish Flatpak to Release (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release && inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          # name/draft/body may be set by Windows job; omit here to just append assets
+          files: |
+            flatpak/dbc-parser.flatpak
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-windows:
     name: Build Windows
     runs-on: windows-latest
@@ -252,9 +270,11 @@ jobs:
         shell: pwsh
 
       - name: Install Inno Setup
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
         run: choco install innosetup -y
 
       - name: Build Windows installer
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
         run: |
           pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-installer.ps1"
         shell: pwsh
@@ -328,12 +348,17 @@ jobs:
           tag_name: ${{ inputs.release_tag }}
           name: ${{ inputs.release_name != '' && inputs.release_name || format('DBC Parser {0}', inputs.release_tag) }}
           draft: ${{ inputs.release_draft }}
+          body: ${{ inputs.release_notes }}
           files: |
             installer_output/DBC_Parser_Setup_*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-docker:
+    # Run Docker build only when:
+    #  - this is a tag (release), OR
+    #  - a manual dispatch explicitly enables it
+    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.build_docker) }}
     name: Build Docker Image
     runs-on: ubuntu-latest
     
