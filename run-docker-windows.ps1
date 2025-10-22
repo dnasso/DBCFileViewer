@@ -2,7 +2,7 @@
 # This script handles VcXsrv installation and X11 display setup for GUI applications
 
 param(
-    [string]$ImageName = "dbc-parser:debian-slim",
+    [string]$ImageName = "dbc-parser:latest",
     [string]$ContainerName = "dbc-parser"
 )
 

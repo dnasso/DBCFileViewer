@@ -4,6 +4,7 @@
 #include <QQmlError>
 #include <QQuickStyle>
 #include <QWindow>
+#include <QTimer>
 #include "DBCClient/Qtclient.h"
 #include "DbcParser.h"
 #include <QDebug>
@@ -62,6 +63,20 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationDisplayName("DBC File Viewer");
 
     QGuiApplication app(argc, argv);
+
+    // Check for command-line arguments (file to open)
+    QString fileToOpen;
+    QStringList args = app.arguments();
+    if (args.size() > 1) {
+        // Skip the first argument (program name) and look for a .dbc file
+        for (int i = 1; i < args.size(); ++i) {
+            if (args[i].endsWith(".dbc", Qt::CaseInsensitive)) {
+                fileToOpen = args[i];
+                qDebug() << "File to open from command line:" << fileToOpen;
+                break;
+            }
+        }
+    }
 
     // Set window icon (must be set before any windows are created)
     const auto iconPathIco = QStringLiteral(":/deploy-assets/dbctrain.ico");
@@ -149,6 +164,15 @@ int main(int argc, char *argv[])
         } else {
             appendLogLine(logPath, QStringLiteral("First root object is not a QWindow (%1)").arg(engine.rootObjects().first()->metaObject()->className()));
         }
+    }
+
+    // If a file was specified on the command line, load it after the UI is initialized
+    if (!fileToOpen.isEmpty()) {
+        QTimer::singleShot(500, [&dbcParser, fileToOpen]() {
+            QUrl fileUrl = QUrl::fromLocalFile(fileToOpen);
+            qDebug() << "Loading file from command line:" << fileUrl;
+            dbcParser.loadDbcFile(fileUrl);
+        });
     }
 
     return app.exec();

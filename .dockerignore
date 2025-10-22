@@ -3,6 +3,10 @@ build/
 build-*/
 **/build/
 **/build-*/
+build-dir/
+.flatpak-builder/
+flatpak-build/
+repo/
 
 # Exclude IDE and editor files
 .vscode/

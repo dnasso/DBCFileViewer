@@ -113,10 +113,10 @@ DBC_Parser_*.tar.gz
 # Flatpak build artifacts
 /flatpak-build/
 /flatpak-repo/
+/flatpak/
 /build-dir/
 /repo/
 /.flatpak-builder/
-*.flatpak
 
 # Code signing certificates (NEVER commit these!)
 *.pfx

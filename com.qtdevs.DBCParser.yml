@@ -85,6 +85,9 @@ modules:
       # Install desktop file
       - install -Dm644 deploy-assets/dbc-parser.desktop /app/share/applications/com.qtdevs.DBCParser.desktop
       
+      # Install MIME type definition
+      - install -Dm644 deploy-assets/com.qtdevs.DBCParser.xml /app/share/mime/packages/com.qtdevs.DBCParser.xml
+      
       # Install icon
       - install -Dm644 deploy-assets/dbctrain.png /app/share/icons/hicolor/256x256/apps/com.qtdevs.DBCParser.png
       
