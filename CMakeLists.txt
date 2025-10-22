@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 project(DBC_Parser VERSION 0.1 LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Don't set RPATH for packaging
+set(CMAKE_SKIP_RPATH TRUE)
+set(CMAKE_SKIP_INSTALL_RPATH TRUE)
 
 # Add Network component for TCP functionality in Qtclient.cpp
 find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Network)
