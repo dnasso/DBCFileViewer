@@ -10,5 +10,5 @@ Build-Depends: debhelper-compat (= 13), cmake (>= 3.16), qt6-base-dev, qt6-decla
 Package-List:
  dbc-file-viewer deb devel optional arch=any
 Files:
- db0b79113bc46003cbbfb6ff88705370 465835 dbc-file-viewer_1.0.1.orig.tar.gz
+ afd53d7c7f31fd8201bf53f41ce413cd 465864 dbc-file-viewer_1.0.1.orig.tar.gz
  45620be045dda73f345c919b1c23ba9d 1432 dbc-file-viewer_1.0.1-1.debian.tar.xz
