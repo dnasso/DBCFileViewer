@@ -27,6 +27,22 @@ on:
         description: "Sign Windows artifacts (requires cert secrets)"
         type: boolean
         default: false
+      publish_release:
+        description: "Create/Update a GitHub Release (manual runs)"
+        type: boolean
+        default: false
+      release_tag:
+        description: "Tag name for manual Release (e.g., v1.0.0)"
+        type: string
+        default: ""
+      release_name:
+        description: "Release title (optional)"
+        type: string
+        default: ""
+      release_draft:
+        description: "Create as draft (manual Release)"
+        type: boolean
+        default: true
 
 jobs:
   changes:
@@ -290,8 +306,6 @@ jobs:
         with:
           name: dbc-parser-windows
           path: |
-            build/appDBC_Parser.exe
-            deploy/windows/**
             installer_output/DBC_Parser_Setup_*.exe
           compression-level: 0
           if-no-files-found: warn
@@ -301,6 +315,19 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
+          files: |
+            installer_output/DBC_Parser_Setup_*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Manual publish (no tag): create/update a Release with provided tag
+      - name: Publish Release (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release && inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name != '' && inputs.release_name || format('DBC Parser {0}', inputs.release_tag) }}
+          draft: ${{ inputs.release_draft }}
           files: |
             installer_output/DBC_Parser_Setup_*.exe
         env:
