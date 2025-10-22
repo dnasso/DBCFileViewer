@@ -75,6 +75,21 @@ jobs:
       - name: Show ccache stats
         run: ccache --show-stats
 
+      # Sign Flatpak with GPG (if GPG key is available)
+      - name: Sign Flatpak bundle
+        if: secrets.GPG_PRIVATE_KEY != ''
+        run: |
+          # Import GPG key from secret
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          
+          # Sign the OSTree repo commits
+          flatpak build-sign --gpg-sign=${{ secrets.GPG_KEY_ID }} flatpak-repo
+          
+          # Rebuild bundle with signed commits
+          flatpak build-bundle flatpak-repo flatpak/dbc-parser.flatpak com.qtdevs.DBCParser
+          
+          echo "✓ Flatpak bundle signed with GPG key ${{ secrets.GPG_KEY_ID }}"
+
       # Upload the flatpak bundle as an artifact
       - name: Upload Flatpak bundle
         uses: actions/upload-artifact@v4
@@ -116,6 +131,48 @@ jobs:
       - name: Build Windows executable
         run: |
           .\build-windows.ps1
+        shell: pwsh
+
+      # Sign Windows executable with Authenticode (if certificate is available)
+      - name: Sign Windows executable
+        if: env.WINDOWS_CERT_BASE64 != ''
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          # Decode certificate from base64
+          $certBytes = [System.Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+          $certPath = "$env:TEMP\cert.pfx"
+          [System.IO.File]::WriteAllBytes($certPath, $certBytes)
+          
+          # Sign the executable
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          if (-not (Test-Path $signtool)) {
+            # Try to find signtool in common locations
+            $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits" -Recurse -Filter "signtool.exe" | 
+                        Where-Object { $_.Directory.Name -eq "x64" } | 
+                        Select-Object -First 1 -ExpandProperty FullName
+          }
+          
+          if (Test-Path $signtool) {
+            & $signtool sign /f $certPath /p $env:WINDOWS_CERT_PASSWORD `
+              /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 `
+              build-release\appDBC_Parser.exe
+            
+            # Sign installer if it exists
+            if (Test-Path "installer\DBCParser-Setup.exe") {
+              & $signtool sign /f $certPath /p $env:WINDOWS_CERT_PASSWORD `
+                /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 `
+                installer\DBCParser-Setup.exe
+            }
+            
+            Write-Host "✓ Windows executables signed with Authenticode"
+          } else {
+            Write-Warning "SignTool not found, skipping signing"
+          }
+          
+          # Clean up certificate
+          Remove-Item $certPath -Force
         shell: pwsh
 
       - name: Upload Windows executable
