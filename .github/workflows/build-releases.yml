@@ -181,6 +181,22 @@ jobs:
           pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-windows.ps1"
         shell: pwsh
 
+      - name: Deploy Windows app (windeployqt)
+        run: |
+          # Pass detected Qt directory if available
+          $qtDir = $env:Qt6_DIR
+          if ([string]::IsNullOrEmpty($qtDir)) { $qtDir = "$env:USERPROFILE\Qt\6.8.2\mingw_64" }
+          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/deploy-windows.ps1" -BuildDir .\build -QtDir "$qtDir" -OutputDir .\deploy\windows
+        shell: pwsh
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build Windows installer
+        run: |
+          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-installer.ps1"
+        shell: pwsh
+
       # Sign Windows executable with Authenticode (if certificate is available)
       - name: Sign Windows executable
         if: false  # Enable when WINDOWS_CERT_BASE64 secret is configured
@@ -223,13 +239,14 @@ jobs:
           Remove-Item $certPath -Force
         shell: pwsh
 
-      - name: Upload Windows executable
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dbc-parser-windows
           path: |
-            build-release/appDBC_Parser.exe
-            installer/DBCParser-Setup.exe
+            build/appDBC_Parser.exe
+            deploy/windows/**
+            installer_output/DBC_Parser_Setup_*.exe
           if-no-files-found: warn
 
       # Optional: Upload to GitHub Release if this is a tag
@@ -238,8 +255,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build-release/appDBC_Parser.exe
-            installer/DBCParser-Setup.exe
+            build/appDBC_Parser.exe
+            installer_output/DBC_Parser_Setup_*.exe
+            deploy/windows/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
