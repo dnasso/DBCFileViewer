@@ -8,10 +8,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:  # Allow manual trigger
-
-permissions:
-  contents: write  # Required to create releases and upload assets
-  packages: write  # Required for Docker registry (ghcr.io)
     inputs:
       build_flatpak:
         description: "Build Flatpak job"
@@ -53,6 +49,10 @@ permissions:
         description: "Release notes (markdown) for manual publish"
         type: string
         default: ""
+
+permissions:
+  contents: write  # Required to create releases and upload assets
+  packages: write  # Required for Docker registry (ghcr.io)
 
 jobs:
   changes:

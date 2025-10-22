@@ -166,3 +166,8 @@ env/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+obs/FIXES_APPLIED.md
+.github/workflows/build-releases.yml
+.gitignore
+obs/install-osc-wsl.sh
+obs/INSTALL_OSC.md
