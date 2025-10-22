@@ -19,13 +19,41 @@ on:
         description: "Build Docker job"
         type: boolean
         default: false
+      sign_flatpak:
+        description: "Sign Flatpak bundle (requires GPG secrets)"
+        type: boolean
+        default: false
+      sign_windows:
+        description: "Sign Windows artifacts (requires cert secrets)"
+        type: boolean
+        default: false
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      flatpak: ${{ steps.filter.outputs.flatpak }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filters: |
+            flatpak:
+              - 'com.qtdevs.DBCParser.yml'
+              - 'build-flatpak.sh'
+              - 'deploy-assets/**'
+              - 'DBCFileViewerContent/**'
+              - 'Main.qml'
   build-flatpak:
     # Run Flatpak build only when:
     #  - this is a tag (release), OR
-    #  - a manual dispatch explicitly enables it.
-    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.build_flatpak) }}
+    #  - a manual dispatch explicitly enables it, OR
+    #  - relevant files changed (from paths filter).
+    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.build_flatpak) || (github.event_name != 'workflow_dispatch' && needs.changes.outputs.flatpak == 'true') }}
+    needs: [changes]
     name: Build Flatpak
     runs-on: ubuntu-latest
     
@@ -94,7 +122,7 @@ jobs:
 
       # Sign Flatpak with GPG (if GPG key is available)
       - name: Sign Flatpak bundle
-        if: false  # Enable when GPG_PRIVATE_KEY secret is configured
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_flatpak }}
         run: |
           # Import GPG key from secret
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
@@ -113,6 +141,7 @@ jobs:
         with:
           name: dbc-parser-flatpak
           path: flatpak/dbc-parser.flatpak
+          compression-level: 0
           if-no-files-found: error
 
       # Optional: Also upload to GitHub Release if this is a tag
@@ -216,7 +245,7 @@ jobs:
 
       # Sign Windows executable with Authenticode (if certificate is available)
       - name: Sign Windows executable
-        if: false  # Enable when WINDOWS_CERT_BASE64 secret is configured
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_windows }}
         env:
           WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
@@ -264,6 +293,7 @@ jobs:
             build/appDBC_Parser.exe
             deploy/windows/**
             installer_output/DBC_Parser_Setup_*.exe
+          compression-level: 0
           if-no-files-found: warn
 
       # Optional: Upload to GitHub Release if this is a tag
