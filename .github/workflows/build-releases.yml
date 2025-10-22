@@ -128,9 +128,18 @@ jobs:
       - name: Install Ninja
         run: choco install ninja -y
 
+      - name: List files (debug)
+        run: |
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Files in root:"
+          Get-ChildItem -Filter "*.ps1" | Select-Object Name
+          Write-Host "`nChecking if build-windows.ps1 exists:"
+          Test-Path "build-windows.ps1"
+        shell: pwsh
+
       - name: Build Windows executable
         run: |
-          & "${{ github.workspace }}\build-windows.ps1"
+          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-windows.ps1"
         shell: pwsh
 
       # Sign Windows executable with Authenticode (if certificate is available)
