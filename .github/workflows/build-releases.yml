@@ -77,7 +77,7 @@ jobs:
 
       # Sign Flatpak with GPG (if GPG key is available)
       - name: Sign Flatpak bundle
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        if: false  # Enable when GPG_PRIVATE_KEY secret is configured
         run: |
           # Import GPG key from secret
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
@@ -144,7 +144,7 @@ jobs:
 
       # Sign Windows executable with Authenticode (if certificate is available)
       - name: Sign Windows executable
-        if: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+        if: false  # Enable when WINDOWS_CERT_BASE64 secret is configured
         env:
           WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
