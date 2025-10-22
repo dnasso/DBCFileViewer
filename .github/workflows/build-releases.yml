@@ -274,7 +274,7 @@ jobs:
         shell: pwsh
 
       - name: Verify deployment
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main-deployment')) }}
         run: |
           Write-Host "Checking deploy directory contents:"
           if (Test-Path "deploy\windows") {
@@ -285,17 +285,17 @@ jobs:
         shell: pwsh
 
       - name: Install Inno Setup
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main-deployment')) }}
         run: choco install innosetup -y
 
       - name: Build Windows installer
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main-deployment')) }}
         run: |
           pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-installer.ps1"
         shell: pwsh
       
       - name: Verify installer output
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main-deployment')) }}
         run: |
           Write-Host "Checking installer_output directory:"
           if (Test-Path "installer_output") {
@@ -307,11 +307,16 @@ jobs:
 
       # Sign Windows executable with Authenticode (if certificate is available)
       - name: Sign Windows executable
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_windows }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.sign_windows) || startsWith(github.ref, 'refs/tags/') }}
         env:
           WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
+          # Skip if cert secrets are not configured
+          if ([string]::IsNullOrEmpty($env:WINDOWS_CERT_BASE64) -or [string]::IsNullOrEmpty($env:WINDOWS_CERT_PASSWORD)) {
+            Write-Warning "Signing skipped: WINDOWS_CERT_BASE64 or WINDOWS_CERT_PASSWORD is not set."
+            exit 0
+          }
           # Decode certificate from base64
           $certBytes = [System.Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
           $certPath = "$env:TEMP\cert.pfx"
@@ -348,7 +353,7 @@ jobs:
         shell: pwsh
 
       - name: Upload Windows artifacts
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main-deployment')) }}
         uses: actions/upload-artifact@v4
         with:
           name: dbc-parser-windows
