@@ -53,7 +53,8 @@ qt_add_resources(appDBC_Parser app_icons
 )
 
 if(WIN32)
-    target_sources(appDBC_Parser PRIVATE appicon.rc)
+    # Use an explicit path to ensure CMake can locate the resource file in all build contexts
+    target_sources(appDBC_Parser PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/appicon.rc)
 endif()
 
 # Platform-specific compile definitions
