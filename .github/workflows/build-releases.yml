@@ -6,9 +6,26 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:  # Allow manual trigger
+    inputs:
+      build_flatpak:
+        description: "Build Flatpak job"
+        type: boolean
+        default: false
+      build_windows:
+        description: "Build Windows job"
+        type: boolean
+        default: true
+      build_docker:
+        description: "Build Docker job"
+        type: boolean
+        default: false
 
 jobs:
   build-flatpak:
+    # Run Flatpak build only when:
+    #  - this is a tag (release), OR
+    #  - a manual dispatch explicitly enables it.
+    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.build_flatpak) }}
     name: Build Flatpak
     runs-on: ubuntu-latest
     
