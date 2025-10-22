@@ -9,9 +9,18 @@ ApplicationWindow {
 
     id: window
     visible: true
+    visibility: Window.Maximized
     width: 1920
     height: 1080
     title: "DBC File Viewer"
+    
+    Component.onCompleted: {
+        // Set up the connection between TCP Client and DbcParser
+        if (tcpClientTab && tcpClientTab.tcpClient) {
+            dbcParser.setTcpClient(tcpClientTab.tcpClient)
+            console.log("Connected DbcParser to TCP Client")
+        }
+    }
     
     // Apply Material theme
     Material.theme: Material.Light
@@ -3785,14 +3794,6 @@ ApplicationWindow {
             id: notificationColumn
             width: parent.width
             spacing: 10
-        }
-    }
-    
-    // Set up the connection between TCP Client and DbcParser
-    Component.onCompleted: {
-        if (tcpClientTab && tcpClientTab.tcpClient) {
-            dbcParser.setTcpClient(tcpClientTab.tcpClient)
-            console.log("Connected DbcParser to TCP Client")
         }
     }
     

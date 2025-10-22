@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>deploy-assets/dbctrain.ico</file>
+        <file>deploy-assets/dbctrain.png</file>
+    </qresource>
+</RCC>

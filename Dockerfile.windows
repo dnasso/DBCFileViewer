@@ -1,0 +1,54 @@
+# escape=`
+# Dockerfile.windows
+
+# Build stage
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Install Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; `
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
+    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+# Install build tools
+RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && `
+    choco install -y ninja && `
+    choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+# Download and install Qt (you'll need to provide Qt installer or use pre-built binaries)
+# This is a placeholder - you'd typically use Qt's online installer or pre-downloaded binaries
+WORKDIR C:\Qt
+ADD https://download.qt.io/official_releases/qt/6.5/6.5.3/qt-opensource-windows-x64-6.5.3.exe qt-installer.exe
+RUN Start-Process -Wait -FilePath "C:\Qt\qt-installer.exe" -ArgumentList "--silent", "--platform", "windows", "--accept-licenses"
+
+# Set Qt environment
+ENV Qt6_DIR="C:\Qt\6.5.3\msvc2019_64"
+ENV PATH="C:\Qt\6.5.3\msvc2019_64\bin;${PATH}"
+
+# Copy source code
+WORKDIR C:\build
+COPY . .
+
+# Build the application
+RUN cmake -B build -G Ninja `
+    -DCMAKE_BUILD_TYPE=Release `
+    -DCMAKE_PREFIX_PATH="C:\Qt\6.5.3\msvc2019_64" `
+    && cmake --build build --parallel
+
+# Runtime image
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
+
+WORKDIR C:\app
+
+# Copy built application and Qt runtime DLLs
+COPY --from=builder C:\build\build\your-app.exe .
+COPY --from=builder C:\Qt\6.5.3\msvc2019_64\bin\Qt6Core.dll .
+COPY --from=builder C:\Qt\6.5.3\msvc2019_64\bin\Qt6Gui.dll .
+COPY --from=builder C:\Qt\6.5.3\msvc2019_64\bin\Qt6Widgets.dll .
+# Add other required Qt DLLs and plugins
+
+# Copy Qt plugins
+COPY --from=builder C:\Qt\6.5.3\msvc2019_64\plugins\platforms C:\app\platforms
+
+ENTRYPOINT ["C:\\app\\DBC_Parser.exe"]

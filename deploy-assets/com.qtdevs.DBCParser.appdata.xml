@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.qtdevs.DBCParser</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>DBC Parser</name>
+  <summary>View and parse DBC files for CAN bus communication</summary>
+  <description>
+    <p>
+      DBC Parser is a graphical application for viewing, editing, and transmitting
+      CAN bus messages using DBC (CAN Database) files. It features a modern Qt-based
+      interface for working with automotive communication protocols.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Parse and view DBC files</li>
+      <li>Send CAN messages over TCP</li>
+      <li>Visual signal editor</li>
+      <li>Real-time message monitoring</li>
+    </ul>
+  </description>
+  <url type="homepage">https://github.com/dnasso/DBCFileViewer</url>
+  <url type="bugtracker">https://github.com/dnasso/DBCFileViewer/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main window</caption>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="1.0.0" date="2025-10-21">
+      <description>
+        <p>Initial release</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1" />
+</component>

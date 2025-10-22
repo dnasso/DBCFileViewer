@@ -1,0 +1,101 @@
+# Flatpak manifest for DBC Parser
+# Build a Flatpak package for universal Linux distribution
+# 
+# Prerequisites:
+#   sudo apt install flatpak flatpak-builder
+#   flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+#   flatpak install flathub org.kde.Platform//6.8 org.kde.Sdk//6.8
+#
+# Build:
+#   flatpak-builder --force-clean build-dir com.qtdevs.DBCParser.yml
+#
+# Install locally:
+#   flatpak-builder --user --install --force-clean build-dir com.qtdevs.DBCParser.yml
+#
+# Run:
+#   flatpak run com.qtdevs.DBCParser
+#
+# Export for distribution:
+#   flatpak-builder --repo=repo --force-clean build-dir com.qtdevs.DBCParser.yml
+#   flatpak build-bundle repo dbc-parser.flatpak com.qtdevs.DBCParser
+
+app-id: com.qtdevs.DBCParser
+runtime: org.kde.Platform
+runtime-version: '6.8'
+sdk: org.kde.Sdk
+command: appDBC_Parser
+
+finish-args:
+  # X11 and Wayland display access
+  - --socket=x11
+  - --socket=wayland
+  - --share=ipc
+  
+  # OpenGL/GPU acceleration
+  - --device=dri
+  
+  # Network access (for TCP client functionality)
+  - --share=network
+  
+  # File system access for DBC files
+  - --filesystem=home
+  - --filesystem=xdg-documents
+  
+  # Allow theme access
+  - --filesystem=xdg-config/kdeglobals:ro
+  - --filesystem=xdg-config/gtk-3.0:ro
+  
+  # Sound (if needed for notifications)
+  - --socket=pulseaudio
+
+modules:
+  # Main application module
+  - name: dbc-parser
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+    # Disable automatic stripping to avoid WSL/Windows path issues
+    build-options:
+      strip: false
+      no-debuginfo: true
+    
+    sources:
+      # Use the local directory during development so the build uses your current workspace
+      - type: dir
+        path: .
+      # To build from the remote repo instead, restore the git source block:
+      # - type: git
+      #   url: https://github.com/dnasso/DBCFileViewer.git
+      #   branch: main
+    
+    build-commands:
+      - rm -rf build || true
+      - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/app
+      - cmake --build build --parallel
+      - cmake --install build
+      # Fix Windows/WSL file permissions
+      - chmod -R u+rwX,go+rX,go-w /app
+    
+    post-install:
+      # Fix file permissions from Windows/WSL
+      - find /app -type f -exec chmod 644 {} +
+      - find /app -type d -exec chmod 755 {} +
+      - chmod 755 /app/bin/appDBC_Parser
+      
+      # Install desktop file
+      - install -Dm644 deploy-assets/dbc-parser.desktop /app/share/applications/com.qtdevs.DBCParser.desktop
+      
+      # Install icon
+      - install -Dm644 deploy-assets/dbctrain.png /app/share/icons/hicolor/256x256/apps/com.qtdevs.DBCParser.png
+      
+      # Install sample files
+      - mkdir -p /app/share/dbc-parser/samples
+      - install -Dm644 SimpBMS-2.dbc /app/share/dbc-parser/samples/
+      - install -Dm644 sample_transmission_config.json /app/share/dbc-parser/samples/
+      - install -Dm644 simpbms_transmission_config.json /app/share/dbc-parser/samples/
+      
+      # Install documentation
+      - install -Dm644 README.md /app/share/doc/dbc-parser/README.md
+      
+      # Create appdata/metainfo (for app stores)
+      - install -Dm644 deploy-assets/com.qtdevs.DBCParser.appdata.xml /app/share/metainfo/com.qtdevs.DBCParser.appdata.xml

@@ -86,3 +86,83 @@ CMakeLists.txt.user*
 /DBCClient/output/
 /DBCClient/build*/
 /tests
+
+# Docker / build artifacts
+.docker/
+docker-compose.override.yml
+docker-compose.*.yml
+
+# Docker images/archives (exported images)
+*.tar
+
+# Deployment artifacts
+/deploy/
+*.AppImage
+*.zip
+*.dmg
+*.deb
+*.rpm
+*.tar.gz
+linuxdeploy*.AppImage
+DBC_Parser_*.zip
+DBC_Parser_*.tar.gz
+
+# Installer output
+/installer_output/
+
+# Flatpak build artifacts
+/flatpak-build/
+/flatpak-repo/
+/build-dir/
+/repo/
+/.flatpak-builder/
+*.flatpak
+
+# Code signing certificates (NEVER commit these!)
+*.pfx
+*.p12
+*.pem
+*.key
+*_private.key
+*.cer
+*.crt
+public-key.asc
+
+# Deploy assets (may contain temporary icons)
+# Note: Keep actual icon files but ignore temporary/generated ones
+/deploy-assets/*.tmp
+/deploy-assets/*~
+
+# CMake / build system
+/build/
+/build*/
+/cmake-build*/
+/CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+Makefile
+build.ninja
+
+# Qt runtime and installed Qt trees copied during builds
+/qt-runtime/
+/opt/qt/
+
+# Python virtualenvs
+venv/
+env/
+/.venv/
+
+# UPX / compressed binaries
+*.upx
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# JetBrains / IDE
+/.idea/
+
+# Windows-specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini

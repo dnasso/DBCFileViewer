@@ -1,0 +1,44 @@
+# Exclude build directories
+build/
+build-*/
+**/build/
+**/build-*/
+
+# Exclude IDE and editor files
+.vscode/
+.idea/
+*.user
+*.autosave
+*.pro.user*
+*.qmlproject.user*
+*.qtds*
+
+# Exclude compiled files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+
+# Exclude CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Exclude Qt generated files
+*_autogen/
+*.qrc.depends
+moc_*.cpp
+qrc_*.cpp
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude other
+*.log
+*.tmp
+.DS_Store

@@ -13,3 +13,29 @@ To verify your vcan0 interface exists, run:
 ip link show vcan0
 ls -la /sys/class/net/vcan0/
 cat /sys/class/net/vcan0/type  # Should show 280
+
+test server to see if it cleans up when it's killed.
+make it so that there can be a viewer attached to the server to show output. maybe a candump viewer:
+maybe make a graphical map program which shows what's being sent on the bus, with pictures of devices. depending on dbc files or maybe responses, some of the devices will light up. can signify received and sent with different colors
+
+/* priority of todos: 1 high, 2 medium, 3 low
+
+TODOS:
+
+2 Old one-shot tasks might build up in memory, but it might not matter (they are held to show status to FE/GUI)
+2 handle cansend errors even more/better
+2 add event triggers for sending messages based on can bus activity (like candump -c) and started/stopped tasks
+2 triggers for timers (run until x, run at x time); run number of times
+
+
+3 if checking for dead task (LIST_TASKS/UPDATE), return something useful
+3 if trying to pause/resume/kill a non-existent task, return something useful
+3 add feature to use dns (already implemented?)
+
+POLISH:
+make scheduling timer more accurate
+maybe add candump-like features to send to ui
+add resource monitoring to send to ui
+add client feature for server log viewing
+
+*/

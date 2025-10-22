@@ -1,0 +1,302 @@
+# Dockerfile.alpine-qt-source - Build Qt from source for musl with minimal components
+# This gives us full control over what Qt modules are built
+
+FROM alpine:3.19 AS qt-builder
+
+ARG QT_VERSION=6.8.2
+
+# Install build dependencies for Qt
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    ninja \
+    git \
+    perl \
+    python3 \
+    # Core dependencies
+    linux-headers \
+    zlib-dev \
+    pcre2-dev \
+    dbus-dev \
+    glib-dev \
+    # XCB platform dependencies
+    libxkbcommon-dev \
+    xcb-util-cursor-dev \
+    xcb-util-image-dev \
+    xcb-util-keysyms-dev \
+    xcb-util-renderutil-dev \
+    xcb-util-wm-dev \
+    libxcb-dev \
+    libx11-dev \
+    libxrender-dev \
+    libxi-dev \
+    # GUI dependencies
+    mesa-dev \
+    fontconfig-dev \
+    freetype-dev \
+    harfbuzz-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    # OpenGL
+    libdrm-dev \
+    eudev-dev
+
+# Download and extract Qt source
+WORKDIR /qt-src
+RUN wget https://download.qt.io/official_releases/qt/6.8/${QT_VERSION}/single/qt-everywhere-src-${QT_VERSION}.tar.xz && \
+    tar -xf qt-everywhere-src-${QT_VERSION}.tar.xz && \
+    rm qt-everywhere-src-${QT_VERSION}.tar.xz && \
+    cd qt-everywhere-src-${QT_VERSION}
+
+# Configure Qt with minimal features
+# We only build what we need: qtbase (core, gui, widgets, network), qtdeclarative (qml, quick)
+WORKDIR /qt-src/qt-everywhere-src-${QT_VERSION}
+RUN ./configure \
+    -prefix /opt/qt \
+    -release \
+    -optimize-size \
+    -strip \
+    -shared \
+    -platform linux-g++ \
+    # Explicitly skip modules we don't need (including dependencies Qt tries to add)
+    -skip qt3d \
+    -skip qt5compat \
+    -skip qtcharts \
+    -skip qtcoap \
+    -skip qtconnectivity \
+    -skip qtdatavis3d \
+    -skip qtdoc \
+    -skip qtgrpc \
+    -skip qthttpserver \
+    -skip qtimageformats \
+    -skip qtlanguageserver \
+    -skip qtlocation \
+    -skip qtlottie \
+    -skip qtmqtt \
+    -skip qtmultimedia \
+    -skip qtnetworkauth \
+    -skip qtopcua \
+    -skip qtpositioning \
+    -skip qtquick3d \
+    -skip qtquick3dphysics \
+    -skip qtquickeffectmaker \
+    -skip qtquicktimeline \
+    -skip qtremoteobjects \
+    -skip qtscxml \
+    -skip qtsensors \
+    -skip qtserialbus \
+    -skip qtserialport \
+    -skip qtshadertools \
+    -skip qtspeech \
+    -skip qtsvg \
+    -skip qttranslations \
+    -skip qtvirtualkeyboard \
+    -skip qtwayland \
+    -skip qtwebchannel \
+    -skip qtwebengine \
+    -skip qtwebsockets \
+    -skip qtwebview \
+    # We only need qtbase and qtdeclarative - but list explicitly to override dependencies
+    -submodules qtbase,qtdeclarative \
+    # Disable features we don't need from qtbase
+    -no-feature-sql \
+    -no-feature-testlib \
+    -no-feature-concurrent \
+    -no-feature-xml \
+    -no-feature-printsupport \
+    -no-feature-openssl \
+    -no-feature-accessibility \
+    -no-dbus \
+    -no-cups \
+    # Platform plugins - use XCB for X11
+    -xcb \
+    -no-opengl \
+    # Build options
+    -nomake examples \
+    -nomake tests \
+    -no-pch \
+    # License
+    -opensource \
+    -confirm-license
+
+# Build Qt (this will take a while)
+# Note: Even with -skip flags, some modules may still build as dependencies
+RUN cmake --build . --parallel $(nproc) && \
+    cmake --install .
+
+# Clean up build artifacts and remove unwanted Qt modules
+RUN cd /opt/qt && \
+    # Remove unwanted Qt modules that got built despite -skip flags
+    rm -rf lib/cmake/Qt6LinguistTools \
+           lib/cmake/Qt6ShaderTools* \
+           lib/cmake/Qt6Svg* \
+           lib/cmake/Qt6LanguageServer* \
+           lib/cmake/Qt6ImageFormats* \
+           lib/libQt6ShaderTools* \
+           lib/libQt6Svg* \
+           lib/libQt6LanguageServer* \
+           qml/QtQuick/Dialogs \
+           qml/QtQuick/Layouts \
+           qml/QtQuick/Templates \
+           qml/QtQuick/Window \
+           plugins/imageformats 2>/dev/null || true && \
+    # Remove development files we don't need at runtime
+    rm -rf include \
+           lib/*.a \
+           lib/*.la \
+           lib/*.prl \
+           lib/pkgconfig \
+           lib/metatypes \
+           mkspecs \
+           doc 2>/dev/null || true && \
+    # Remove Qt tools we don't need
+    rm -f bin/qmllint \
+          bin/qmlformat \
+          bin/qmlls \
+          bin/qsb \
+          bin/qlalr \
+          bin/cmake* 2>/dev/null || true && \
+    # Strip all remaining libraries
+    find lib -name "*.so*" -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true && \
+    find plugins -name "*.so" -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true && \
+    find qml -name "*.so" -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true && \
+    # Show what we have left
+    echo "=== Qt installation size after cleanup ===" && \
+    du -sh /opt/qt && \
+    du -sh /opt/qt/* | sort -h
+
+# Clean up build artifacts
+RUN rm -rf /qt-src
+
+# Application builder stage
+FROM alpine:3.19 AS app-builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    ninja \
+    upx \
+    # Runtime dependencies needed for linking
+    mesa-dev \
+    libxkbcommon-dev \
+    xcb-util-cursor-dev \
+    xcb-util-image-dev \
+    xcb-util-keysyms-dev \
+    xcb-util-renderutil-dev \
+    xcb-util-wm-dev \
+    fontconfig-dev \
+    dbus-dev \
+    glib-dev \
+    freetype-dev \
+    libx11-dev \
+    libxcb-dev \
+    libxrender-dev \
+    libxi-dev \
+    zlib-dev \
+    pcre2-dev \
+    harfbuzz-dev
+
+# Copy Qt installation from qt-builder
+COPY --from=qt-builder /opt/qt /opt/qt
+
+# Set Qt environment
+ENV QT_DIR="/opt/qt"
+ENV PATH="${QT_DIR}/bin:${PATH}"
+ENV QT_PLUGIN_PATH="${QT_DIR}/plugins"
+ENV QML_IMPORT_PATH="${QT_DIR}/qml"
+ENV LD_LIBRARY_PATH="${QT_DIR}/lib"
+ENV CMAKE_PREFIX_PATH="${QT_DIR}/lib/cmake"
+ENV Qt6_DIR="${QT_DIR}/lib/cmake/Qt6"
+
+WORKDIR /src
+COPY . .
+
+# Configure and build with size optimizations
+RUN cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=MinSizeRel \
+    -DCMAKE_INSTALL_PREFIX=/app \
+    -DCMAKE_CXX_FLAGS_MINSIZEREL="-Os -DNDEBUG -flto" \
+    -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -flto" && \
+    cmake --build build --parallel && \
+    cmake --install build && \
+    # Strip debug symbols
+    strip --strip-all /app/bin/appDBC_Parser && \
+    # Compress with UPX
+    upx --best --lzma /app/bin/appDBC_Parser
+
+# Collect only required Qt runtime libraries
+RUN mkdir -p /qt-runtime/lib /qt-runtime/plugins /qt-runtime/qml && \
+    # Copy libraries that are actually linked by ldd
+    ldd /app/bin/appDBC_Parser | grep "=> /" | awk '{print $3}' | xargs -I '{}' sh -c 'cp -v {} /qt-runtime/lib/ 2>/dev/null || true' && \
+    # Strip libraries
+    find /qt-runtime/lib -name "*.so*" -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true && \
+    # Copy minimal Qt plugins - only what we actually need
+    mkdir -p /qt-runtime/plugins/platforms && \
+    cp ${QT_DIR}/plugins/platforms/libqxcb.so /qt-runtime/plugins/platforms/ 2>/dev/null || true && \
+    cp ${QT_DIR}/plugins/platforms/libqminimal.so /qt-runtime/plugins/platforms/ 2>/dev/null || true && \
+    strip --strip-unneeded /qt-runtime/plugins/platforms/*.so 2>/dev/null || true && \
+    # Only copy essential QML modules (not all of QtQuick)
+    mkdir -p /qt-runtime/qml/QtQml /qt-runtime/qml/QtQuick && \
+    # Copy core QML runtime
+    cp -r ${QT_DIR}/qml/QtQml/Models /qt-runtime/qml/QtQml/ 2>/dev/null || true && \
+    cp -r ${QT_DIR}/qml/QtQml/WorkerScript /qt-runtime/qml/QtQml/ 2>/dev/null || true && \
+    cp ${QT_DIR}/qml/QtQml/*.so ${QT_DIR}/qml/QtQml/qmldir ${QT_DIR}/qml/QtQml/*.qmltypes /qt-runtime/qml/QtQml/ 2>/dev/null || true && \
+    # Copy QtQuick essentials (not dialogs, layouts, templates, etc.)
+    cp ${QT_DIR}/qml/QtQuick/*.so ${QT_DIR}/qml/QtQuick/qmldir ${QT_DIR}/qml/QtQuick/*.qmltypes /qt-runtime/qml/QtQuick/ 2>/dev/null || true && \
+    cp -r ${QT_DIR}/qml/QtQuick/Controls /qt-runtime/qml/QtQuick/ 2>/dev/null || true && \
+    # Strip QML plugins
+    find /qt-runtime/qml -name "*.so" -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true && \
+    # Show what we're copying
+    echo "=== Qt runtime size ===" && \
+    du -sh /qt-runtime && \
+    du -sh /qt-runtime/* | sort -h
+
+# Final runtime image
+FROM alpine:3.19
+
+# Install only essential runtime dependencies
+RUN apk add --no-cache \
+    mesa \
+    mesa-gl \
+    mesa-dri-gallium \
+    libxkbcommon \
+    libxkbcommon-x11 \
+    xcb-util-cursor \
+    xcb-util-image \
+    xcb-util-keysyms \
+    xcb-util-renderutil \
+    xcb-util-wm \
+    fontconfig \
+    freetype \
+    libx11 \
+    libxcb \
+    libxrender \
+    libxi \
+    zlib \
+    pcre2 \
+    harfbuzz \
+    libstdc++ \
+    libgcc && \
+    # Clean up
+    rm -rf /usr/share/doc/* /usr/share/man/* /tmp/* /var/tmp/* /var/cache/apk/*
+
+# Set environment
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
+
+# Copy Qt runtime and application
+COPY --from=app-builder /qt-runtime /opt/qt
+COPY --from=app-builder /app /app
+
+# Set up Qt environment
+ENV QT_PLUGIN_PATH="/opt/qt/plugins"
+ENV QML_IMPORT_PATH="/opt/qt/qml"
+ENV LD_LIBRARY_PATH="/opt/qt/lib:/usr/lib"
+ENV QT_QPA_PLATFORM=xcb
+ENV DISPLAY=:0
+ENV QT_LOGGING_RULES="*.debug=false"
+
+WORKDIR /app/bin
+CMD ["/app/bin/appDBC_Parser"]
