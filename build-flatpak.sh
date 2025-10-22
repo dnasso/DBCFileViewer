@@ -5,6 +5,7 @@ set -e
 MANIFEST="com.qtdevs.DBCParser.yml"
 BUILD_DIR="flatpak-build"
 REPO_DIR="flatpak-repo"
+FLATPAK_DIR="flatpak"
 APP_ID="com.qtdevs.DBCParser"
 
 echo "========================================"
@@ -55,11 +56,31 @@ Type=Application
 Name=DBC Parser
 GenericName=CAN Database File Viewer
 Comment=View and parse DBC files for CAN bus communication
-Exec=appDBC_Parser
+Exec=appDBC_Parser %F
 Icon=com.qtdevs.DBCParser
 Categories=Development;Network;Engineering;
 Terminal=false
 Keywords=CAN;DBC;Automotive;Bus;
+MimeType=application/x-dbc;text/x-dbc;
+EOF
+fi
+
+# Create MIME type definition for .dbc files
+if [ ! -f "deploy-assets/com.qtdevs.DBCParser.xml" ]; then
+    echo "Creating MIME type definition..."
+    cat > deploy-assets/com.qtdevs.DBCParser.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-dbc">
+    <comment>CAN Database file</comment>
+    <comment xml:lang="en">CAN Database file</comment>
+    <glob pattern="*.dbc"/>
+    <glob pattern="*.DBC"/>
+    <magic priority="50">
+      <match type="string" offset="0" value="VERSION"/>
+    </magic>
+  </mime-type>
+</mime-info>
 EOF
 fi
 
@@ -110,7 +131,15 @@ fi
 # Build the Flatpak
 echo ""
 echo "Building Flatpak..."
-flatpak-builder --force-clean "$BUILD_DIR" "$MANIFEST"
+
+# Add --disable-rofiles-fuse flag when running in WSL/Windows environment
+# This prevents issues with the rofiles-fuse system that doesn't work well in WSL
+if grep -qi microsoft /proc/version 2>/dev/null || grep -qi wsl /proc/version 2>/dev/null; then
+    echo "WSL environment detected, using --disable-rofiles-fuse flag"
+    flatpak-builder --disable-rofiles-fuse --force-clean "$BUILD_DIR" "$MANIFEST"
+else
+    flatpak-builder --force-clean "$BUILD_DIR" "$MANIFEST"
+fi
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -119,24 +148,54 @@ if [ $? -eq 0 ]; then
     echo "========================================"
     echo ""
     echo "To install locally:"
-    echo "  flatpak-builder --user --install --force-clean $BUILD_DIR $MANIFEST"
+    echo "  flatpak-builder --user --install --disable-rofiles-fuse --force-clean $BUILD_DIR $MANIFEST"
     echo ""
     echo "To run:"
     echo "  flatpak run $APP_ID"
     echo ""
     echo "To create a bundle for distribution:"
-    echo "  flatpak-builder --repo=$REPO_DIR --force-clean $BUILD_DIR $MANIFEST"
-    echo "  flatpak build-bundle $REPO_DIR dbc-parser.flatpak $APP_ID"
+    echo "  flatpak-builder --repo=$REPO_DIR --disable-rofiles-fuse --force-clean $BUILD_DIR $MANIFEST"
+    echo "  flatpak build-bundle $REPO_DIR $FLATPAK_DIR/dbc-parser.flatpak $APP_ID"
     echo ""
     
-    # Ask if user wants to install
-    read -p "Install locally now? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        flatpak-builder --user --install --force-clean "$BUILD_DIR" "$MANIFEST"
-        echo ""
-        echo "✓ Installed! Run with: flatpak run $APP_ID"
+  # Ensure output directory exists
+  mkdir -p "$FLATPAK_DIR"
+
+  # If a bundle already exists at project root (from previous runs), move it into the flatpak dir
+  if [ -f "dbc-parser.flatpak" ] && [ ! -f "$FLATPAK_DIR/dbc-parser.flatpak" ]; then
+    echo "Moving existing dbc-parser.flatpak -> $FLATPAK_DIR/"
+    mv -f dbc-parser.flatpak "$FLATPAK_DIR/dbc-parser.flatpak"
+  fi
+
+  # Create a repo and bundle into flatpak/dbc-parser.flatpak
+  echo "Creating flatpak repo (if needed) and building bundle..."
+  if [ -d "$REPO_DIR" ]; then
+    echo "Using existing repo: $REPO_DIR"
+  else
+    echo "Creating repo: $REPO_DIR"
+    flatpak-builder --repo=$REPO_DIR --disable-rofiles-fuse --force-clean "$BUILD_DIR" "$MANIFEST"
+  fi
+
+  # Build the bundle into the flatpak directory
+  flatpak build-bundle "$REPO_DIR" "$FLATPAK_DIR/dbc-parser.flatpak" "$APP_ID" || {
+    echo "Failed to build bundle into $FLATPAK_DIR/dbc-parser.flatpak"
+    exit 1
+  }
+
+  echo "Bundle created: $FLATPAK_DIR/dbc-parser.flatpak"
+
+  # Ask if user wants to install
+  read -p "Install locally now? (y/n) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if grep -qi microsoft /proc/version 2>/dev/null || grep -qi wsl /proc/version 2>/dev/null; then
+      flatpak-builder --user --install --disable-rofiles-fuse --force-clean "$BUILD_DIR" "$MANIFEST"
+    else
+      flatpak-builder --user --install --force-clean "$BUILD_DIR" "$MANIFEST"
     fi
+    echo ""
+    echo "✓ Installed! Run with: flatpak run $APP_ID"
+  fi
 else
     echo ""
     echo "❌ ERROR: Flatpak build failed"
