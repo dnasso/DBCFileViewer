@@ -130,7 +130,7 @@ jobs:
 
       - name: Build Windows executable
         run: |
-          .\build-windows.ps1
+          & "${{ github.workspace }}\build-windows.ps1"
         shell: pwsh
 
       # Sign Windows executable with Authenticode (if certificate is available)
