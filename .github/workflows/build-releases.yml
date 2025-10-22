@@ -127,9 +127,38 @@ jobs:
 
       - name: Set Qt environment variables
         run: |
-          Write-Host "Qt installed at: $env:Qt6_DIR"
-          Write-Host "Setting CMAKE_PREFIX_PATH..."
-          echo "CMAKE_PREFIX_PATH=$env:Qt6_DIR" >> $env:GITHUB_ENV
+          # Try to detect Qt prefix using qmake if available (most reliable)
+          $qtPrefix = ""
+          $qmakePath = (Get-Command qmake -ErrorAction SilentlyContinue).Path
+          if ($qmakePath) {
+            Write-Host "qmake detected at: $qmakePath"
+            try { $qtPrefix = & qmake -query QT_INSTALL_PREFIX } catch {}
+          }
+
+          if (-not $qtPrefix -and $env:Qt6_DIR) {
+            $qtPrefix = $env:Qt6_DIR
+          }
+
+          if (-not $qtPrefix) {
+            # Fallback: search common install-qt-action locations
+            $candidates = @(
+              "$env:RUNNER_TEMP\Qt\6.*\mingw_64",
+              "$env:USERPROFILE\Qt\6.*\mingw_64",
+              "C:\\Qt\\6.*\\mingw_64"
+            )
+            foreach ($pattern in $candidates) {
+              $found = Get-ChildItem -Path $pattern -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+              if ($found) { $qtPrefix = $found.FullName; break }
+            }
+          }
+
+          if ($qtPrefix) {
+            Write-Host "Qt prefix detected: $qtPrefix"
+            echo "Qt6_DIR=$qtPrefix" >> $env:GITHUB_ENV
+            echo "CMAKE_PREFIX_PATH=$qtPrefix" >> $env:GITHUB_ENV
+          } else {
+            Write-Warning "Could not auto-detect Qt prefix; proceeding without explicit CMAKE_PREFIX_PATH"
+          }
         shell: pwsh
 
       - name: Install Ninja
@@ -144,6 +173,7 @@ jobs:
           Test-Path "build-windows.ps1"
           Write-Host "`nQt6_DIR: $env:Qt6_DIR"
           Write-Host "CMAKE_PREFIX_PATH: $env:CMAKE_PREFIX_PATH"
+          Write-Host "qmake path: $((Get-Command qmake -ErrorAction SilentlyContinue).Path)"
         shell: pwsh
 
       - name: Build Windows executable
