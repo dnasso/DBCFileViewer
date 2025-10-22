@@ -1,8 +1,8 @@
-Format: 3.0 (native)
+Format: 3.0 (quilt)
 Source: dbc-file-viewer
 Binary: dbc-file-viewer
 Architecture: any
-Version: 1.0.1
+Version: 1.0.1-1
 Maintainer: Joseph Ogle <jogle88@gmail.com>
 Homepage: https://github.com/dnasso/DBCFileViewer
 Standards-Version: 4.6.0
@@ -10,4 +10,4 @@ Build-Depends: debhelper-compat (= 13), cmake (>= 3.16), qt6-base-dev, qt6-decla
 Package-List:
  dbc-file-viewer deb devel optional arch=any
 Files:
- 1bef7dfb941c6d0b3979543ef4225b59 465829 dbc-file-viewer_1.0.1.tar.gz
+ db0b79113bc46003cbbfb6ff88705370 465835 dbc-file-viewer_1.0.1.orig.tar.gz
