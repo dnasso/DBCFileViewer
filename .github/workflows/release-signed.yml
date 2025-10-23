@@ -1,0 +1,148 @@
+name: Release with Signing
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Qt6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qml6-module-qtquick \
+            qml6-module-qtquick-controls \
+            cmake \
+            build-essential
+      
+      - name: Import GPG signing key
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 -d | gpg --batch --import
+          echo "GPG key imported successfully"
+          gpg --list-secret-keys
+      
+      - name: Build project
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+      
+      - name: Create source tarball
+        run: |
+          # Create version from tag (e.g., v1.0.1 -> 1.0.1)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Create tarball using git archive
+          git archive --format=tar.gz \
+            --prefix=dbc-file-viewer-${VERSION}/ \
+            --output=dbc-file-viewer-${VERSION}.tar.gz \
+            HEAD
+          
+          echo "Created tarball: dbc-file-viewer-${VERSION}.tar.gz"
+          ls -lh dbc-file-viewer-${VERSION}.tar.gz
+      
+      - name: Sign tarball with GPG
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          TARBALL="dbc-file-viewer-${VERSION}.tar.gz"
+          
+          # Sign the tarball
+          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes \
+            --passphrase-fd 0 \
+            --pinentry-mode loopback \
+            --detach-sign \
+            --armor \
+            "$TARBALL"
+          
+          echo "Created signature: ${TARBALL}.asc"
+          ls -lh "${TARBALL}.asc"
+          
+          # Verify the signature
+          gpg --verify "${TARBALL}.asc" "$TARBALL"
+      
+      - name: Generate checksums
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Create checksum file
+          sha256sum dbc-file-viewer-${VERSION}.tar.gz > SHA256SUMS.txt
+          if [ -f "dbc-file-viewer-${VERSION}.tar.gz.asc" ]; then
+            sha256sum dbc-file-viewer-${VERSION}.tar.gz.asc >> SHA256SUMS.txt
+          fi
+          
+          echo "Checksums:"
+          cat SHA256SUMS.txt
+      
+      - name: Sign checksums file
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        run: |
+          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes \
+            --passphrase-fd 0 \
+            --pinentry-mode loopback \
+            --clearsign \
+            SHA256SUMS.txt
+          
+          mv SHA256SUMS.txt.asc SHA256SUMS.txt
+          echo "Signed checksums:"
+          cat SHA256SUMS.txt
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dbc-file-viewer-*.tar.gz
+            dbc-file-viewer-*.tar.gz.asc
+            SHA256SUMS.txt
+          body: |
+            ## DBC File Viewer ${{ github.ref_name }}
+            
+            ### Verification
+            
+            **GPG Signature**: This release is signed with GPG key `${{ secrets.GPG_KEY_ID }}`.
+            
+            To verify the tarball:
+            ```bash
+            # Import the public key
+            curl -fsSL https://github.com/dnasso/DBCFileViewer/raw/main/docs/signing-key-public.asc | gpg --import
+            
+            # Verify signature
+            gpg --verify dbc-file-viewer-${{ github.ref_name }}.tar.gz.asc dbc-file-viewer-${{ github.ref_name }}.tar.gz
+            ```
+            
+            **Checksums**: Verify file integrity with SHA256SUMS.txt
+            ```bash
+            sha256sum -c SHA256SUMS.txt
+            ```
+            
+            ### Installation
+            
+            See [README.md](https://github.com/dnasso/DBCFileViewer/blob/main/README.md) for installation instructions.
+            
+            ### Packages
+            
+            Pre-built packages are available via OBS:
+            - **Ubuntu/Debian**: https://download.opensuse.org/repositories/home:/GuyFerrari/
+            - **Fedora/openSUSE**: https://download.opensuse.org/repositories/home:/GuyFerrari/
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Cleanup GPG keys
+        if: always()
+        run: |
+          gpg --batch --yes --delete-secret-keys $(gpg --list-secret-keys --with-colons | grep '^sec' | cut -d: -f5) || true
+          gpg --batch --yes --delete-keys $(gpg --list-keys --with-colons | grep '^pub' | cut -d: -f5) || true
