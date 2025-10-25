@@ -309,6 +309,9 @@ private:
     // Config file browser
     QList<ConfigFileEntry> m_configFiles;
     QString m_configDirectory;
+
+    // Logging Filepath
+    QString logFileName;
     
 };
 

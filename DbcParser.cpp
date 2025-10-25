@@ -21,6 +21,7 @@
 #include <set>
 #include <algorithm>
 #include <fstream>
+#include <ctime>
 
 DbcParser::DbcParser(QObject *parent)
     : QObject(parent), selectedMessageIndex(-1), showAllSignals(false), currentEndian("little"), dbcSender(nullptr)
@@ -30,6 +31,35 @@ DbcParser::DbcParser(QObject *parent)
     
     // Initialize DbcSender
     dbcSender = new DbcSender(this);
+
+    // Set Log File
+    time_t timestamp;
+    time(&timestamp);
+    std::string date = (std::string)ctime(&timestamp);
+    date.pop_back();
+
+    /*
+    size_t pos = date.find(':');
+    while (pos != std::string::npos) {
+        date.replace(pos, sizeof(char), '');
+        pos = date.find(':', pos + sizeof(char));
+    }
+    */
+
+    std::string temp_date = "";
+    for(int i = 0; i < date.size(); i++) {
+        if (date[i] != ':') {
+            temp_date.push_back(date[i]);
+        }
+        else {
+            temp_date.push_back('-');
+        }
+    }
+
+    std::string temp = (std::string)"Log - " + temp_date + (std::string)".txt";
+    logFileName = QString::fromStdString(temp);
+
+    qDebug() << "logFileName: " << logFileName;
     
     // Note: Connection to CAN receiver is now handled through the GUI TCP Client tab
     qDebug() << "DbcParser: Initialized - use TCP Client tab to connect to server";
@@ -2766,7 +2796,8 @@ QString DbcParser::testConfigLoad()
 quint8 DbcParser::writeToLog(QString message)
 {
     qDebug() << "Testing writeToLog()";
-    std::fstream log("log.txt", std::ios::app);
+    //std::fstream log("log.txt", std::ios::app);
+    std::fstream log(logFileName.toStdString(), std::ios::app);
     log << message.toStdString() << "\n";
     log.close();
     return 0;
