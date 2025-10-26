@@ -21,8 +21,9 @@
     }
   },
   "containerEnv": {
-    "QT_QPA_PLATFORM": "wayland;xcb",
-    "QT_DEBUG_PLUGINS": "1"
+    "QT_QPA_PLATFORM": "xcb;wayland",
+    "QT_DEBUG_PLUGINS": "1",
+    "QSG_RENDER_LOOP": "basic"
   },
   "runArgs": [
     // Prevent Qt crashes

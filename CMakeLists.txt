@@ -144,9 +144,9 @@ endif()
 # Linux deployment using linuxdeploy (requires linuxdeploy-x86_64.AppImage)
 if(UNIX AND NOT APPLE)
     # Check if deployment script exists
-    if(EXISTS "${CMAKE_SOURCE_DIR}/deploy-linux.sh")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/deploy-linux.sh")
         add_custom_target(deploy
-            COMMAND bash "${CMAKE_SOURCE_DIR}/deploy-linux.sh"
+            COMMAND bash "${CMAKE_SOURCE_DIR}/scripts/deploy-linux.sh"
             DEPENDS appDBC_Parser
             WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
             COMMENT "Deploying Linux application with linuxdeploy (creates AppImage)"
@@ -155,7 +155,7 @@ if(UNIX AND NOT APPLE)
         
         message(STATUS "Linux deployment target available: cmake --build . --target deploy")
     else()
-        message(WARNING "deploy-linux.sh not found. Deployment target will not be available.")
+    message(WARNING "scripts/deploy-linux.sh not found. Deployment target will not be available.")
     endif()
 endif()
 

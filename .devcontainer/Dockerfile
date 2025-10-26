@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     locales \
     # Qt6 dev (base + declarative + tools)
+    qml-qt6 \
     qt6-base-dev \
     qt6-declarative-dev \
     qt6-tools-dev \
