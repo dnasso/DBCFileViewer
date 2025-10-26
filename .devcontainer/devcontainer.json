@@ -16,7 +16,8 @@
       "extensions": [
         "ms-vscode.cpptools",
         "ms-vscode.cmake-tools",
-        "twxs.cmake"
+        "twxs.cmake",
+        "ms-vscode-remote.remote-containers"
       ]
     }
   },

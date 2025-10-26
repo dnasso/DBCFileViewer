@@ -73,7 +73,6 @@ Source: "sample_transmission_config.json"; DestDir: "{userdocs}\DBC Parser Sampl
 Source: "simpbms_transmission_config.json"; DestDir: "{userdocs}\DBC Parser Samples"; Flags: ignoreversion; Tasks: installsamplestodocs
 ; Documentation
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
-Source: "DEPLOYMENT.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Registry]

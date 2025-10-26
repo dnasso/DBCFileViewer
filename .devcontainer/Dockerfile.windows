@@ -1,0 +1,31 @@
+# Windows devcontainer for building DBCFileViewer with MSVC + vcpkg (Qt6)
+# Note: Windows containers cannot display GUI apps; use this to build,
+# then run the resulting .exe on your host (bind mount the workspace).
+
+FROM mcr.microsoft.com/devcontainers/msvc:1-2022
+
+SHELL ["pwsh", "-NoLogo", "-ExecutionPolicy", "Bypass", "-Command"]
+
+# Ensure base tools and vcpkg are available
+RUN Set-PSDebug -Trace 0; \
+    Write-Host "Ensuring vcpkg and Ninja are present..."; \
+    if (!(Test-Path "C:\\vcpkg")) { \
+      git clone https://github.com/microsoft/vcpkg.git C:\\vcpkg; \
+      & C:\\vcpkg\\bootstrap-vcpkg.bat; \
+    } ; \
+    if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { \
+      choco install -y ninja; \
+    } ; \
+    git config --global core.autocrlf false ; \
+    git config --global core.longpaths true
+
+ENV VCPKG_ROOT=C:\\vcpkg \
+    VCPKG_DEFAULT_TRIPLET=x64-windows \
+    VCPKG_FEATURE_FLAGS=manifests
+
+# Use a stable workspace path to match devcontainer.json
+WORKDIR C:\\workspaces\\DBCFileViewer
+
+# Default shell
+CMD ["pwsh.exe", "-NoLogo"]
+

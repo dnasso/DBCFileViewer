@@ -1,0 +1,13 @@
+{
+  "name": "dbc-file-viewer",
+  "version-string": "1.0.0",
+  "description": "Qt6 Quick/QML DBC File Viewer (Windows build via vcpkg)",
+  "dependencies": [
+    "qtbase",
+    "qtdeclarative",
+    "qttools",
+    "qtshadertools",
+    "qtimageformats",
+    "qtquickcontrols2"
+  ]
+}
