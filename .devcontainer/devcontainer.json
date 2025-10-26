@@ -6,6 +6,7 @@
   },
   "remoteUser": "vscode",
   "workspaceFolder": "/workspaces/DBCFileViewer",
+
   "customizations": {
     "vscode": {
       "settings": {
@@ -20,13 +21,12 @@
     }
   },
   "containerEnv": {
-    "QT_QPA_PLATFORM": "xcb"
+    "QT_QPA_PLATFORM": "wayland;xcb",
+    "QT_DEBUG_PLUGINS": "1"
   },
   "runArgs": [
-    // Enable X11 on Linux hosts; VS Code passes the host DISPLAY through
-    "-e", "DISPLAY",
-    "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    // Prevent Qt crashes
+    "--shm-size=1g"
   ],
   "postCreateCommand": "cmake -S . -B build -G Ninja || true"
 }
-

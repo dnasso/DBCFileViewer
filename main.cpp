@@ -18,6 +18,7 @@ using namespace Qt::StringLiterals;
 
 namespace {
 QString gLogPath;
+bool gShuttingDown = false;
 
 QString logLevelToString(QtMsgType type)
 {
@@ -38,6 +39,9 @@ QString logLevelToString(QtMsgType type)
 
 void appendLogLine(const QString &path, const QString &line)
 {
+    if (path.isEmpty()) {
+        return;
+    }
     QFile file(path);
     if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         QTextStream stream(&file);
@@ -47,7 +51,7 @@ void appendLogLine(const QString &path, const QString &line)
 
 void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg)
 {
-    if (gLogPath.isEmpty()) {
+    if (gLogPath.isEmpty() || gShuttingDown) {
         return;
     }
     const QString timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
@@ -150,6 +154,8 @@ int main(int argc, char *argv[])
     QObject::connect(&app, &QGuiApplication::aboutToQuit, [&dbcParser]() {
         qDebug() << "Application about to quit - performing cleanup...";
         dbcParser.disconnectFromServer();
+        qInstallMessageHandler(nullptr);
+        gShuttingDown = true;
         qDebug() << "Cleanup completed";
     });
 

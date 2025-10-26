@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM debian:bookworm AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -18,13 +18,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     qt6-declarative-dev \
     qt6-tools-dev \
     qt6-tools-dev-tools \
+    qt6-wayland \
     # X11/OpenGL runtime deps for running the app inside the container
+    libgl1-mesa-dri \
+    mesa-utils \
     libgl1 \
     libopengl0 \
     libglx0 \
     libegl1 \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
+    libxkbcommon-dev \
     libxcb-xinerama0 \
     libxcb-cursor0 \
     libxcb-icccm4 \

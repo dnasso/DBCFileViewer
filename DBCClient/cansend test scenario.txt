@@ -50,3 +50,7 @@ Remove the job-level env mapping that references secrets (this triggers the lint
 For each step that needs secret values, map secrets into step-level env (allowed) and avoid using secrets in workflow 'if' expressions.
 Replace step-level 'if' checks with shell-time guards inside the run scripts so the steps skip gracefully when secrets are not provided.
 Keep the release body using a step-level env mapping for GPG_KEY_ID so the body can reference it via ${{ env.GPG_KEY_ID }}.
+
+
+echo "export DISPLAY=:0" >> ~/.bashrc
+xhost +local:docker
