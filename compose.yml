@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: dbcfileviewer-dev
+    environment:
+      - DISPLAY
+      - QT_QPA_PLATFORM=xcb
+    working_dir: /workspaces/DBCFileViewer
+    volumes:
+      - .:/workspaces/DBCFileViewer
+    stdin_open: true
+    tty: true
+
+  dev-x11:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: dbcfileviewer-dev-x11
+    environment:
+      - DISPLAY
+      - QT_QPA_PLATFORM=xcb
+    working_dir: /workspaces/DBCFileViewer
+    volumes:
+      - .:/workspaces/DBCFileViewer
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    stdin_open: true
+    tty: true
+    profiles: ["linux-x11"]
+

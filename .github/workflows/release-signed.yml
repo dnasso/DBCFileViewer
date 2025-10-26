@@ -12,7 +12,13 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    
+
+    # Add job-level env vars that map secrets -> env to avoid using 'secrets' inside 'if' expressions
+    env:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,9 +35,11 @@ jobs:
             build-essential
       
       - name: Import GPG signing key
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        # use env in the if expression instead of secrets
+        if: ${{ env.GPG_PRIVATE_KEY != '' }}
         run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 -d | gpg --batch --import
+          # use shell env variable (mapped from secret)
+          echo "$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
           echo "GPG key imported successfully"
           gpg --list-secret-keys
       
@@ -57,13 +65,14 @@ jobs:
           ls -lh dbc-file-viewer-${VERSION}.tar.gz
       
       - name: Sign tarball with GPG
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        # use env in the if expression instead of secrets
+        if: ${{ env.GPG_PRIVATE_KEY != '' }}
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           TARBALL="dbc-file-viewer-${VERSION}.tar.gz"
           
-          # Sign the tarball
-          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes \
+          # Sign the tarball using passphrase from env
+          echo "$GPG_PASSPHRASE" | gpg --batch --yes \
             --passphrase-fd 0 \
             --pinentry-mode loopback \
             --detach-sign \
@@ -90,9 +99,10 @@ jobs:
           cat SHA256SUMS.txt
       
       - name: Sign checksums file
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        # use env in the if expression instead of secrets
+        if: ${{ env.GPG_PRIVATE_KEY != '' }}
         run: |
-          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes \
+          echo "$GPG_PASSPHRASE" | gpg --batch --yes \
             --passphrase-fd 0 \
             --pinentry-mode loopback \
             --clearsign \
@@ -114,7 +124,7 @@ jobs:
             
             ### Verification
             
-            **GPG Signature**: This release is signed with GPG key `${{ secrets.GPG_KEY_ID }}`.
+            **GPG Signature**: This release is signed with GPG key `${{ env.GPG_KEY_ID }}`.
             
             To verify the tarball:
             ```bash

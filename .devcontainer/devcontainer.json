@@ -1,0 +1,32 @@
+{
+  "name": "DBCFileViewer Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/DBCFileViewer",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "cmake.generator": "Ninja",
+        "cmake.installPrefix": "/workspaces/DBCFileViewer/install"
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake"
+      ]
+    }
+  },
+  "containerEnv": {
+    "QT_QPA_PLATFORM": "xcb"
+  },
+  "runArgs": [
+    // Enable X11 on Linux hosts; VS Code passes the host DISPLAY through
+    "-e", "DISPLAY",
+    "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+  ],
+  "postCreateCommand": "cmake -S . -B build -G Ninja || true"
+}
+

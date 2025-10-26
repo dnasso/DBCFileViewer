@@ -21,11 +21,14 @@ maybe make a graphical map program which shows what's being sent on the bus, wit
 /* priority of todos: 1 high, 2 medium, 3 low
 
 TODOS:
+1 Add "set log level" instructions in frontend client tab
+1 add timeout in server for client which gets terminated or broken connection
 
 2 Old one-shot tasks might build up in memory, but it might not matter (they are held to show status to FE/GUI)
 2 handle cansend errors even more/better
 2 add event triggers for sending messages based on can bus activity (like candump -c) and started/stopped tasks
 2 triggers for timers (run until x, run at x time); run number of times
+2 offload logging to its own thread. but crashes may leave buffer unflushed/unwritten
 
 
 3 if checking for dead task (LIST_TASKS/UPDATE), return something useful
@@ -39,3 +42,11 @@ add resource monitoring to send to ui
 add client feature for server log viewing
 
 */
+
+
+Solution — step-by-step
+
+Remove the job-level env mapping that references secrets (this triggers the linter error).
+For each step that needs secret values, map secrets into step-level env (allowed) and avoid using secrets in workflow 'if' expressions.
+Replace step-level 'if' checks with shell-time guards inside the run scripts so the steps skip gracefully when secrets are not provided.
+Keep the release body using a step-level env mapping for GPG_KEY_ID so the body can reference it via ${{ env.GPG_KEY_ID }}.
