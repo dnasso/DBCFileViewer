@@ -138,9 +138,9 @@ jobs:
       # Run the flatpak build script
       - name: Build Flatpak
         run: |
-          chmod +x ./build-flatpak.sh
+          chmod +x ./scripts/build-flatpak.sh
           # Run non-interactively (skip install prompt)
-          echo "n" | ./build-flatpak.sh
+          echo "n" | ./scripts/build-flatpak.sh
 
       # Show ccache statistics
       - name: Show ccache stats
@@ -262,7 +262,7 @@ jobs:
 
       - name: Build Windows executable
         run: |
-          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-windows.ps1"
+          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/scripts/build-windows.ps1"
         shell: pwsh
 
       - name: Deploy Windows app (windeployqt)
@@ -270,7 +270,7 @@ jobs:
           # Pass detected Qt directory if available
           $qtDir = $env:Qt6_DIR
           if ([string]::IsNullOrEmpty($qtDir)) { $qtDir = "$env:USERPROFILE\Qt\6.8.2\mingw_64" }
-          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/deploy-windows.ps1" -BuildDir .\build -QtDir "$qtDir" -OutputDir .\deploy\windows
+          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/scripts/deploy-windows.ps1" -BuildDir .\build -QtDir "$qtDir" -OutputDir .\deploy\windows
         shell: pwsh
 
       - name: Verify deployment
@@ -291,7 +291,7 @@ jobs:
       - name: Build Windows installer
         if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main-deployment')) }}
         run: |
-          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/build-installer.ps1"
+          pwsh -ExecutionPolicy Bypass -File "${{ github.workspace }}/scripts/build-installer.ps1"
         shell: pwsh
       
       - name: Verify installer output
