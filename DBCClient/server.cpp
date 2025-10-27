@@ -109,7 +109,8 @@ add resource monitoring to send to client ui
 #include <array>
 #include <optional>
 #include <filesystem>
-#include <format>
+#include <iostream>
+#include <sstream>
 #include <thread>
 #include <chrono>
 #include <mutex>
@@ -490,7 +491,7 @@ int main(int argc, char* argv[]) {
     hints.ai_flags = AI_PASSIVE;
 
     if (argc != 2) {
-        std::cerr << std::format("Error: incorrect number of arguments. Usage: {} <config_file>\n", *argv);
+        std::cerr << "Error: incorrect number of arguments. Usage: " << *argv << " <config_file>" << std::endl;
         logEvent(DEBUG, "server <config_file> has incorrect number of arguments");
         return 1;
     }
@@ -500,7 +501,7 @@ int main(int argc, char* argv[]) {
 
     std::filesystem::path configFilePath(configFileName);
     if (!std::filesystem::is_regular_file(configFilePath)) {
-        std::cerr << std::format("Error opening configuration file: {}\n", configFileName);
+        std::cerr << "Error opening configuration file: " << configFileName << std::endl;
         logEvent(ERROR, "Error opening configuration file: " + configFileName);
         return 1;
     }
@@ -566,7 +567,7 @@ int main(int argc, char* argv[]) {
     }
 
     if ((rv = getaddrinfo(nullptr, std::to_string(::port).c_str(), &hints, &servinfo))!= 0) {
-        std::cerr << std::format("getaddrinfo: {}\n", gai_strerror(rv));
+        std::cerr << "getaddrinfo: " << gai_strerror(rv) << std::endl;
         logEvent(ERROR, std::string("getaddrinfo: ") + gai_strerror(rv));
         return 1;
     }

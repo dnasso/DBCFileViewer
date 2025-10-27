@@ -5,7 +5,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Add Network component for TCP functionality in Qtclient.cpp
 find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Network)
-qt_standard_project_setup(REQUIRES 6.5)
+
+# Qt6.2 compatible setup (qt_standard_project_setup requires Qt6.5+)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
 
 # Cross-compilation option for server.cpp
 option(CROSS_COMPILE_SERVER "Cross-compile server.cpp for Linux from Windows" OFF)
@@ -18,14 +22,13 @@ set(COMMON_SOURCES
     ./DBCClient/Qtclient.cpp
 )
 
-# Handle server.cpp compilation
+# Handle server.cpp compilation - create separate executable
 if(UNIX AND NOT APPLE)
-    list(APPEND COMMON_SOURCES DBCClient/server.cpp)
-    message(STATUS "Adding server.cpp for Linux build")
+    # Don't add server.cpp to COMMON_SOURCES, create separate executable instead
+    message(STATUS "Will create separate server executable for Linux build")
 elseif(WIN32 AND DEFINED ENV{WSL_DISTRO_NAME})
     # We're in WSL - treat as Linux
-    list(APPEND COMMON_SOURCES DBCClient/server.cpp)
-    message(STATUS "Adding server.cpp for WSL build")
+    message(STATUS "Will create separate server executable for WSL build")
 elseif(WIN32 AND CROSS_COMPILE_SERVER)
     # Cross-compile server.cpp for Linux on Windows
     find_program(LINUX_GCC NAMES x86_64-linux-gnu-gcc x86_64-linux-gnu-g++)
@@ -59,23 +62,29 @@ endif()
 # Main executable with platform-specific sources
 qt_add_executable(appDBC_Parser ${COMMON_SOURCES})
 
-# QML module
+# Create separate server executable for Linux builds
+if(UNIX AND NOT APPLE)
+    add_executable(dbc_server DBCClient/server.cpp)
+    message(STATUS "Creating separate DBC server executable")
+endif()
+
+# Create QML resources for Qt6.2 compatibility
+set(QML_SOURCES
+    Main.qml
+    AddMessageDialog.qml
+    AddSignalDialog.qml
+    SendMessageDialog.qml
+    TcpClientTab.qml
+    qmldir
+    dbctrain.png
+)
+
+# Use qt_add_qml_module with Qt6.2 compatible settings
 qt_add_qml_module(appDBC_Parser
     URI DBC_Parser
     VERSION 1.0
-    QML_FILES
-        Main.qml
-        AddMessageDialog.qml
-        AddSignalDialog.qml
-        SendMessageDialog.qml
-        TcpClientTab.qml
-    SOURCES
-        DbcParser.h
-        DbcParser.cpp
-        DbcSender.h
-        DBCClient/Qtclient.h
-    RESOURCES
-        DBCClient/README
+    QML_FILES ${QML_SOURCES}
+    RESOURCE_PREFIX "/qt/qml"
 )
 
 # Platform-specific compile definitions
@@ -108,8 +117,17 @@ if(APPLE)
 endif()
 
 include(GNUInstallDirs)
+
+# Install main GUI application
 install(TARGETS appDBC_Parser
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# Install server executable (Linux only)
+if(UNIX AND NOT APPLE)
+    install(TARGETS dbc_server
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()

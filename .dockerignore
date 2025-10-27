@@ -1,0 +1,56 @@
+# Build directories
+build/
+build_new/
+build_docker/
+cmake-build-*/
+
+# IDE files
+.vscode/
+.idea/
+*.pro.user
+*.qmlproject.user*
+*.qtds*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# macOS application bundle
+*.app/
+
+# Object files
+*.o
+*.obj
+
+# Executables (but keep source files)
+client
+receiver
+server
+*.exe
+
+# Qt Creator files
+CMakeLists.txt.user*
+*.qmlproject.qtds*
+
+# Test files
+test_*

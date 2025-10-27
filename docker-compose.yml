@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # DBC Server (TCP server for CAN communication)
+  dbc-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dbc-server
+    command: ["server"]  # This will trigger the server mode in start_app.sh
+    volumes:
+      - ./logs:/app/logs:rw
+      - ./config:/app/config:rw
+      - ./DBCClient:/app/DBCClient:ro
+    ports:
+      - "12345:12345"
+    restart: unless-stopped
+    networks:
+      - dbc-network
+
+  # DBC Parser GUI Application
+  dbc-parser-gui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dbc-parser-app
+    command: ["gui"]  # This will trigger the GUI mode in start_app.sh
+    depends_on:
+      - dbc-server
+    # Enable GUI applications by sharing X11 socket
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./logs:/app/logs:rw
+      - ./config:/app/config:rw
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_QPA_PLATFORM=xcb
+    # Share network with host for X11 and easier access
+    network_mode: host
+    # Enable X11 forwarding
+    privileged: false
+    # Ensure container can access X11
+    user: "1000:1000"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+networks:
+  dbc-network:
+    driver: bridge
