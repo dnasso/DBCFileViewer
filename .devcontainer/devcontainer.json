@@ -1,15 +1,16 @@
-{ 
+{
     "name": "DBC File Viewer (Qt6)",
     "build": {
         "dockerfile": "Dockerfile",
         "context": "..",
-        "target": "development" 
+        "target": "development"
     },
     "remoteUser": "dbcuser",
     "containerEnv": {
         "DISPLAY": "${localEnv:DISPLAY}",
         "QT_QPA_PLATFORM": "xcb;wayland"
     },
+    "initializeCommand": "mkdir -p /tmp/.X11-unix && xhost +local:docker",
     "mounts": [
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
     ],
