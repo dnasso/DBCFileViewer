@@ -2,7 +2,8 @@
     "name": "DBC File Viewer (Qt6)",
     "build": {
         "dockerfile": "Dockerfile",
-        "context": ".."
+        "context": "..",
+        "target": "development" 
     },
     "remoteUser": "dbcuser",
     "containerEnv": {
