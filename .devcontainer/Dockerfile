@@ -76,6 +76,35 @@ RUN rm -rf build_docker && \
     ninja && \
     strip --strip-unneeded appDBC_Parser
 
+    # ============================================================================
+# Stage 1.5: Development Stage - For VS Code Dev Containers
+# ============================================================================
+FROM builder AS development
+
+# Switch back to root to install additional tools
+USER root
+
+# Install additional development tools
+RUN apt-get update && apt-get install -y \
+    gdb \
+    valgrind \
+    vim \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add dbcuser to sudoers
+RUN useradd -m -s /bin/bash dbcuser && \
+    usermod -aG audio,video dbcuser && \
+    echo "dbcuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create workspace directory with proper permissions
+RUN mkdir -p /workspaces && chown -R dbcuser:dbcuser /workspaces
+
+WORKDIR /workspaces
+
+# Switch to non-root user
+USER dbcuser
+
 # ============================================================================
 # Stage 2: Runtime Stage - Minimal image for running the application
 # ============================================================================
