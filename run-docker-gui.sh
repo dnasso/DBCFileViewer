@@ -91,23 +91,21 @@ fi
 DOCKER_CMD="docker run -it --rm --name dbc-parser-gui"
 
 # Setup Wayland if available
+
 HAS_WAYLAND=false
 if [ "$USE_WAYLAND" = true ]; then
     # Find Wayland socket - try multiple locations
     WAYLAND_SOCKET=""
-    
     # Priority order: WSLg > XDG_RUNTIME_DIR > /run/user
     for socket_path in \
         "/mnt/wslg/runtime-dir/${WAYLAND_SOCKET_NAME}" \
         "${XDG_RUNTIME_DIR:-/tmp}/${WAYLAND_SOCKET_NAME}" \
         "/run/user/$(id -u)/${WAYLAND_SOCKET_NAME}"; do
-        
         if [ -S "$socket_path" ]; then
             WAYLAND_SOCKET="$socket_path"
             break
         fi
     done
-    
     if [ -n "$WAYLAND_SOCKET" ] && [ -S "$WAYLAND_SOCKET" ]; then
         print_success "Mounting Wayland socket: $WAYLAND_SOCKET"
         DOCKER_CMD="$DOCKER_CMD -v ${WAYLAND_SOCKET}:/tmp/${WAYLAND_SOCKET_NAME}:rw"
@@ -126,7 +124,6 @@ if [ -d /tmp/.X11-unix ]; then
     DOCKER_CMD="$DOCKER_CMD -v /tmp/.X11-unix:/tmp/.X11-unix:rw"
     DOCKER_CMD="$DOCKER_CMD -e DISPLAY=${DISPLAY:-:0}"
     HAS_X11=true
-    
     # Enable X11 forwarding on native Linux
     if [ "$IS_WSL" = false ] && command -v xhost &> /dev/null; then
         xhost +local: 2>/dev/null || print_warning "Could not run xhost"
@@ -134,7 +131,11 @@ if [ -d /tmp/.X11-unix ]; then
 fi
 
 # Set Qt platform based on what's available
-if [ "$HAS_WAYLAND" = true ] && [ "$HAS_X11" = true ]; then
+# Force X11 (xcb) for WSL to avoid Wayland crashes
+if [ "$IWSL" = true ]; then
+    DOCKER_CMD="$DOCKER_CMD -e QT_QPA_PLATFORM=xcb"
+    print_success "Qt will use X11 (forced for WSL stability)"
+elif [ "$HAS_WAYLAND" = true ] && [ "$HAS_X11" = true ]; then
     DOCKER_CMD="$DOCKER_CMD -e 'QT_QPA_PLATFORM=wayland;xcb'"
     print_success "Qt will use Wayland with X11 fallback"
 elif [ "$HAS_WAYLAND" = true ]; then
@@ -158,6 +159,7 @@ if [ -S "$PULSE_SOCKET" ]; then
     DOCKER_CMD="$DOCKER_CMD -e PULSE_SERVER=unix:/tmp/pulse/native"
 fi
 
+
 # Add GPU support
 if [ "$IS_WSL" = true ]; then
     # WSL-specific GPU support
@@ -177,8 +179,13 @@ else
     fi
 fi
 
-# Add common environment variables
-DOCKER_CMD="$DOCKER_CMD -e QT_XCB_GL_INTEGRATION=none --security-opt seccomp=unconfined --network host"
+# Use software rendering for WSL stability (avoids GPU-related crashes)
+if [ "$IS_WSL" = true ]; then
+    DOCKER_CMD="$DOCKER_CMD -e QT_XCB_GL_INTEGRATION=none"
+else
+    DOCKER_CMD="$DOCKER_CMD -e QT_XCB_GL_INTEGRATION=xcb_egl"
+fi
+DOCKER_CMD="$DOCKER_CMD --security-opt seccomp=unconfined --network host"
 
 # Add volume mounts for logs and config
 mkdir -p logs config
