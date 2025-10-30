@@ -1,34 +1,29 @@
-{
-  "name": "DBCFileViewer Dev",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".."
-  },
-  "remoteUser": "vscode",
-  "workspaceFolder": "/workspaces/DBCFileViewer",
-
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "cmake.generator": "Ninja",
-        "cmake.installPrefix": "/workspaces/DBCFileViewer/install"
-      },
-      "extensions": [
-        "ms-vscode.cpptools",
-        "ms-vscode.cmake-tools",
-        "twxs.cmake",
-        "ms-vscode-remote.remote-containers"
-      ]
+{ 
+    "name": "DBC File Viewer (Qt6)",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "remoteUser": "dbcuser",
+    "containerEnv": {
+        "DISPLAY": "${localEnv:DISPLAY}",
+        "QT_QPA_PLATFORM": "xcb;wayland"
+    },
+    "mounts": [
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
+    ],
+    "runArgs": [
+        //"--device=/dev/dri"
+    ],
+    "postCreateCommand": "rm -rf build_docker",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
     }
-  },
-  "containerEnv": {
-    "QT_QPA_PLATFORM": "xcb;wayland",
-    "QT_DEBUG_PLUGINS": "1",
-    "QSG_RENDER_LOOP": "basic"
-  },
-  "runArgs": [
-    // Prevent Qt crashes
-    "--shm-size=1g"
-  ],
-  "postCreateCommand": "cmake -S . -B build -G Ninja || true"
 }

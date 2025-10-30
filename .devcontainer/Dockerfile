@@ -1,74 +1,162 @@
-FROM debian:bookworm AS builder
+# ============================================================================
+# Stage 1: Build Stage - Compile the Qt application with static linking
+# ============================================================================
+FROM debian:trixie-slim AS builder
 
-ARG DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/Chicago
 
-# Base tooling and Qt6 dev packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install all build dependencies
+RUN apt-get update && apt-get install -y \
+    # Build tools
     build-essential \
     cmake \
+    pkg-config \
     ninja-build \
     git \
-    gdb \
-    pkg-config \
-    ca-certificates \
-    sudo \
-    locales \
-    # Qt6 dev (base + declarative + tools)
-    qml-qt6 \
+    # Qt6 development packages
     qt6-base-dev \
+    qt6-base-private-dev \
     qt6-declarative-dev \
+    qt6-declarative-private-dev \
     qt6-tools-dev \
     qt6-tools-dev-tools \
-    qt6-wayland \
-    # X11/OpenGL runtime deps for running the app inside the container
-    libgl1-mesa-dri \
-    mesa-utils \
+    libqt6network6 \
+    libqt6quick6 \
+    libqt6core6t64 \
+    libqt6gui6 \
+    libqt6widgets6 \
+    # Qt6 QML modules
+    qml6-module-qtquick-dialogs \
+    qml6-module-qtqml-workerscript \
+    qml6-module-qtquick-controls \
+    qml6-module-qtquick-layouts \
+    qml6-module-qtquick-window \
+    qml6-module-qtquick \
+    qml6-module-qtquick-templates \
+    qml6-module-qt-labs-folderlistmodel \
+    # OpenGL and graphics development libraries
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    libegl1-mesa-dev \
+    libgles2-mesa-dev \
+    libglx-dev \
+    libopengl-dev \
+    # X11 development libraries
+    libxkbcommon-dev \
+    libxkbcommon-x11-dev \
+    libx11-dev \
+    libxext-dev \
+    libxrender-dev \
+    libxtst-dev \
+    libxi-dev \
+    libxrandr-dev \
+    # Other development libraries
+    libglib2.0-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libasound2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Remove any existing build directory and create fresh build directory
+RUN rm -rf build_docker && \
+    mkdir -p build_docker && \
+    cd build_docker && \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6 \
+        -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+        -DQT_FEATURE_static_runtime=ON \
+        -G Ninja && \
+    ninja && \
+    strip --strip-unneeded appDBC_Parser
+
+# ============================================================================
+# Stage 2: Runtime Stage - Minimal image for running the application
+# ============================================================================
+FROM debian:trixie-slim AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/Chicago
+ENV DISPLAY=:0
+ENV QT_QPA_PLATFORM=wayland;xcb
+ENV QML_IMPORT_PATH=/usr/lib/x86_64-linux-gnu/qt6/qml
+ENV QML2_IMPORT_PATH=/usr/lib/x86_64-linux-gnu/qt6/qml
+ENV XDG_RUNTIME_DIR=/tmp
+#ENV QT_XCB_GL_INTEGRATION=none
+
+
+# Install only runtime dependencies (no development packages)
+RUN apt-get update && apt-get install -y \
+    # Qt6 runtime libraries (minimal set)
+    libqt6core6t64 \
+    libqt6gui6 \
+    libqt6network6 \
+    libqt6qml6 \
+    libqt6quick6 \
+    libqt6widgets6 \
+    # Qt6 QML runtime modules
+    qml6-module-qtquick \
+    qml6-module-qtquick-controls \
+    qml6-module-qtquick-layouts \
+    qml6-module-qtquick-window \
+    qml6-module-qtquick-dialogs \
+    qml6-module-qtquick-templates \
+    qml6-module-qtqml-workerscript \
+    qml6-module-qt-labs-folderlistmodel \
+    # Minimal graphics and X11 runtime libraries
     libgl1 \
-    libopengl0 \
-    libglx0 \
     libegl1 \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
-    libxkbcommon-dev \
-    libxcb-xinerama0 \
-    libxcb-cursor0 \
-    libxcb-icccm4 \
-    libxcb-image0 \
-    libxcb-keysyms1 \
-    libxcb-randr0 \
-    libxcb-render-util0 \
-    libxcb-shape0 \
-    libxcb-sync1 \
-    libxcb-xfixes0 \
+    libx11-6 \
+    libxext6 \
+    libxrender1 \
+    libxi6 \
+    libxrandr2 \
+    # Wayland support for WSLg
+    libwayland-client0 \
+    libwayland-cursor0 \
+    libwayland-egl1 \
+    # Essential system libraries
+    libglib2.0-0t64 \
     libfontconfig1 \
+    libfreetype6 \
     libdbus-1-3 \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Locale
-RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
- && locale-gen en_US.UTF-8
-ENV LANG=en_US.UTF-8 \
-    LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8
+# Create non-root user
+RUN useradd -m -s /bin/bash vscode && \
+    usermod -aG audio,video vscode && \
+    useradd -m -s /bin/bash dbcuser && \
+    usermod -aG audio,video dbcuser
 
-# Non-root user (to match VS Code devcontainers convention)
-ARG USERNAME=vscode
-ARG USER_UID=1000
-ARG USER_GID=1000
-RUN groupadd --gid ${USER_GID} ${USERNAME} \
- && useradd -s /bin/bash --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} \
- && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
- && chmod 0440 /etc/sudoers.d/${USERNAME}
+WORKDIR /app
 
-# Set up environment helpful for Qt apps
-ENV QT_QPA_PLATFORM=xcb \
-    QSG_RENDER_LOOP=basic \
-    LIBGL_ALWAYS_INDIRECT=0
+# Copy only the compiled application and necessary files from builder
+COPY --from=builder /app/build_docker/appDBC_Parser /app/
+COPY --from=builder /app/*.qml /app/
+COPY --from=builder /app/qmldir /app/
+COPY --from=builder /app/*.dbc /app/
+COPY --from=builder /app/*.json /app/
+COPY --from=builder /app/start_app.sh /app/
 
-WORKDIR /workspaces/DBCFileViewer
-USER ${USERNAME}
+# Make executable
+RUN chmod +x /app/appDBC_Parser /app/start_app.sh && \
+    chown -R dbcuser:dbcuser /app
 
-# Default shell
-CMD ["bash"]
+# Switch to non-root user
+USER dbcuser
 
+# Set the entrypoint
+ENTRYPOINT ["/app/start_app.sh"]
+
+# Default command
+CMD []

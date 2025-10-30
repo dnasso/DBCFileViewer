@@ -1,0 +1,103 @@
+# Use Debian Trixie Slim as the base image for better Qt6 support
+FROM debian:trixie-slim AS base
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/Chicago
+
+# Set display environment for GUI applications
+ENV DISPLAY=:0
+ENV QT_QPA_PLATFORM=xcb:wayland
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Build tools
+    build-essential \
+    locales \
+    cmake \
+    pkg-config \
+    ninja-build \
+    # Qt6 core packages
+    qt6-base-dev \
+    qt6-declarative-dev \
+    qt6-tools-dev \
+    qt6-tools-dev-tools \
+    libqt6network6 \
+    libqt6quick6 \
+    libqt6core6t64 \
+    libqt6gui6 \
+    libqt6widgets6 \
+    # Qt6 additional modules for QML
+    qml6-module-qtquick-dialogs \
+    qml6-module-qtqml-workerscript \
+    qml6-module-qtquick-controls \
+    qml6-module-qtquick-layouts \
+    qml6-module-qtquick-window \
+    qml6-module-qtquick \
+    qml6-module-qtquick-templates \
+    qml6-module-qt-labs-folderlistmodel \
+    # OpenGL development packages (required for Qt6)
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    libegl1-mesa-dev \
+    libgles2-mesa-dev \
+    libglx-dev \
+    libopengl-dev \
+    libgl1 \
+    # XKB library for keyboard support
+    libxkbcommon-dev \
+    libxkbcommon-x11-dev \
+    # X11 and graphics libraries for Qt GUI
+    libx11-6 \
+    libxext6 \
+    libxrender1 \
+    libxtst6 \
+    libxi6 \
+    libglib2.0-0t64 \
+    libfontconfig1 \
+    libfreetype6 \
+    libxss1 \
+    libxrandr2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libatk1.0-0t64 \
+    libcairo-gobject2 \
+    libgtk-3-0t64 \
+    libgdk-pixbuf-xlib-2.0-0 \
+    # Network tools for debugging
+    net-tools \
+    iputils-ping \
+    x11-apps \
+    # Clean up and set locale
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for security
+RUN useradd -m -s /bin/bash dbcuser && \
+    usermod -aG audio,video dbcuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy project files
+COPY --chown=dbcuser:dbcuser . .
+
+# Ensure helper scripts are executable
+RUN chmod +x /app/start_app.sh
+
+# Switch to non-root user
+USER dbcuser
+
+
+RUN cd build_docker && \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6 \
+        -G Ninja && \
+    ninja
+
+
+# Set the entrypoint
+ENTRYPOINT ["/app/start_app.sh"]
+
+# Default command
+CMD []

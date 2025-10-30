@@ -35,6 +35,7 @@ Thumbs.db
 /.qmake.cache
 /.qmake.stash
 .junk/
+scripts/
 
 # qtcreator generated files
 *.pro.user*
@@ -188,17 +189,9 @@ QUICK-START-SIGNING.txt
 obs-gpg-keys/KEY-INFO.txt
 obs-gpg-keys/OBS-UPLOAD-SUMMARY.txt
 obs-gpg-keys/PERSONAL-SIGNING-STATUS.md
-DBCFileViewer.qmlproject
-DBCFileViewer.qmlproject.qtds
-DBCFileViewer.qmlproject.qtds.11373c2
-DBCFileViewer.qmlproject.qtds.535536c
-DBCFileViewer.qmlproject.user
-DBCFileViewer.qmlproject.user.218fe57
-DBCFileViewer.qmlproject.user.be2053c
-DBCFileViewer.qmlproject
-DBCFileViewer.qmlproject.qtds
-DBCFileViewer.qmlproject.qtds.11373c2
-DBCFileViewer.qmlproject.qtds.535536c
-DBCFileViewer.qmlproject.user
-DBCFileViewer.qmlproject.user.218fe57
-DBCFileViewer.qmlproject.user.be2053c
+
+# Qt Design Studio user/session files
+*.qmlproject.qtds
+*.qmlproject.qtds.*
+*.qmlproject.user
+*.qmlproject.user.*

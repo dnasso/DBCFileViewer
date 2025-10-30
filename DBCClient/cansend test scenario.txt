@@ -54,3 +54,7 @@ Keep the release body using a step-level env mapping for GPG_KEY_ID so the body 
 
 echo "export DISPLAY=:0" >> ~/.bashrc
 xhost +local:docker
+
+
+todo add docker images (frontend and backend) to aws
+add docker images to GitHub maybe?

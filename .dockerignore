@@ -1,5 +1,6 @@
 # Exclude build directories
 build/
+build_docker/
 build-*/
 **/build/
 **/build-*/
@@ -7,6 +8,22 @@ build-dir/
 .flatpak-builder/
 flatpak-build/
 repo/
+scripts/
+
+# Additional folders and files to ignore for Docker context cleanliness
+.junk/
+artifacts/
+Generated/
+installer_output/
+deploy/
+logs/
+
+# Common backup and temp files
+*.bak
+*.backup
+*.swp
+*.tmp
+*.log
 
 # Exclude IDE and editor files
 .vscode/
