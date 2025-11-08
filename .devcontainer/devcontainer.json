@@ -10,9 +10,9 @@
         "DISPLAY": "${localEnv:DISPLAY}",
         "QT_QPA_PLATFORM": "xcb;wayland"
     },
-    "initializeCommand": "mkdir -p /tmp/.X11-unix && xhost +local:docker",
+    "initializeCommand": "sh -c 'if command -v xhost >/dev/null 2>&1; then mkdir -p /tmp/.X11-unix && xhost +local:docker; fi'",
     "mounts": [
-        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
     ],
     "runArgs": [
         //"--device=/dev/dri"
