@@ -29,7 +29,8 @@ SOURCES += DbcParser.cpp \
            build_new/CMakeFiles/3.24.4/CompilerIdCXX/CMakeCXXCompilerId.cpp \
            build_test/CMakeFiles/3.24.4/CompilerIdCXX/CMakeCXXCompilerId.cpp
 RESOURCES += build_new/DBC_Parser/appDBC_Parser_qml_module_dir_map.qrc \
-             build_test/DBC_Parser/appDBC_Parser_qml_module_dir_map.qrc
+             build_test/DBC_Parser/appDBC_Parser_qml_module_dir_map.qrc \
+             resources.qrc
 TRANSLATIONS += build_new/CMakeFiles/all_aotstats.dir/compiler_depend.ts \
                 build_new/CMakeFiles/all_qmllint.dir/compiler_depend.ts \
                 build_new/CMakeFiles/all_qmllint_json.dir/compiler_depend.ts \
@@ -62,3 +63,8 @@ TRANSLATIONS += build_new/CMakeFiles/all_aotstats.dir/compiler_depend.ts \
                 build_test/CMakeFiles/appDBC_Parser_qmllint_module.dir/compiler_depend.ts \
                 build_test/CMakeFiles/appDBC_Parser_qmltyperegistration.dir/compiler_depend.ts \
                 build_test/CMakeFiles/module_appDBC_Parser_aotstats_target.dir/compiler_depend.ts
+
+# Windows-specific settings
+win32 {
+  RC_FILE = appicon.rc
+}

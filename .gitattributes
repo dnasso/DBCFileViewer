@@ -1,0 +1,4 @@
+# Force LF line endings for Debian packaging files
+debian/* text eol=lf
+*.spec text eol=lf
+*.dsc text eol=lf

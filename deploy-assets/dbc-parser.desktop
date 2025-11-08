@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DBC Parser
+GenericName=CAN Database File Viewer
+Comment=View and parse DBC files for CAN bus communication
+Exec=appDBC_Parser
+Icon=com.qtdevs.DBCParser
+Categories=Development;Network;Engineering;
+Terminal=false
+Keywords=CAN;DBC;Automotive;Bus;

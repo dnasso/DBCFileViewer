@@ -11,7 +11,6 @@ Qt TCP Client Backend for Qt Quick Application
 #include <QCoreApplication>
 #include <iostream>
 #include <string>
-#include <format>
 
 constexpr size_t MAXDATASIZE = 10000;
 
@@ -46,7 +45,7 @@ public:
             connected = true;
             connectTimer.stop();
             m_connected = true;
-            std::cout << std::format("Connected to {}\n", address.toString().toStdString());
+            std::cout << "Connected to " << address.toString().toStdString() << "\n";
             emit connectionStatusChanged();
         });
 
@@ -127,7 +126,7 @@ public:
 
             m_lastResponse = QString::fromStdString(response.toStdString());
             emit responseReceived();
-            std::cout << std::format("Server: {}\n", response.toStdString());
+            std::cout << "Server: " << response.toStdString() << "\n";
             return m_lastResponse;
         } else {
             return "Receive timeout";

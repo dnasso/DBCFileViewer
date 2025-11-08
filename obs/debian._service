@@ -1,0 +1,8 @@
+<services>
+  <!-- Debian/Ubuntu don't support OBS source services well -->
+  <!-- Instead, manually create and upload a source tarball: -->
+  <!-- 
+    git archive -o dbc-file-viewer_1.0.1.orig.tar.gz --prefix=dbc-file-viewer-1.0.1/ v1.0.1
+  -->
+  <!-- Then upload dbc-file-viewer_1.0.1.orig.tar.gz to OBS package -->
+</services>

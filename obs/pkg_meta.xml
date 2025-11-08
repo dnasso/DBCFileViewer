@@ -1,0 +1,7 @@
+<package name="dbc-file-viewer" project="home:GuyFerrari">
+  <title>DBC File Parser/Sender</title>
+  <description>Fast, lightweight viewer for CAN database (.dbc) files</description>
+  <build>
+    <enable/>
+  </build>
+</package>

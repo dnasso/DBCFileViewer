@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=DBC File Viewer
+Comment=View and analyze CAN database files
+Exec=appDBC_Parser
+Icon=dbc-file-viewer
+Terminal=false
+Type=Application
+Categories=Development;Utility;
+MimeType=application/x-dbc;

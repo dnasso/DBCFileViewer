@@ -1,0 +1,37 @@
+Source: dbc-file-viewer
+Section: devel
+Priority: optional
+Maintainer: Joseph Ogle <jogle88@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.16),
+               qt6-base-dev,
+               qt6-declarative-dev,
+               qml6-module-qtquick,
+               qml6-module-qtquick-controls
+Standards-Version: 4.6.0
+Homepage: https://github.com/dnasso/DBCFileViewer
+Vcs-Git: https://github.com/dnasso/DBCFileViewer.git
+Vcs-Browser: https://github.com/dnasso/DBCFileViewer
+
+Package: dbc-file-viewer
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         libqt6core6,
+         libqt6gui6,
+         libqt6qml6,
+         libqt6quick6,
+         qml6-module-qtquick,
+         qml6-module-qtquick-controls
+Description: Fast, lightweight viewer for CAN database (.dbc) files
+ A fast, lightweight viewer for CAN database (.dbc) files. 
+ Inspect messages, signals, attributes, value tables, and catch 
+ common issues in a DBC quickly.
+ .
+ Features:
+  - Open and browse large DBC files
+  - Instant search/filter for messages, signals, nodes, and value tables
+  - Detailed message/signal view
+  - Value table decoding and attribute inspection
+  - Basic validation (duplicates, overlaps, missing value tables)
+  - Export selections to CSV/JSON
+  - Drag-and-drop and recent files

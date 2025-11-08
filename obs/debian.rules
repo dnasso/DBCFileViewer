@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+# See debhelper(7) (uncomment to enable)
+# output every command that modifies files on the build system.
+export DH_VERBOSE = 1
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install desktop file
+	mkdir -p debian/dbc-file-viewer/usr/share/applications
+	install -m 0644 debian/dbc-file-viewer.desktop debian/dbc-file-viewer/usr/share/applications/
+	# Install icon
+	mkdir -p debian/dbc-file-viewer/usr/share/pixmaps
+	install -m 0644 deploy-assets/dbctrain.png debian/dbc-file-viewer/usr/share/pixmaps/dbc-file-viewer.png

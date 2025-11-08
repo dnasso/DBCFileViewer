@@ -1,0 +1,31 @@
+{
+    "name": "DBC File Viewer (Qt6)",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "..",
+        "target": "development"
+    },
+    "remoteUser": "dbcuser",
+    "containerEnv": {
+        "DISPLAY": "${localEnv:DISPLAY}",
+        "QT_QPA_PLATFORM": "xcb;wayland"
+    },
+    "initializeCommand": "sh -c 'if command -v xhost >/dev/null 2>&1; then mkdir -p /tmp/.X11-unix && xhost +local:docker; fi'",
+    "mounts": [
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        //"--device=/dev/dri"
+    ],
+    "postCreateCommand": "rm -rf build_docker",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    }
+}

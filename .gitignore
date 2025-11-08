@@ -31,9 +31,11 @@ ui_*.h
 qrc_*.cpp
 Thumbs.db
 *.res
-*.rc
+#*.rc
 /.qmake.cache
 /.qmake.stash
+.junk/
+scripts/
 
 # qtcreator generated files
 *.pro.user*
@@ -86,3 +88,110 @@ CMakeLists.txt.user*
 /DBCClient/output/
 /DBCClient/build*/
 /tests
+
+# Docker / build artifacts
+.docker/
+docker-compose.override.yml
+docker-compose.*.yml
+
+# Docker images/archives (exported images)
+*.tar
+
+# Deployment artifacts
+/deploy/
+*.AppImage
+*.zip
+*.dmg
+*.deb
+*.rpm
+*.tar.gz
+linuxdeploy*.AppImage
+DBC_Parser_*.zip
+DBC_Parser_*.tar.gz
+
+# Installer output
+/installer_output/
+
+# Flatpak build artifacts
+/flatpak-build/
+/flatpak-repo/
+/flatpak/
+/build-dir/
+/repo/
+/.flatpak-builder/
+
+# Code signing certificates (NEVER commit these!)
+*.pfx
+*.p12
+*.pem
+*.key
+*_private.key
+*.cer
+*.crt
+public-key.asc
+
+# Deploy assets (may contain temporary icons)
+# Note: Keep actual icon files but ignore temporary/generated ones
+/deploy-assets/*.tmp
+/deploy-assets/*~
+
+# CMake / build system
+/build/
+/build*/
+/cmake-build*/
+/CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+Makefile
+build.ninja
+
+# Qt runtime and installed Qt trees copied during builds
+/qt-runtime/
+/opt/qt/
+
+# Python virtualenvs
+venv/
+env/
+/.venv/
+
+# UPX / compressed binaries
+*.upx
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# JetBrains / IDE
+/.idea/
+
+# Windows-specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+obs/FIXES_APPLIED.md
+.github/workflows/build-releases.yml
+.gitignore
+obs/install-osc-wsl.sh
+obs/INSTALL_OSC.md
+obs-gpg-keys/private-key.asc
+setup-gpg-signing.sh
+setup-obs-gpg-keys.sh
+docs/OBS-SIGNING-SETUP.md
+docs/SIGNING-SETUP-COMPLETE.md
+docs/SIGNING.md
+docs/VERIFICATION.md
+obs-gpg-keys/INSTRUCTIONS.txt
+upload-keys-to-obs.sh
+setup-obs-signing.sh
+setup-obs-repo-lubuntu.sh
+configure-obs-personal-signing.sh
+QUICK-START-SIGNING.txt
+obs-gpg-keys/KEY-INFO.txt
+obs-gpg-keys/OBS-UPLOAD-SUMMARY.txt
+obs-gpg-keys/PERSONAL-SIGNING-STATUS.md
+
+# Qt Design Studio user/session files
+*.qmlproject.qtds
+*.qmlproject.qtds.*
+*.qmlproject.user
+*.qmlproject.user.*
