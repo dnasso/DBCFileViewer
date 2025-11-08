@@ -62,13 +62,13 @@ Dialog {
         }
     }
 
-    Material.theme: Material.Light
+    Material.theme: themeManager.isDarkTheme ? Material.Dark : Material.Light
     Material.accent: Material.Green
 
     background: Rectangle {
-        color: "white"
+        color: themeManager.backgroundColor
         radius: 8
-        border.color: "#E0E0E0"
+        border.color: themeManager.borderColor
         border.width: 1
     }
 
@@ -253,7 +253,7 @@ Dialog {
                             text: "Message Name:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 120
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -272,7 +272,7 @@ Dialog {
                             text: "CAN ID:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 120
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -290,7 +290,7 @@ Dialog {
                             text: "Hex Data:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 120
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -301,7 +301,7 @@ Dialog {
                             Layout.alignment: Qt.AlignLeft | Qt.AlignTop
                             color: "white"
                             radius: 4
-                            border.color: "#E0E0E0"
+                            border.color: themeManager.borderColor
                             border.width: 1
 
                             Text {
@@ -310,7 +310,7 @@ Dialog {
                                 text: sendMessageDialog.hexData
                                 font.family: "Monaco"
                                 font.pixelSize: 12
-                                color: "#424242"
+                                color: themeManager.textColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
                             }
@@ -424,7 +424,7 @@ Dialog {
                             text: "Rate (ms):"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 100
                             Layout.alignment: Qt.AlignVCenter
                         }
@@ -470,7 +470,7 @@ Dialog {
                             text: "Quick Presets:"
                             font.pixelSize: 13
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignLeft
                         }
 
@@ -615,7 +615,7 @@ Dialog {
                             text: "CAN Interface:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 100
                             Layout.alignment: Qt.AlignVCenter
                         }

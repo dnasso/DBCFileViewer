@@ -12,6 +12,9 @@ Dialog {
     height: 700  // Reduced height since we simplified the UI
     padding: 0
 
+    Material.theme: themeManager.isDarkTheme ? Material.Dark : Material.Light
+    Material.accent: Material.Green
+
     property string currentMessageName: ""
     
     // Signal emitted when a signal is successfully added
@@ -29,7 +32,7 @@ Dialog {
         property alias errorText: errorMessage.text
         
         background: Rectangle {
-            color: "#FFFFFF"
+            color: themeManager.backgroundColor
             radius: 12
             border.color: "#D32F2F"
             border.width: 2
@@ -65,7 +68,7 @@ Dialog {
         }
         
         footer: Rectangle {
-            color: "#F8F9FA"
+            color: themeManager.panelColor
             height: 60
             radius: 12
             
@@ -103,9 +106,9 @@ Dialog {
 
 
     background: Rectangle {
-        color: "#FFFFFF"
+        color: themeManager.backgroundColor
         radius: 12
-        border.color: "#E0E0E0"
+        border.color: themeManager.borderColor
         border.width: 1
     }
 
@@ -270,7 +273,7 @@ Dialog {
                                 text: "Start Bit:"
                                 font.pixelSize: 15
                                 font.weight: Font.Medium
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Button {
@@ -345,7 +348,7 @@ Dialog {
                             contentItem: TextField {
                                 text: parent.value
                                 font.pixelSize: 16
-                                color: "#424242"
+                                color: themeManager.textColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 selectByMouse: true
@@ -410,7 +413,7 @@ Dialog {
                             text: "Length (bits):"
                             font.pixelSize: 15
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
 
@@ -441,7 +444,7 @@ Dialog {
                             contentItem: TextField {
                                 text: parent.value
                                 font.pixelSize: 16
-                                color: "#424242"
+                                color: themeManager.textColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 selectByMouse: true
@@ -531,7 +534,7 @@ Dialog {
 
                         contentItem: Text {
                             text: parent.displayText
-                            color: "#424242"
+                            color: themeManager.textColor
                             font.pixelSize: 15
                             verticalAlignment: Text.AlignVCenter
                             horizontalAlignment: Text.AlignHCenter
@@ -560,7 +563,7 @@ Dialog {
                                         font.pixelSize: 14
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
-                                        color: "#424242"
+                                        color: themeManager.textColor
                                     }
 
                                     background: Rectangle {
@@ -632,7 +635,7 @@ Dialog {
                             validator: DoubleValidator { bottom: -999999; top: 999999; decimals: 6 }
 
                             background: Rectangle {
-                                color: "#FFFFFF"
+                                color: themeManager.panelColor
                                 radius: 8
                                 border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
                                 border.width: parent.activeFocus ? 2 : 1.5
@@ -668,7 +671,7 @@ Dialog {
                             validator: DoubleValidator { bottom: -999999; top: 999999; decimals: 6 }
 
                             background: Rectangle {
-                                color: "#FFFFFF"
+                                color: themeManager.panelColor
                                 radius: 8
                                 border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
                                 border.width: parent.activeFocus ? 2 : 1.5
@@ -695,7 +698,7 @@ Dialog {
                             text: "Minimum:"
                             font.pixelSize: 15
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
 
@@ -728,7 +731,7 @@ Dialog {
                             text: "Maximum:"
                             font.pixelSize: 15
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
 
@@ -781,7 +784,7 @@ Dialog {
                     rightPadding: 20
 
                     background: Rectangle {
-                        color: "#FFFFFF"
+                        color: themeManager.panelColor
                         radius: 8
                         border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
                         border.width: parent.activeFocus ? 2 : 1.5

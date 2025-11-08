@@ -6,7 +6,7 @@ import TcpClient 1.0
 
 Rectangle {
     id: root
-    color: "white"
+    color: themeManager.backgroundColor
 
     // Expose the TCP client to parent components
     property alias tcpClient: tcpClient
@@ -54,9 +54,9 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             height: 60
-            color: "#FAFAFA"
+            color: themeManager.panelColor
             radius: 8
-            border.color: "#E0E0E0"
+            border.color: themeManager.borderColor
             border.width: 1
 
             RowLayout {
@@ -104,8 +104,8 @@ Rectangle {
             height: 180
 
             background: Rectangle {
-                color: "white"
-                border.color: "#E0E0E0"
+                color: themeManager.panelColor
+                border.color: themeManager.borderColor
                 border.width: 1
                 radius: 4
             }
@@ -114,11 +114,11 @@ Rectangle {
                 text: parent.title
                 font.pixelSize: 14
                 font.weight: Font.Medium
-                color: "#424242"
+                color: themeManager.textColor
                 leftPadding: 8
                 rightPadding: 8
                 background: Rectangle {
-                    color: "white"
+                    color: themeManager.panelColor
                 }
             }
 
@@ -135,7 +135,7 @@ Rectangle {
                 Label {
                     text: "Server IP:"
                     font.pixelSize: 13
-                    color: "#616161"
+                    color: themeManager.secondaryTextColor
                 }
 
                 TextField {
@@ -144,10 +144,11 @@ Rectangle {
                     text: "127.0.0.1"
                     enabled: !tcpClient.connected
                     selectByMouse: true
+                    color: themeManager.textColor
 
                     background: Rectangle {
-                        color: parent.enabled ? "white" : "#F5F5F5"
-                        border.color: parent.activeFocus ? "#4CAF50" : "#E0E0E0"
+                        color: parent.enabled ? themeManager.backgroundColor : themeManager.hoverColor
+                        border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                         border.width: 1
                         radius: 4
                     }
@@ -156,7 +157,7 @@ Rectangle {
                 Label {
                     text: "Port:"
                     font.pixelSize: 13
-                    color: "#616161"
+                    color: themeManager.secondaryTextColor
                 }
 
                 TextField {
@@ -166,10 +167,11 @@ Rectangle {
                     enabled: !tcpClient.connected
                     validator: IntValidator { bottom: 1; top: 65535 }
                     selectByMouse: true
+                    color: themeManager.textColor
 
                     background: Rectangle {
-                        color: parent.enabled ? "white" : "#F5F5F5"
-                        border.color: parent.activeFocus ? "#4CAF50" : "#E0E0E0"
+                        color: parent.enabled ? themeManager.backgroundColor : themeManager.hoverColor
+                        border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                         border.width: 1
                         radius: 4
                     }
@@ -273,8 +275,8 @@ Rectangle {
             Layout.fillHeight: true
 
             background: Rectangle {
-                color: "white"
-                border.color: "#E0E0E0"
+                color: themeManager.panelColor
+                border.color: themeManager.borderColor
                 border.width: 1
                 radius: 4
             }
@@ -283,11 +285,11 @@ Rectangle {
                 text: parent.title
                 font.pixelSize: 14
                 font.weight: Font.Medium
-                color: "#424242"
+                color: themeManager.textColor
                 leftPadding: 8
                 rightPadding: 8
                 background: Rectangle {
-                    color: "white"
+                    color: themeManager.panelColor
                 }
             }
 
@@ -320,7 +322,7 @@ Rectangle {
                         delegate: Rectangle {
                             width: messageListView.width
                             height: Math.max(40, contentLayout.implicitHeight + 20)
-                            color: index % 2 === 0 ? "#FAFAFA" : "white"
+                            color: index % 2 === 0 ? themeManager.hoverColor : themeManager.backgroundColor
 
                             RowLayout {
                                 id: contentLayout
@@ -332,7 +334,7 @@ Rectangle {
                                     text: model.timestamp
                                     font.pixelSize: 11
                                     font.family: "Monaco, Consolas, monospace"
-                                    color: "#757575"
+                                    color: themeManager.secondaryTextColor
                                     Layout.preferredWidth: 70
                                     Layout.alignment: Qt.AlignTop
                                     verticalAlignment: Text.AlignTop
@@ -356,7 +358,7 @@ Rectangle {
                                     text: model.content || ""
                                     font.pixelSize: 13
                                     font.family: "Monaco, Consolas, monospace"
-                                    color: model.type === "error" ? "#D32F2F" : "#424242"
+                                    color: model.type === "error" ? "#D32F2F" : themeManager.textColor
                                     wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                                     elide: Text.ElideNone
                                     textFormat: Text.PlainText
@@ -373,9 +375,9 @@ Rectangle {
                     enabled: messageHistory.count > 0
 
                     background: Rectangle {
-                        color: parent.pressed ? "#E0E0E0" :
-                               (parent.hovered ? "#F5F5F5" : "transparent")
-                        border.color: "#BDBDBD"
+                        color: parent.pressed ? themeManager.hoverColor :
+                               (parent.hovered ? themeManager.buttonHoverColor : "transparent")
+                        border.color: themeManager.borderColor
                         border.width: 1
                         radius: 4
                     }
@@ -389,8 +391,8 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             height: 200
-            color: tcpClient.connected ? "white" : "#F9F9F9"
-            border.color: "#E0E0E0"
+            color: tcpClient.connected ? themeManager.panelColor : themeManager.hoverColor
+            border.color: themeManager.borderColor
             border.width: 1
             radius: 4
             clip: false  // Allow title to show above border
@@ -401,7 +403,7 @@ Rectangle {
                 y: -12
                 width: 130
                 height: 24
-                color: tcpClient.connected ? "white" : "#F9F9F9"
+                color: tcpClient.connected ? themeManager.panelColor : themeManager.hoverColor
             }
 
             // Title label
@@ -411,7 +413,7 @@ Rectangle {
                 text: "Debug Console"
                 font.pixelSize: 14
                 font.weight: Font.Medium
-                color: tcpClient.connected ? "#424242" : "#9E9E9E"
+                color: tcpClient.connected ? themeManager.textColor : themeManager.secondaryTextColor
             }
 
             Column {
@@ -427,8 +429,8 @@ Rectangle {
                 Rectangle {
                     width: parent.width
                     height: 60
-                    color: "#F8F9FA"
-                    border.color: "#E9ECEF"
+                    color: themeManager.backgroundColor
+                    border.color: themeManager.borderColor
                     border.width: 1
                     radius: 4
 
@@ -442,7 +444,7 @@ Rectangle {
                             text: "Essential Commands:\n• CANSEND#<CAN_ID>#<HEX_DATA>#<RATE_MS>#<CAN_BUS>  (e.g., CANSEND#0x123#DEADBEEF#100#vcan0)\n• LIST_TASKS  • LIST_CAN_INTERFACES  • KILL_TASK <task_id>  • PAUSE <task_id>  • RESUME <task_id>  • KILL_ALL_TASKS"
                             font.pixelSize: 11
                             font.family: "Monaco, Consolas, monospace"
-                            color: "#495057"
+                            color: themeManager.textColor
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -451,7 +453,7 @@ Rectangle {
                 Text {
                     text: "Enter Command:"
                     font.pixelSize: 13
-                    color: "#616161"
+                    color: themeManager.secondaryTextColor
                     height: 20
                 }
 
@@ -466,10 +468,11 @@ Rectangle {
                         height: 30
                         enabled: tcpClient.connected
                         selectByMouse: true
+                        color: themeManager.textColor
 
                         background: Rectangle {
-                            color: parent.enabled ? "white" : "#F5F5F5"
-                            border.color: parent.activeFocus ? "#4CAF50" : "#E0E0E0"
+                            color: parent.enabled ? themeManager.backgroundColor : themeManager.hoverColor
+                            border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                             border.width: 1
                             radius: 4
                         }
