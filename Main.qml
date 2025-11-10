@@ -292,33 +292,79 @@ ApplicationWindow {
                 
                 Item { Layout.fillWidth: true }
                 
-                // Theme Toggle Button
-                Button {
-                    id: themeToggleBtn
-                    Layout.preferredWidth: 40
+                // Theme Toggle Slider
+                Rectangle {
+                    id: themeSlider
+                    Layout.preferredWidth: 70
                     Layout.preferredHeight: 36
+                    radius: 18
+                    color: themeManager.isDarkTheme ? "#333333" : "#E0E0E0"
+                    border.color: "#999999"
+                    border.width: 2
                     
-                    contentItem: Text {
-                        text: themeManager.isDarkTheme ? "☀️" : "🌙"
-                        font.pixelSize: 18
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        spacing: 0
+                        
+                        Text {
+                            text: "☀️"
+                            font.pixelSize: 16
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.leftMargin: 4
+                            opacity: themeManager.isDarkTheme ? 0.3 : 1
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
+                        
+                        Item { Layout.fillWidth: true }
+                        
+                        Text {
+                            text: "🌙"
+                            font.pixelSize: 16
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.rightMargin: 4
+                            opacity: themeManager.isDarkTheme ? 1 : 0.3
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
                     }
                     
-                    background: Rectangle {
-                        implicitWidth: 40
-                        implicitHeight: 36
-                        color: parent.hovered ? Qt.lighter("#388E3C", 1.1) : "#388E3C"
-                        radius: 4
+                    // Slider circle
+                    Rectangle {
+                        id: sliderCircle
+                        width: 28
+                        height: 28
+                        radius: 14
+                        color: "white"
+                        border.color: "#666666"
+                        border.width: 1
+                        
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: 2
+                        
+                        Behavior on anchors.leftMargin {
+                            NumberAnimation { duration: 300; easing.type: Easing.InOutQuad }
+                        }
+                        
+                        states: State {
+                            name: "dark"
+                            when: themeManager.isDarkTheme
+                            AnchorChanges { target: sliderCircle; anchors.left: undefined; anchors.right: parent.right }
+                            PropertyChanges { target: sliderCircle; anchors.rightMargin: 2 }
+                        }
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            themeManager.toggleTheme()
+                        }
                     }
                     
                     ToolTip.visible: hovered
                     ToolTip.text: themeManager.isDarkTheme ? "Switch to Light Theme" : "Switch to Dark Theme"
                     ToolTip.delay: 500
-                    
-                    onClicked: {
-                        themeManager.toggleTheme()
-                    }
                 }
                 
                 Button {
@@ -791,7 +837,7 @@ ApplicationWindow {
 
                                         contentItem: Text {
                                             text: parent.text
-                                            color: "#4CAF50"
+                                            color: "#FFFFFF"
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 11
@@ -799,9 +845,9 @@ ApplicationWindow {
                                         }
 
                                         background: Rectangle {
-                                            color: parent.pressed ? "#E8F5E9" : "transparent"
-                                            border.color: "#4CAF50"
-                                            border.width: 1
+                                            color: parent.pressed ? "#2E7D32" : (parent.hovered ? "#388E3C" : "#4CAF50")
+                                            border.color: highlighted ? "#FFFFFF" : "#4CAF50"
+                                            border.width: highlighted ? 2 : 1
                                             radius: 4
 
                                             Behavior on color {
@@ -1220,7 +1266,7 @@ ApplicationWindow {
                                             
                                             // Name field
                                             Rectangle {
-                                                width: deletionModeActive ? 150 : 180
+                                                width: 170
                                                 height: parent.height
                                                 color: "transparent"
                                                 
@@ -1567,7 +1613,7 @@ ApplicationWindow {
                                             
                                             // Value field with Bits button
                                             Rectangle {
-                                                width: 165
+                                                width: 180
                                                 height: parent.height
                                                 color: "transparent"
                                                 
@@ -1757,6 +1803,7 @@ ApplicationWindow {
                             Text {
                                 text: "Physical Value:"
                                 font.pixelSize: 13
+                                color: themeManager.labelTextColor
                             }
                             
                             TextField {
@@ -1851,7 +1898,7 @@ ApplicationWindow {
                                     return "";
                                 }
                                 font.pixelSize: 10
-                                color: "#666666"
+                                color: themeManager.secondaryTextColor
                                 Layout.alignment: Qt.AlignHCenter
                                 visible: text !== ""
                             }
@@ -1859,6 +1906,7 @@ ApplicationWindow {
                             Text {
                                 text: "Raw Value:"
                                 font.pixelSize: 13
+                                color: themeManager.labelTextColor
                             }
                             
                             TextField {
@@ -1976,7 +2024,7 @@ ApplicationWindow {
                                     return "";
                                 }
                                 font.pixelSize: 10
-                                color: "#666666"
+                                color: themeManager.secondaryTextColor
                                 Layout.alignment: Qt.AlignHCenter
                                 visible: text !== ""
                             }
@@ -2017,6 +2065,7 @@ ApplicationWindow {
                                     font.pixelSize: 14
                                     font.bold: true
                                     Layout.alignment: Qt.AlignLeft
+                                    color: themeManager.labelTextColor
                                 }
                                 
                                 Item {
@@ -2076,7 +2125,7 @@ ApplicationWindow {
                                                 property bool isPartOfSignal: isDataCell ? false : false
                                                 property bool bitValue: false
                                                 
-                                                color: isHeader ? themeManager.panelColor : (isPartOfSignal ? (bitValue ? "#81C784" : themeManager.panelColor) : themeManager.backgroundColor)
+                                                color: isHeader ? themeManager.panelColor : (isPartOfSignal ? (bitValue ? "#81C784" : themeManager.bitIndicesColor) : themeManager.bitIndicesColor)
                                                 border.color: themeManager.borderColor
                                                 
                                                 Text {
@@ -2087,7 +2136,7 @@ ApplicationWindow {
                                                     font.pixelSize: 12
                                                     font.bold: gridCell.isHeader
                                                     color: gridCell.isHeader ? themeManager.textColor : 
-                                                        (gridCell.isPartOfSignal ? "#FFFFFF" : themeManager.secondaryTextColor)
+                                                        (gridCell.isPartOfSignal ? "#FFFFFF" : themeManager.bitIndicesTextColor)
                                                 }
                                                 
                                                 // Set object name for finding cells later
@@ -2130,6 +2179,7 @@ ApplicationWindow {
                                     text: "CAN frame"
                                     font.pixelSize: 14
                                     font.bold: true
+                                    color: themeManager.labelTextColor
                                 }
                                 
                                 // Data display with bit values
@@ -2142,6 +2192,7 @@ ApplicationWindow {
                                     Text { 
                                         text: "Data (HEX):" 
                                         font.pixelSize: 12
+                                        color: themeManager.labelTextColor
                                     }
                                     
                                     TextField {
@@ -2155,6 +2206,7 @@ ApplicationWindow {
                                     Text { 
                                         text: "Data (BIN):" 
                                         font.pixelSize: 12
+                                        color: themeManager.labelTextColor
                                     }
                                     
                                     TextField {
@@ -2310,8 +2362,8 @@ ApplicationWindow {
                             // Update visual appearance based on bit value
                             cell.color = bitValue ? "#81C784" : "#E8F5E9";
                         } else {
-                            // Not part of the signal, use default styling
-                            cell.color = "#f5f5f5";
+                            // Not part of the signal, use theme color for bit indices
+                            cell.color = themeManager.bitIndicesColor;
                         }
                     }
                 }
@@ -2529,7 +2581,7 @@ ApplicationWindow {
                                 delegate: Rectangle {
                                     width: transmissionsListView.width
                                     height: 50
-                                    color: index % 2 === 0 ? "white" : "#FAFAFA"
+                                    color: index % 2 === 0 ? themeManager.panelColor : themeManager.backgroundColor
                                     
                                     Rectangle {
                                         anchors.bottom: parent.bottom
@@ -3048,8 +3100,8 @@ ApplicationWindow {
                                 
                                 Text {
                                     text: "• Load and parse DBC files containing CAN message definitions\n• View and edit CAN messages with their signals and properties\n• Add new messages and signals to the database\n• Modify signal properties (start bit, length, scaling, units)\n• Export and save modified DBC configurations"
-                                    font.pixelSize: 14
-                                    color: "#616161"
+                                    font.pixelSize: 13
+                                    color: themeManager.isDarkTheme ? "#E3E3E3" : "#616161"
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -3081,8 +3133,8 @@ ApplicationWindow {
                                 
                                 Text {
                                     text: "• Monitor actively transmitting CAN messages in real-time\n• Start and stop message transmissions with custom intervals\n• Configure transmission parameters and data values\n• Save and load transmission configurations\n• Send one-shot messages for testing purposes"
-                                    font.pixelSize: 14
-                                    color: "#616161"
+                                    font.pixelSize: 13
+                                    color: themeManager.isDarkTheme ? "#E3E3E3" : "#616161"
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -3114,8 +3166,8 @@ ApplicationWindow {
                                 
                                 Text {
                                     text: "• Connect to TCP servers for remote CAN communication\n• Send and receive CAN messages over network connections\n• Configure connection parameters (host, port, protocols)\n• Monitor network traffic and connection status\n• Enable distributed CAN testing and remote diagnostics"
-                                    font.pixelSize: 14
-                                    color: "#616161"
+                                    font.pixelSize: 13
+                                    color: themeManager.isDarkTheme ? "#E3E3E3" : "#616161"
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -3932,12 +3984,22 @@ ApplicationWindow {
             
             // Colors based on type
             color: {
-                switch(type) {
-                    case "error": return "#FFEBEE"
-                    case "warning": return "#FFF8E1" 
-                    case "success": return "#E8F5E8"
-                    case "info": return "#E3F2FD"
-                    default: return "#F5F5F5"
+                if (themeManager.isDarkTheme) {
+                    switch(type) {
+                        case "error": return "#2C0B0E"
+                        case "warning": return "#2C2200" 
+                        case "success": return "#0B2C0B"
+                        case "info": return "#0B1F2C"
+                        default: return "#1E1E1E"
+                    }
+                } else {
+                    switch(type) {
+                        case "error": return "#FFEBEE"
+                        case "warning": return "#FFF8E1" 
+                        case "success": return "#E8F5E8"
+                        case "info": return "#E3F2FD"
+                        default: return "#F5F5F5"
+                    }
                 }
             }
             
@@ -4081,12 +4143,22 @@ ApplicationWindow {
                             }
                         }
                         color: {
-                            switch(notification.type) {
-                                case "error": return "#D32F2F"
-                                case "warning": return "#F57C00"
-                                case "success": return "#388E3C"
-                                case "info": return "#1976D2"
-                                default: return "#424242"
+                            if (themeManager.isDarkTheme) {
+                                switch(notification.type) {
+                                    case "error": return "#FF6B6B"
+                                    case "warning": return "#FFD93D"
+                                    case "success": return "#6BCB77"
+                                    case "info": return "#4D96FF"
+                                    default: return "#E3E3E3"
+                                }
+                            } else {
+                                switch(notification.type) {
+                                    case "error": return "#D32F2F"
+                                    case "warning": return "#F57C00"
+                                    case "success": return "#388E3C"
+                                    case "info": return "#1976D2"
+                                    default: return "#424242"
+                                }
                             }
                         }
                         font.pixelSize: 16

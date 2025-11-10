@@ -19,6 +19,9 @@ class ThemeManager : public QObject
     Q_PROPERTY(QString accentColor READ accentColor NOTIFY themeChanged)
     Q_PROPERTY(QString hoverColor READ hoverColor NOTIFY themeChanged)
     Q_PROPERTY(QString buttonHoverColor READ buttonHoverColor NOTIFY themeChanged)
+    Q_PROPERTY(QString bitIndicesColor READ bitIndicesColor NOTIFY themeChanged)
+    Q_PROPERTY(QString bitIndicesTextColor READ bitIndicesTextColor NOTIFY themeChanged)
+    Q_PROPERTY(QString labelTextColor READ labelTextColor NOTIFY themeChanged)
 
 public:
     explicit ThemeManager(QObject *parent = nullptr);
@@ -37,6 +40,9 @@ public:
     QString accentColor() const { return "#4CAF50"; }
     QString hoverColor() const;
     QString buttonHoverColor() const;
+    QString bitIndicesColor() const;
+    QString bitIndicesTextColor() const;
+    QString labelTextColor() const;
 
     // Helper method to toggle theme
     Q_INVOKABLE void toggleTheme();
