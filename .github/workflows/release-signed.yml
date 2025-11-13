@@ -52,7 +52,7 @@ jobs:
       
       - name: Create source tarball
         run: |
-          # Create version from tag (e.g., v1.0.1 -> 1.0.1)
+          # Create version from tag (e.g., v1.0.2 -> 1.0.2)
           VERSION=${GITHUB_REF#refs/tags/v}
           
           # Create tarball using git archive

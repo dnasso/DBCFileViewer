@@ -13,7 +13,7 @@
 # published by the Open Source Initiative.
 
 Name:           dbc-file-viewer
-Version:        1.0.1
+Version:        1.0.2
 Release:        0
 Summary:        A fast, lightweight viewer for CAN database (.dbc) files
 License:        MIT

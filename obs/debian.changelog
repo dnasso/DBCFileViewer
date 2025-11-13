@@ -1,4 +1,4 @@
-dbc-file-viewer (1.0.1-1) unstable; urgency=medium
+dbc-file-viewer (1.0.2-1) unstable; urgency=medium
 
   * Initial release
   * Fast, lightweight viewer for CAN database (.dbc) files

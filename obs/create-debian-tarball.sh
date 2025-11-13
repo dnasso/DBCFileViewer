@@ -5,7 +5,7 @@
 set -e
 
 # Configuration
-VERSION="1.0.1"
+VERSION="1.0.2"
 TAG="v${VERSION}"
 PACKAGE="dbc-file-viewer"
 TARBALL="${PACKAGE}_${VERSION}.orig.tar.gz"
