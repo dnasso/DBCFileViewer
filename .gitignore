@@ -35,7 +35,6 @@ Thumbs.db
 /.qmake.cache
 /.qmake.stash
 .junk/
-scripts/
 
 # qtcreator generated files
 *.pro.user*
@@ -195,3 +194,4 @@ obs-gpg-keys/PERSONAL-SIGNING-STATUS.md
 *.qmlproject.qtds.*
 *.qmlproject.user
 *.qmlproject.user.*
+osc-project/
