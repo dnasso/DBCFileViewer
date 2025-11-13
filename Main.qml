@@ -20,12 +20,30 @@ ApplicationWindow {
             dbcParser.setTcpClient(tcpClientTab.tcpClient)
             console.log("Connected DbcParser to TCP Client")
         }
+        // Apply theme on startup
+        updateTheme()
     }
     
-    // Apply Material theme
-    Material.theme: Material.Light
+    // Apply Material theme - will be updated dynamically
+    Material.theme: themeManager.isDarkTheme ? Material.Dark : Material.Light
     Material.accent: Material.Green
     Material.primary: Material.Green
+    
+    // Function to update theme
+    function updateTheme() {
+        // Force UI update
+        for (var i = 0; i < window.children.length; i++) {
+            window.children[i].update()
+        }
+    }
+    
+    // Connect to theme changes
+    Connections {
+        target: themeManager
+        function onThemeChanged() {
+            updateTheme()
+        }
+    }
     
     // Connect backend notification signals to frontend notification system
     Connections {
@@ -273,6 +291,82 @@ ApplicationWindow {
                 }
                 
                 Item { Layout.fillWidth: true }
+                
+                // Theme Toggle Slider
+                Rectangle {
+                    id: themeSlider
+                    Layout.preferredWidth: 70
+                    Layout.preferredHeight: 36
+                    radius: 18
+                    color: themeManager.isDarkTheme ? "#333333" : "#E0E0E0"
+                    border.color: "#999999"
+                    border.width: 2
+                    
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        spacing: 0
+                        
+                        Text {
+                            text: "☀️"
+                            font.pixelSize: 16
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.leftMargin: 4
+                            opacity: themeManager.isDarkTheme ? 0.3 : 1
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
+                        
+                        Item { Layout.fillWidth: true }
+                        
+                        Text {
+                            text: "🌙"
+                            font.pixelSize: 16
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.rightMargin: 4
+                            opacity: themeManager.isDarkTheme ? 1 : 0.3
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
+                    }
+                    
+                    // Slider circle
+                    Rectangle {
+                        id: sliderCircle
+                        width: 28
+                        height: 28
+                        radius: 14
+                        color: "white"
+                        border.color: "#666666"
+                        border.width: 1
+                        
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: 2
+                        
+                        Behavior on anchors.leftMargin {
+                            NumberAnimation { duration: 300; easing.type: Easing.InOutQuad }
+                        }
+                        
+                        states: State {
+                            name: "dark"
+                            when: themeManager.isDarkTheme
+                            AnchorChanges { target: sliderCircle; anchors.left: undefined; anchors.right: parent.right }
+                            PropertyChanges { target: sliderCircle; anchors.rightMargin: 2 }
+                        }
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            themeManager.toggleTheme()
+                        }
+                    }
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: themeManager.isDarkTheme ? "Switch to Light Theme" : "Switch to Dark Theme"
+                    ToolTip.delay: 500
+                }
+                
                 Button {
                     text: "Download DBC File"
 
@@ -331,7 +425,7 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.margins: 10
             text: "No DBC file loaded"
-            color: "#757575"
+            color: themeManager.secondaryTextColor
             wrapMode: Text.WordWrap
             elide: Text.ElideRight
             maximumLineCount: 2
@@ -386,26 +480,30 @@ ApplicationWindow {
             }
             
             // Tab content
-            SplitView {
-                id: mainSplitView
+            Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                orientation: Qt.Vertical
+                color: themeManager.backgroundColor
                 visible: tabBar.currentIndex === 0
+                
+                SplitView {
+                    id: mainSplitView
+                    anchors.fill: parent
+                    orientation: Qt.Vertical
             
-            // Top section with messages and signals
-            SplitView {
-                id: topSplitView
-                SplitView.fillHeight: true
-                SplitView.minimumHeight: 300
-                orientation: Qt.Horizontal
+                    // Top section with messages and signals
+                    SplitView {
+                        id: topSplitView
+                        SplitView.fillHeight: true
+                        SplitView.minimumHeight: 300
+                        orientation: Qt.Horizontal
                 
                 // Messages panel
                 Rectangle {
                     id: messagesPanel
                     SplitView.preferredWidth: 350
                     SplitView.minimumWidth: 250
-                    color: "white"
+                    color: themeManager.backgroundColor
                     
                     ColumnLayout {
                         anchors.fill: parent
@@ -415,7 +513,7 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             height: deletionModeActive ? 90 : 55
-                            color: "#FAFAFA"
+                            color: themeManager.panelColor
 
                             ColumnLayout {
                                 anchors.fill: parent
@@ -457,12 +555,12 @@ ApplicationWindow {
                                             text: "Add new CAN message"
                                             delay: 500
                                             background: Rectangle {
-                                                color: "#424242"
+                                                color: themeManager.textColor
                                                 radius: 4
                                             }
                                             contentItem: Text {
                                                 text: parent.text
-                                                color: "white"
+                                                color: themeManager.backgroundColor
                                                 font.pixelSize: 12
                                             }
                                         }
@@ -492,7 +590,7 @@ ApplicationWindow {
 
                                         contentItem: Text {
                                             text: "✕"
-                                            color: "#757575"
+                                            color: themeManager.secondaryTextColor
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 16
@@ -548,12 +646,12 @@ ApplicationWindow {
                                             text: deletionModeActive ? "Delete selected messages" : "Remove selected message"
                                             delay: 500
                                             background: Rectangle {
-                                                color: "#424242"
+                                                color: themeManager.textColor
                                                 radius: 4
                                             }
                                             contentItem: Text {
                                                 text: parent.text
-                                                color: "white"
+                                                color: themeManager.backgroundColor
                                                 font.pixelSize: 12
                                             }
                                         }
@@ -646,7 +744,7 @@ ApplicationWindow {
                                 anchors.bottom: parent.bottom
                                 width: parent.width
                                 height: 1
-                                color: "#E0E0E0"
+                                color: themeManager.borderColor
                             }
                         }
                         
@@ -667,7 +765,7 @@ ApplicationWindow {
                             delegate: Rectangle {
                                 width: messageListView.width
                                 height: 50 // Increased height to accommodate send button
-                                color: highlighted ? "#E8F5E9" : (index % 2 == 0 ? "#F5F5F5" : "white")
+                                color: highlighted ? "#66BB6A" : (index % 2 == 0 ? themeManager.panelColor : themeManager.backgroundColor)
 
                                 property bool highlighted: ListView.isCurrentItem
 
@@ -702,7 +800,7 @@ ApplicationWindow {
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: "✓"
-                                                color: "white"
+                                                color: themeManager.backgroundColor
                                                 font.pixelSize: 12
                                                 visible: messageCheckbox.checked
                                             }
@@ -714,7 +812,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         text: modelData
                                         verticalAlignment: Text.AlignVCenter
-                                        color: highlighted ? "#2E7D32" : "#424242"
+                                        color: highlighted ? "#FFFFFF" : themeManager.textColor
                                         font.weight: highlighted ? Font.Medium : Font.Normal
                                         elide: Text.ElideRight
                                         
@@ -739,7 +837,7 @@ ApplicationWindow {
 
                                         contentItem: Text {
                                             text: parent.text
-                                            color: "#4CAF50"
+                                            color: "#FFFFFF"
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 11
@@ -747,9 +845,9 @@ ApplicationWindow {
                                         }
 
                                         background: Rectangle {
-                                            color: parent.pressed ? "#E8F5E9" : "transparent"
-                                            border.color: "#4CAF50"
-                                            border.width: 1
+                                            color: parent.pressed ? "#2E7D32" : (parent.hovered ? "#388E3C" : "#4CAF50")
+                                            border.color: highlighted ? "#FFFFFF" : "#4CAF50"
+                                            border.width: highlighted ? 2 : 1
                                             radius: 4
 
                                             Behavior on color {
@@ -778,7 +876,7 @@ ApplicationWindow {
                     id: signalsPanel
                     SplitView.fillWidth: true
                     SplitView.minimumWidth: 600
-                    color: "white"
+                    color: themeManager.backgroundColor
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -788,7 +886,7 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             height: deletionModeActive ? 90 : 55
-                            color: "#FAFAFA"
+                            color: themeManager.panelColor
 
                             ColumnLayout {
                                 anchors.fill: parent
@@ -833,12 +931,12 @@ ApplicationWindow {
                                             text: "Add new signal to selected message"
                                             delay: 500
                                             background: Rectangle {
-                                                color: "#424242"
+                                                color: themeManager.textColor
                                                 radius: 4
                                             }
                                             contentItem: Text {
                                                 text: parent.text
-                                                color: "white"
+                                                color: themeManager.backgroundColor
                                                 font.pixelSize: 12
                                             }
                                         }
@@ -873,7 +971,7 @@ ApplicationWindow {
 
                                         contentItem: Text {
                                             text: "✕"
-                                            color: "#757575"
+                                            color: themeManager.secondaryTextColor
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 16
@@ -930,12 +1028,12 @@ ApplicationWindow {
                                             text: deletionModeActive ? "Delete selected signals" : "Remove selected signal"
                                             delay: 500
                                             background: Rectangle {
-                                                color: "#424242"
+                                                color: themeManager.textColor
                                                 radius: 4
                                             }
                                             contentItem: Text {
                                                 text: parent.text
-                                                color: "white"
+                                                color: themeManager.backgroundColor
                                                 font.pixelSize: 12
                                             }
                                         }
@@ -1030,7 +1128,7 @@ ApplicationWindow {
                                 anchors.bottom: parent.bottom
                                 width: parent.width
                                 height: 1
-                                color: "#E0E0E0"
+                                color: themeManager.borderColor
                             }
                         }
                         
@@ -1053,7 +1151,7 @@ ApplicationWindow {
                                     id: signalTableHeader
                                     width: parent.width
                                     height: 40
-                                    color: "#F5F5F5"
+                                    color: themeManager.panelColor
                                     z: 2
                                     
                                     // Header row
@@ -1086,13 +1184,14 @@ ApplicationWindow {
                                                     anchors.centerIn: parent
                                                     text: modelData.name
                                                     font.bold: true
+                                                    color: themeManager.textColor
                                                 }
                                                 
                                                 Rectangle {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                         }
@@ -1117,7 +1216,7 @@ ApplicationWindow {
                                     delegate: Rectangle {
                                         width: signalListView.width
                                         height: 45
-                                        color: index % 2 == 0 ? "#F5F5F5" : "white"
+                                        color: index % 2 == 0 ? themeManager.panelColor : themeManager.backgroundColor
                                         
                                         // Signal row content
                                         Row {
@@ -1157,7 +1256,7 @@ ApplicationWindow {
                                                         Text {
                                                             anchors.centerIn: parent
                                                             text: "✓"
-                                                            color: "white"
+                                                            color: themeManager.backgroundColor
                                                             font.pixelSize: 10
                                                             visible: signalCheckbox.checked
                                                         }
@@ -1167,7 +1266,7 @@ ApplicationWindow {
                                             
                                             // Name field
                                             Rectangle {
-                                                width: deletionModeActive ? 150 : 180
+                                                width: 170
                                                 height: parent.height
                                                 color: "transparent"
                                                 
@@ -1186,7 +1285,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1207,7 +1306,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1266,7 +1365,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1325,7 +1424,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1366,7 +1465,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1407,7 +1506,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1443,7 +1542,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1479,7 +1578,7 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
@@ -1508,13 +1607,13 @@ ApplicationWindow {
                                                     width: 1
                                                     height: parent.height
                                                     anchors.right: parent.right
-                                                    color: "#E0E0E0"
+                                                    color: themeManager.borderColor
                                                 }
                                             }
                                             
                                             // Value field with Bits button
                                             Rectangle {
-                                                width: 165
+                                                width: 180
                                                 height: parent.height
                                                 color: "transparent"
                                                 
@@ -1554,7 +1653,7 @@ ApplicationWindow {
 
                                                         contentItem: Text {
                                                             text: parent.text
-                                                            color: "white"
+                                                            color: themeManager.backgroundColor
                                                             horizontalAlignment: Text.AlignHCenter
                                                             verticalAlignment: Text.AlignVCenter
                                                             font.pixelSize: 12
@@ -1649,7 +1748,7 @@ ApplicationWindow {
                 id: bitsSection
                 SplitView.fillHeight: true
                 SplitView.minimumHeight: 350
-                color: "#f9f9f9"
+                color: themeManager.backgroundColor
                 visible: true
                 
                 property string signalName: ""
@@ -1669,7 +1768,7 @@ ApplicationWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         height: 30
-                        color: "white"
+                        color: themeManager.backgroundColor
                         
                         Text {
                             anchors.left: parent.left
@@ -1685,7 +1784,7 @@ ApplicationWindow {
                             anchors.bottom: parent.bottom
                             width: parent.width
                             height: 1
-                            color: "#E0E0E0"
+                            color: themeManager.borderColor
                         }
                     }
                     
@@ -1693,8 +1792,8 @@ ApplicationWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         height: 70
-                        color: "white"
-                        border.color: "#e0e0e0"
+                        color: themeManager.backgroundColor
+                        border.color: themeManager.borderColor
                         
                         RowLayout {
                             anchors.fill: parent
@@ -1704,6 +1803,7 @@ ApplicationWindow {
                             Text {
                                 text: "Physical Value:"
                                 font.pixelSize: 13
+                                color: themeManager.labelTextColor
                             }
                             
                             TextField {
@@ -1798,7 +1898,7 @@ ApplicationWindow {
                                     return "";
                                 }
                                 font.pixelSize: 10
-                                color: "#666666"
+                                color: themeManager.secondaryTextColor
                                 Layout.alignment: Qt.AlignHCenter
                                 visible: text !== ""
                             }
@@ -1806,6 +1906,7 @@ ApplicationWindow {
                             Text {
                                 text: "Raw Value:"
                                 font.pixelSize: 13
+                                color: themeManager.labelTextColor
                             }
                             
                             TextField {
@@ -1923,7 +2024,7 @@ ApplicationWindow {
                                     return "";
                                 }
                                 font.pixelSize: 10
-                                color: "#666666"
+                                color: themeManager.secondaryTextColor
                                 Layout.alignment: Qt.AlignHCenter
                                 visible: text !== ""
                             }
@@ -1951,8 +2052,8 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            color: "white"
-                            border.color: "#e0e0e0"
+                            color: themeManager.backgroundColor
+                            border.color: themeManager.borderColor
                             
                             ColumnLayout {
                                 anchors.fill: parent
@@ -1964,6 +2065,7 @@ ApplicationWindow {
                                     font.pixelSize: 14
                                     font.bold: true
                                     Layout.alignment: Qt.AlignLeft
+                                    color: themeManager.labelTextColor
                                 }
                                 
                                 Item {
@@ -1992,14 +2094,15 @@ ApplicationWindow {
                                             Rectangle {
                                                 width: 30
                                                 height: 30
-                                                color: "#e0e0e0"
-                                                border.color: "#cccccc"
+                                                color: themeManager.panelColor
+                                                border.color: themeManager.borderColor
                                                 
                                                 Text {
                                                     anchors.centerIn: parent
                                                     text: 7 - index
                                                     font.pixelSize: 12
                                                     font.bold: true
+                                                    color: themeManager.textColor
                                                 }
                                             }
                                         }
@@ -2022,8 +2125,8 @@ ApplicationWindow {
                                                 property bool isPartOfSignal: isDataCell ? false : false
                                                 property bool bitValue: false
                                                 
-                                                color: isHeader ? "#e0e0e0" : (isPartOfSignal ? (bitValue ? "#81C784" : "#E8F5E9") : "#f5f5f5")
-                                                border.color: "#cccccc"
+                                                color: isHeader ? themeManager.panelColor : (isPartOfSignal ? (bitValue ? "#81C784" : themeManager.bitIndicesColor) : themeManager.bitIndicesColor)
+                                                border.color: themeManager.borderColor
                                                 
                                                 Text {
                                                     anchors.centerIn: parent
@@ -2032,8 +2135,8 @@ ApplicationWindow {
                                                         gridCell.bitPosition.toString())
                                                     font.pixelSize: 12
                                                     font.bold: gridCell.isHeader
-                                                    color: gridCell.isHeader ? "black" : 
-                                                        (gridCell.isPartOfSignal ? "#2E7D32" : "#757575")
+                                                    color: gridCell.isHeader ? themeManager.textColor : 
+                                                        (gridCell.isPartOfSignal ? "#FFFFFF" : themeManager.bitIndicesTextColor)
                                                 }
                                                 
                                                 // Set object name for finding cells later
@@ -2064,8 +2167,8 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            color: "white"
-                            border.color: "#e0e0e0"
+                            color: themeManager.backgroundColor
+                            border.color: themeManager.borderColor
                             
                             ColumnLayout {
                                 anchors.fill: parent
@@ -2076,6 +2179,7 @@ ApplicationWindow {
                                     text: "CAN frame"
                                     font.pixelSize: 14
                                     font.bold: true
+                                    color: themeManager.labelTextColor
                                 }
                                 
                                 // Data display with bit values
@@ -2088,6 +2192,7 @@ ApplicationWindow {
                                     Text { 
                                         text: "Data (HEX):" 
                                         font.pixelSize: 12
+                                        color: themeManager.labelTextColor
                                     }
                                     
                                     TextField {
@@ -2101,6 +2206,7 @@ ApplicationWindow {
                                     Text { 
                                         text: "Data (BIN):" 
                                         font.pixelSize: 12
+                                        color: themeManager.labelTextColor
                                     }
                                     
                                     TextField {
@@ -2122,8 +2228,8 @@ ApplicationWindow {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 80
-                                    color: "#f5f5f5"
-                                    border.color: "#e0e0e0"
+                                    color: themeManager.panelColor
+                                    border.color: themeManager.borderColor
                                     
                                     ColumnLayout {
                                         anchors.fill: parent
@@ -2135,6 +2241,7 @@ ApplicationWindow {
                                             text: "Data = 0x00 = 0"
                                             font.family: "Monaco"
                                             font.pixelSize: 14
+                                            color: themeManager.textColor
                                         }
                                         
                                         Text {
@@ -2142,6 +2249,7 @@ ApplicationWindow {
                                             text: "Physical value = 1.0 * 0 + 0 = 0"
                                             font.family: "Monaco"
                                             font.pixelSize: 14
+                                            color: themeManager.textColor
                                         }
                                     }
                                 }
@@ -2254,19 +2362,20 @@ ApplicationWindow {
                             // Update visual appearance based on bit value
                             cell.color = bitValue ? "#81C784" : "#E8F5E9";
                         } else {
-                            // Not part of the signal, use default styling
-                            cell.color = "#f5f5f5";
+                            // Not part of the signal, use theme color for bit indices
+                            cell.color = themeManager.bitIndicesColor;
                         }
                     }
                 }
             }
+        }
         }
         
         // Active Transmissions Tab Content
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#f9f9f9"
+            color: themeManager.backgroundColor
             visible: tabBar.currentIndex === 1
             
             ColumnLayout {
@@ -2278,7 +2387,7 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     height: 60
-                    color: "white"
+                    color: themeManager.panelColor
                     radius: 8
                     
                     RowLayout {
@@ -2301,7 +2410,7 @@ ApplicationWindow {
                             
                             contentItem: Text {
                                 text: parent.text
-                                color: "white"
+                                color: themeManager.backgroundColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2325,7 +2434,7 @@ ApplicationWindow {
                             
                             contentItem: Text {
                                 text: parent.text
-                                color: "white"
+                                color: themeManager.backgroundColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2352,7 +2461,7 @@ ApplicationWindow {
                             
                             contentItem: Text {
                                 text: parent.text
-                                color: "white"
+                                color: themeManager.backgroundColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2381,7 +2490,7 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: "white"
+                    color: themeManager.backgroundColor
                     radius: 8
                     
                     ColumnLayout {
@@ -2393,7 +2502,7 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             height: 40
-                            color: "#F5F5F5"
+                            color: themeManager.panelColor
                             radius: 4
                             
                             // Fixed positioned header texts - expanded for full width
@@ -2403,7 +2512,7 @@ ApplicationWindow {
                                 width: 120
                                 text: "Message ID"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Text {
@@ -2412,7 +2521,7 @@ ApplicationWindow {
                                 width: 200
                                 text: "Message Name"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Text {
@@ -2421,7 +2530,7 @@ ApplicationWindow {
                                 width: 120
                                 text: "Interval (ms)"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Text {
@@ -2430,7 +2539,7 @@ ApplicationWindow {
                                 width: 120
                                 text: "Status"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Text {
@@ -2439,7 +2548,7 @@ ApplicationWindow {
                                 width: 100
                                 text: "Started At"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Text {
@@ -2448,7 +2557,7 @@ ApplicationWindow {
                                 width: 80
                                 text: "CAN Bus"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Text {
@@ -2456,7 +2565,7 @@ ApplicationWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Actions"
                                 font.bold: true
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                         }
                         
@@ -2472,13 +2581,13 @@ ApplicationWindow {
                                 delegate: Rectangle {
                                     width: transmissionsListView.width
                                     height: 50
-                                    color: index % 2 === 0 ? "white" : "#FAFAFA"
+                                    color: index % 2 === 0 ? themeManager.panelColor : themeManager.backgroundColor
                                     
                                     Rectangle {
                                         anchors.bottom: parent.bottom
                                         width: parent.width
                                         height: 1
-                                        color: "#E0E0E0"
+                                        color: themeManager.borderColor
                                     }
                                     
                                     // Fixed positioned content - expanded for full width
@@ -2487,7 +2596,7 @@ ApplicationWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 120
                                         text: modelData.messageId
-                                        color: "#424242"
+                                        color: themeManager.textColor
                                     }
                                     
                                     Text {
@@ -2495,7 +2604,7 @@ ApplicationWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 200
                                         text: modelData.messageName
-                                        color: "#424242"
+                                        color: themeManager.textColor
                                         elide: Text.ElideRight
                                     }
                                     
@@ -2504,7 +2613,7 @@ ApplicationWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 120
                                         text: modelData.rateMs.toString()
-                                        color: "#424242"
+                                        color: themeManager.textColor
                                     }
                                     
                                     Rectangle {
@@ -2533,7 +2642,7 @@ ApplicationWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 100
                                         text: modelData.startedAt
-                                        color: "#757575"
+                                        color: themeManager.secondaryTextColor
                                         font.pixelSize: 12
                                     }
                                     
@@ -2542,7 +2651,7 @@ ApplicationWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 80
                                         text: modelData.canBus
-                                        color: "#757575"
+                                        color: themeManager.secondaryTextColor
                                         font.pixelSize: 12
                                     }
                                     
@@ -2557,7 +2666,7 @@ ApplicationWindow {
                                         
                                         contentItem: Text {
                                             text: parent.text
-                                            color: "white"
+                                            color: themeManager.backgroundColor
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 11
@@ -2587,7 +2696,7 @@ ApplicationWindow {
                                         
                                         contentItem: Text {
                                             text: parent.text
-                                            color: "white"
+                                            color: themeManager.backgroundColor
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 11
@@ -2608,7 +2717,7 @@ ApplicationWindow {
                                 Text {
                                     anchors.centerIn: parent
                                     text: "No active transmissions"
-                                    color: "#757575"
+                                    color: themeManager.secondaryTextColor
                                     font.pixelSize: 16
                                     visible: transmissionsListView.count === 0
                                 }
@@ -2621,7 +2730,7 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: "white"
+                    color: themeManager.backgroundColor
                     radius: 8
                     
                     ColumnLayout {
@@ -2648,7 +2757,7 @@ ApplicationWindow {
                                 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: "white"
+                                    color: themeManager.backgroundColor
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
@@ -2668,7 +2777,7 @@ ApplicationWindow {
                                 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: "white"
+                                    color: themeManager.backgroundColor
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
@@ -2689,7 +2798,7 @@ ApplicationWindow {
                                 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: "white"
+                                    color: themeManager.backgroundColor
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
@@ -2709,9 +2818,9 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            color: "#f5f5f5"
+                            color: themeManager.backgroundColor
                             radius: 8
-                            border.color: "#E0E0E0"
+                            border.color: themeManager.borderColor
                             
                             ScrollView {
                                 anchors.fill: parent
@@ -2724,7 +2833,7 @@ ApplicationWindow {
                                     delegate: Rectangle {
                                         width: oneShotMessagesListView.width
                                         height: 80
-                                        color: index % 2 === 0 ? "white" : "#F8F8F8"
+                                        color: index % 2 === 0 ? themeManager.panelColor : themeManager.backgroundColor
                                         
                                         RowLayout {
                                             anchors.fill: parent
@@ -2750,7 +2859,7 @@ ApplicationWindow {
                                                     Text {
                                                         text: "(" + modelData.messageId + ")"
                                                         font.pixelSize: 12
-                                                        color: "#757575"
+                                                        color: themeManager.secondaryTextColor
                                                     }
                                                     
                                                     Item { Layout.fillWidth: true }
@@ -2758,7 +2867,7 @@ ApplicationWindow {
                                                     Text {
                                                         text: modelData.sentAt
                                                         font.pixelSize: 12
-                                                        color: "#757575"
+                                                        color: themeManager.secondaryTextColor
                                                     }
                                                 }
                                                 
@@ -2768,7 +2877,7 @@ ApplicationWindow {
                                                     Text {
                                                         text: "Data: " + modelData.hexData
                                                         font.pixelSize: 12
-                                                        color: "#424242"
+                                                        color: themeManager.textColor
                                                         font.family: "monospace"
                                                     }
                                                     
@@ -2777,7 +2886,7 @@ ApplicationWindow {
                                                     Text {
                                                         text: "Bus: " + modelData.canBus
                                                         font.pixelSize: 12
-                                                        color: "#757575"
+                                                        color: themeManager.secondaryTextColor
                                                     }
                                                 }
                                             }
@@ -2789,7 +2898,7 @@ ApplicationWindow {
                                                 
                                                 contentItem: Text {
                                                     text: parent.text
-                                                    color: "white"
+                                                    color: themeManager.backgroundColor
                                                     horizontalAlignment: Text.AlignHCenter
                                                     verticalAlignment: Text.AlignVCenter
                                                     font.pixelSize: 12
@@ -2832,7 +2941,7 @@ ApplicationWindow {
                                     Text {
                                         anchors.centerIn: parent
                                         text: "No one-shot messages sent yet"
-                                        color: "#757575"
+                                        color: themeManager.secondaryTextColor
                                         font.pixelSize: 16
                                         visible: oneShotMessagesListView.count === 0
                                     }
@@ -2850,7 +2959,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: tabBar.currentIndex === 2
-        color: "#FAFAFA"
+        color: themeManager.panelColor
         
         TcpClientTab {
             id: tcpClientTab
@@ -2863,7 +2972,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: tabBar.currentIndex === 3
-        color: "#FAFAFA"
+        color: themeManager.panelColor
         
         ScrollView {
             anchors.fill: parent
@@ -2895,7 +3004,7 @@ ApplicationWindow {
                             text: "About DBC Parser"
                             font.pixelSize: 28
                             font.bold: true
-                            color: "white"
+                            color: themeManager.backgroundColor
                         }
                     }
                 }
@@ -2904,8 +3013,8 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: creditsColumn.height + 40
-                    color: "white"
-                    border.color: "#E0E0E0"
+                    color: themeManager.backgroundColor
+                    border.color: themeManager.borderColor
                     border.width: 1
                     radius: 8
                     
@@ -2927,7 +3036,7 @@ ApplicationWindow {
                             text: "Developed by:"
                             font.pixelSize: 16
                             font.bold: true
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
                         
@@ -2947,8 +3056,8 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: functionalityColumn.height + 40
-                    color: "white"
-                    border.color: "#E0E0E0"
+                    color: themeManager.backgroundColor
+                    border.color: themeManager.borderColor
                     border.width: 1
                     radius: 8
                     
@@ -2991,8 +3100,8 @@ ApplicationWindow {
                                 
                                 Text {
                                     text: "• Load and parse DBC files containing CAN message definitions\n• View and edit CAN messages with their signals and properties\n• Add new messages and signals to the database\n• Modify signal properties (start bit, length, scaling, units)\n• Export and save modified DBC configurations"
-                                    font.pixelSize: 14
-                                    color: "#616161"
+                                    font.pixelSize: 13
+                                    color: themeManager.isDarkTheme ? "#E3E3E3" : "#616161"
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -3024,8 +3133,8 @@ ApplicationWindow {
                                 
                                 Text {
                                     text: "• Monitor actively transmitting CAN messages in real-time\n• Start and stop message transmissions with custom intervals\n• Configure transmission parameters and data values\n• Save and load transmission configurations\n• Send one-shot messages for testing purposes"
-                                    font.pixelSize: 14
-                                    color: "#616161"
+                                    font.pixelSize: 13
+                                    color: themeManager.isDarkTheme ? "#E3E3E3" : "#616161"
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -3057,8 +3166,8 @@ ApplicationWindow {
                                 
                                 Text {
                                     text: "• Connect to TCP servers for remote CAN communication\n• Send and receive CAN messages over network connections\n• Configure connection parameters (host, port, protocols)\n• Monitor network traffic and connection status\n• Enable distributed CAN testing and remote diagnostics"
-                                    font.pixelSize: 14
-                                    color: "#616161"
+                                    font.pixelSize: 13
+                                    color: themeManager.isDarkTheme ? "#E3E3E3" : "#616161"
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -3071,8 +3180,8 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: disclaimerColumn.height + 40
-                    color: "white"
-                    border.color: "#E0E0E0"
+                    color: themeManager.backgroundColor
+                    border.color: themeManager.borderColor
                     border.width: 1
                     radius: 8
                     
@@ -3093,7 +3202,7 @@ ApplicationWindow {
                         Text {
                             text: "This DBC Parser application is an open-source project developed for educational and professional use. The software is provided as-is for CAN bus analysis, message parsing, and network communication purposes."
                             font.pixelSize: 14
-                            color: "#424242"
+                            color: themeManager.textColor
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignJustify
@@ -3112,13 +3221,13 @@ ApplicationWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 1
-                            color: "#E0E0E0"
+                            color: themeManager.borderColor
                         }
                         
                         Text {
                             text: "For support, contributions, or inquiries, please refer to the project documentation or contact the development team."
                             font.pixelSize: 12
-                            color: "#757575"
+                            color: themeManager.secondaryTextColor
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignCenter
@@ -3323,7 +3432,7 @@ ApplicationWindow {
             Rectangle {
                 SplitView.preferredWidth: parent.width * 0.5
                 SplitView.minimumWidth: 350
-                color: "white"
+                color: themeManager.backgroundColor
                 border.color: "#D0D7DE"
                 border.width: 1
 
@@ -3448,7 +3557,7 @@ ApplicationWindow {
             Rectangle {
                 SplitView.preferredWidth: parent.width * 0.5
                 SplitView.minimumWidth: 350
-                color: "white"
+                color: themeManager.backgroundColor
                 border.color: "#D0D7DE"
                 border.width: 1
 
@@ -3592,7 +3701,7 @@ ApplicationWindow {
 
                     contentItem: Text {
                         text: parent.text
-                        color: "white"
+                        color: themeManager.backgroundColor
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: 13
@@ -3756,15 +3865,15 @@ ApplicationWindow {
             width: 420
 
             background: Rectangle {
-                color: "white"
+                color: themeManager.backgroundColor
                 radius: 8
-                border.color: "#E0E0E0"
+                border.color: themeManager.borderColor
                 border.width: 1
             }
 
             header: Rectangle {
                 height: 50
-                color: "#F5F5F5"
+                color: themeManager.panelColor
                 radius: 8
 
                 Text {
@@ -3772,14 +3881,14 @@ ApplicationWindow {
                     text: removeMessageConfirmDialog.title
                     font.pixelSize: 16
                     font.weight: Font.DemiBold
-                    color: "#424242"
+                    color: themeManager.textColor
                 }
 
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
                     height: 1
-                    color: "#E0E0E0"
+                    color: themeManager.borderColor
                 }
             }
 
@@ -3805,7 +3914,7 @@ ApplicationWindow {
                 padding: 20
 
                 background: Rectangle {
-                    color: "#FAFAFA"
+                    color: themeManager.panelColor
                     radius: 8
                 }
 
@@ -3828,7 +3937,7 @@ ApplicationWindow {
 
                     contentItem: Text {
                         text: parent.text
-                        color: "white"
+                        color: themeManager.backgroundColor
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -3875,12 +3984,22 @@ ApplicationWindow {
             
             // Colors based on type
             color: {
-                switch(type) {
-                    case "error": return "#FFEBEE"
-                    case "warning": return "#FFF8E1" 
-                    case "success": return "#E8F5E8"
-                    case "info": return "#E3F2FD"
-                    default: return "#F5F5F5"
+                if (themeManager.isDarkTheme) {
+                    switch(type) {
+                        case "error": return "#2C0B0E"
+                        case "warning": return "#2C2200" 
+                        case "success": return "#0B2C0B"
+                        case "info": return "#0B1F2C"
+                        default: return "#1E1E1E"
+                    }
+                } else {
+                    switch(type) {
+                        case "error": return "#FFEBEE"
+                        case "warning": return "#FFF8E1" 
+                        case "success": return "#E8F5E8"
+                        case "info": return "#E3F2FD"
+                        default: return "#F5F5F5"
+                    }
                 }
             }
             
@@ -3935,7 +4054,7 @@ ApplicationWindow {
                 
                 contentItem: Text {
                     text: "×"
-                    color: "#757575"
+                    color: themeManager.secondaryTextColor
                     font.pixelSize: 18
                     font.bold: true
                     horizontalAlignment: Text.AlignHCenter
@@ -3991,7 +4110,7 @@ ApplicationWindow {
                     
                     Text {
                         anchors.centerIn: parent
-                        color: "white"
+                        color: themeManager.backgroundColor
                         font.pixelSize: 18
                         font.bold: true
                         text: {
@@ -4024,12 +4143,22 @@ ApplicationWindow {
                             }
                         }
                         color: {
-                            switch(notification.type) {
-                                case "error": return "#D32F2F"
-                                case "warning": return "#F57C00"
-                                case "success": return "#388E3C"
-                                case "info": return "#1976D2"
-                                default: return "#424242"
+                            if (themeManager.isDarkTheme) {
+                                switch(notification.type) {
+                                    case "error": return "#FF6B6B"
+                                    case "warning": return "#FFD93D"
+                                    case "success": return "#6BCB77"
+                                    case "info": return "#4D96FF"
+                                    default: return "#E3E3E3"
+                                }
+                            } else {
+                                switch(notification.type) {
+                                    case "error": return "#D32F2F"
+                                    case "warning": return "#F57C00"
+                                    case "success": return "#388E3C"
+                                    case "info": return "#1976D2"
+                                    default: return "#424242"
+                                }
                             }
                         }
                         font.pixelSize: 16
@@ -4040,7 +4169,7 @@ ApplicationWindow {
                     Text {
                         Layout.fillWidth: true
                         text: notification.message
-                        color: "#424242"
+                        color: themeManager.textColor
                         font.pixelSize: 14
                         wrapMode: Text.WordWrap
                         maximumLineCount: 2
@@ -4124,15 +4253,15 @@ ApplicationWindow {
         width: 500
 
         background: Rectangle {
-            color: "white"
+            color: themeManager.backgroundColor
             radius: 8
-            border.color: "#E0E0E0"
+            border.color: themeManager.borderColor
             border.width: 1
         }
 
         header: Rectangle {
             height: 50
-            color: "#F5F5F5"
+            color: themeManager.panelColor
             radius: 8
 
             Text {
@@ -4140,14 +4269,14 @@ ApplicationWindow {
                 text: bulkDeleteMessagesConfirmDialog.title
                 font.pixelSize: 16
                 font.weight: Font.DemiBold
-                color: "#424242"
+                color: themeManager.textColor
             }
 
             Rectangle {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 1
-                color: "#E0E0E0"
+                color: themeManager.borderColor
             }
         }
 
@@ -4177,7 +4306,7 @@ ApplicationWindow {
                     delegate: Text {
                         text: "• " + modelData
                         font.pixelSize: 12
-                        color: "#757575"
+                        color: themeManager.secondaryTextColor
                         padding: 2
                     }
                 }
@@ -4211,15 +4340,15 @@ ApplicationWindow {
         width: 500
 
         background: Rectangle {
-            color: "white"
+            color: themeManager.backgroundColor
             radius: 8
-            border.color: "#E0E0E0"
+            border.color: themeManager.borderColor
             border.width: 1
         }
 
         header: Rectangle {
             height: 50
-            color: "#F5F5F5"
+            color: themeManager.panelColor
             radius: 8
 
             Text {
@@ -4227,14 +4356,14 @@ ApplicationWindow {
                 text: bulkDeleteSignalsConfirmDialog.title
                 font.pixelSize: 16
                 font.weight: Font.DemiBold
-                color: "#424242"
+                color: themeManager.textColor
             }
 
             Rectangle {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 1
-                color: "#E0E0E0"
+                color: themeManager.borderColor
             }
         }
 
@@ -4264,7 +4393,7 @@ ApplicationWindow {
                     delegate: Text {
                         text: "• " + modelData
                         font.pixelSize: 12
-                        color: "#757575"
+                        color: themeManager.secondaryTextColor
                         padding: 2
                     }
                 }

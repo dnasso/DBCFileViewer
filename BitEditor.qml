@@ -6,8 +6,8 @@ import QtQuick.Controls.Material
 // Bit Editor Component - Similar to the second screenshot
 Rectangle {
     id: root
-    color: "#f9f9f9"
-    border.color: "#e0e0e0"
+    color: themeManager.panelColor
+    border.color: themeManager.borderColor
     border.width: 1
     
     property string signalName: ""
@@ -17,6 +17,18 @@ Rectangle {
     property bool signalLittleEndian: true
     property var bitValues: []
     property double rawValue: 0
+    
+    // Handle theme changes - recreate grids when theme changes
+    Connections {
+        target: themeManager
+        function onThemeChanged() {
+            // Recreate the grids with updated colors
+            createBitIndicesGrid()
+            createBitGrids()
+            createSignalMaskGrid()
+            updateBitGrid()
+        }
+    }
     
     ColumnLayout {
         anchors.fill: parent
@@ -43,7 +55,7 @@ Rectangle {
                 
                 contentItem: Text {
                     text: parent.text
-                    color: "white"
+                    color: themeManager.isDarkTheme ? "#FFFFFF" : "#FFFFFF"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
@@ -51,7 +63,7 @@ Rectangle {
                 }
                 
                 background: Rectangle {
-                    color: parent.hovered ? "#f44336" : "#e53935"
+                    color: parent.hovered ? (themeManager.isDarkTheme ? "#E53935" : "#D32F2F") : (themeManager.isDarkTheme ? "#C62828" : "#F44336")
                     radius: 15
                 }
                 
@@ -67,6 +79,7 @@ Rectangle {
             Text {
                 text: "Physical Value:"
                 font.pixelSize: 13
+                color: themeManager.textColor
             }
             
             TextField {
@@ -89,6 +102,7 @@ Rectangle {
             Text {
                 text: "Raw Value:"
                 font.pixelSize: 13
+                color: themeManager.textColor
             }
             
             TextField {
@@ -131,8 +145,8 @@ Rectangle {
                 Layout.preferredWidth: 200
                 Layout.minimumWidth: 180
                 Layout.fillHeight: true
-                color: "white"
-                border.color: "#e0e0e0"
+                color: themeManager.panelColor
+                border.color: themeManager.borderColor
                 
                 ColumnLayout {
                     anchors.fill: parent
@@ -145,6 +159,7 @@ Rectangle {
                         font.bold: true
                         Layout.alignment: Qt.AlignCenter
                         Layout.bottomMargin: 5
+                        color: themeManager.textColor
                     }
                     
                     // Header row with bit numbers
@@ -171,6 +186,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     text: 7 - index
                                     font.pixelSize: 11
+                                    color: themeManager.textColor
                                 }
                             }
                         }
@@ -188,22 +204,7 @@ Rectangle {
                         
                         // Generate the 8×8 grid of bit indices
                         Component.onCompleted: {
-                            for (let byteIndex = 7; byteIndex >= 0; byteIndex--) {
-                                // Byte label
-                                var byteLabel = Qt.createQmlObject(
-                                    'import QtQuick; Rectangle { width: 40; height: 25; color: "transparent"; Text { anchors.centerIn: parent; text: ' + byteIndex + '; font.pixelSize: 11; font.bold: true } }',
-                                    bitIndicesGrid
-                                );
-                                
-                                // Bit cells for this byte
-                                for (let bitIndex = 7; bitIndex >= 0; bitIndex--) {
-                                    let bitNumber = byteIndex * 8 + bitIndex;
-                                    var bitCell = Qt.createQmlObject(
-                                        'import QtQuick; Rectangle { width: 17; height: 25; color: "#f0f0f0"; border.color: "#d0d0d0"; Text { anchors.centerIn: parent; text: ' + bitNumber + '; font.pixelSize: 10 } }',
-                                        bitIndicesGrid
-                                    );
-                                }
-                            }
+                            Qt.callLater(createBitIndicesGrid)
                         }
                     }
                 }
@@ -214,8 +215,8 @@ Rectangle {
                 Layout.preferredWidth: 360
                 Layout.minimumWidth: 300
                 Layout.fillHeight: true
-                color: "white"
-                border.color: "#e0e0e0"
+                color: themeManager.panelColor
+                border.color: themeManager.borderColor
                 
                 ColumnLayout {
                     anchors.fill: parent
@@ -228,6 +229,7 @@ Rectangle {
                         font.bold: true
                         Layout.alignment: Qt.AlignCenter
                         Layout.bottomMargin: 5
+                        color: themeManager.textColor
                     }
                     
                     // Header row
@@ -243,6 +245,7 @@ Rectangle {
                                 anchors.centerIn: parent
                                 text: "Data (HEX)"
                                 font.pixelSize: 11
+                                color: themeManager.textColor
                             }
                         }
                         
@@ -254,6 +257,7 @@ Rectangle {
                                 anchors.centerIn: parent
                                 text: "Data (BIN)"
                                 font.pixelSize: 11
+                                color: themeManager.textColor
                             }
                         }
                     }
@@ -277,7 +281,7 @@ Rectangle {
                             
                             Rectangle {
                                 anchors.fill: parent
-                                color: index % 2 === 0 ? "#f8f8f8" : "white"
+                                color: index % 2 === 0 ? themeManager.panelColor : (themeManager.isDarkTheme ? "#252525" : "#f8f8f8")
                             }
                             
                             RowLayout {
@@ -296,6 +300,7 @@ Rectangle {
                                     background: Rectangle {
                                         color: "transparent"
                                     }
+                                    color: themeManager.textColor
                                 }
                                 
                                 // Binary value field
@@ -310,6 +315,7 @@ Rectangle {
                                     background: Rectangle {
                                         color: "transparent"
                                     }
+                                    color: themeManager.textColor
                                 }
                             }
                         }
@@ -321,8 +327,8 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "white"
-                border.color: "#e0e0e0"
+                color: themeManager.panelColor
+                border.color: themeManager.borderColor
                 
                 ColumnLayout {
                     anchors.fill: parent
@@ -376,6 +382,7 @@ Rectangle {
                                                 anchors.centerIn: parent
                                                 text: 7 - index
                                                 font.pixelSize: 11
+                                                color: themeManager.textColor
                                             }
                                         }
                                     }
@@ -423,6 +430,7 @@ Rectangle {
                                                 anchors.centerIn: parent
                                                 text: 7 - index
                                                 font.pixelSize: 11
+                                                color: themeManager.textColor
                                             }
                                         }
                                     }
@@ -457,8 +465,8 @@ Rectangle {
                 Layout.columnSpan: 1
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
-                color: "white"
-                border.color: "#e0e0e0"
+                color: themeManager.panelColor
+                border.color: themeManager.borderColor
                 
                 ColumnLayout {
                     anchors.fill: parent
@@ -470,6 +478,7 @@ Rectangle {
                         text: "Data = 0x2213 = 8723"
                         font.family: "Monaco"
                         font.pixelSize: 12
+                        color: themeManager.textColor
                     }
                     
                     Text {
@@ -477,6 +486,7 @@ Rectangle {
                         text: "Physical value = 0.125 * 8723 + 0 = 1090.375 rpm"
                         font.family: "Monaco"
                         font.pixelSize: 12
+                        color: themeManager.textColor
                     }
                 }
             }
@@ -493,11 +503,56 @@ Rectangle {
         updateCalculationText();
         
         // Create or update bit grids
+        createBitIndicesGrid();
         createBitGrids();
         updateBitGrid();
         
         // Create or update signal mask
         createSignalMaskGrid();
+    }
+    
+    // Create bit indices grid (recreated on theme change)
+    function createBitIndicesGrid() {
+        // Clear existing grid
+        var children = bitIndicesGrid.children;
+        while (children.length > 0) {
+            children[0].destroy();
+        }
+        
+        // Create new bit indices cells
+        for (let byteIndex = 7; byteIndex >= 0; byteIndex--) {
+            // Byte label
+            var byteLabel = Qt.createQmlObject(
+                'import QtQuick; Rectangle { width: 40; height: 25; color: "transparent" }',
+                bitIndicesGrid
+            );
+            var byteLabelText = Qt.createQmlObject(
+                'import QtQuick; Text { anchors.centerIn: parent; font.pixelSize: 11; font.bold: true }',
+                byteLabel
+            );
+            byteLabelText.text = byteIndex.toString();
+            byteLabelText.color = themeManager.labelTextColor;
+            
+            // Bit cells for this byte
+            for (let bitIndex = 7; bitIndex >= 0; bitIndex--) {
+                let bitNumber = byteIndex * 8 + bitIndex;
+                var bitCell = Qt.createQmlObject(
+                    'import QtQuick; Rectangle { width: 17; height: 25 }',
+                    bitIndicesGrid
+                );
+                // Use bitIndicesColor for proper dark/light mode styling
+                bitCell.color = themeManager.bitIndicesColor;
+                bitCell.border.color = themeManager.borderColor;
+                bitCell.border.width = 1;
+                
+                var bitText = Qt.createQmlObject(
+                    'import QtQuick; Text { anchors.centerIn: parent; font.pixelSize: 10 }',
+                    bitCell
+                );
+                bitText.text = bitNumber.toString();
+                bitText.color = themeManager.bitIndicesTextColor;
+            }
+        }
     }
     
     // Update the calculation text fields
@@ -518,6 +573,9 @@ Rectangle {
             bitValuesGrid.children[i].destroy();
         }
         
+        // Determine highlight color based on theme
+        var highlightColor = themeManager.isDarkTheme ? "#4CAF50" : "#1976D2";
+        
         // Create new bit value cells
         for (let byteIndex = 7; byteIndex >= 0; byteIndex--) {
             for (let bitIndex = 7; bitIndex >= 0; bitIndex--) {
@@ -526,15 +584,12 @@ Rectangle {
                     'import QtQuick; import QtQuick.Controls; Rectangle { ' +
                     '   width: bitValuesGrid.width / 8; ' +
                     '   height: 25; ' +
-                    '   color: "#f0f0f0"; ' +
-                    '   border.color: "#d0d0d0"; ' +
+                    '   border.width: 1; ' +
                     '   property bool isPartOfSignal: false; ' +
                     '   property bool bitValue: false; ' +
                     '   Text { ' +
                     '       anchors.centerIn: parent; ' +
-                    '       text: parent.bitValue ? "1" : "0"; ' +
                     '       font.pixelSize: 11; ' +
-                    '       color: parent.isPartOfSignal ? "black" : "#aaaaaa"; ' +
                     '   } ' +
                     '   MouseArea { ' +
                     '       anchors.fill: parent; ' +
@@ -548,8 +603,15 @@ Rectangle {
                     bitValuesGrid
                 );
                 
+                cell.color = themeManager.panelColor;
+                cell.border.color = themeManager.borderColor;
+                var text = cell.children[0];
+                text.text = "0";
+                text.color = themeManager.textColor;
+                
                 // Store reference to the cell
                 cell.objectName = "bitValue_" + byteIndex + "_" + bitIndex;
+                cell.highlightColor = highlightColor;
             }
         }
     }
@@ -560,6 +622,9 @@ Rectangle {
         for (let i = signalMaskGrid.children.length - 1; i >= 0; i--) {
             signalMaskGrid.children[i].destroy();
         }
+        
+        // Determine highlight color based on theme
+        var highlightColor = themeManager.isDarkTheme ? "#4CAF50" : "#1976D2";
         
         // Create new signal mask cells
         for (let byteIndex = 7; byteIndex >= 0; byteIndex--) {
@@ -573,13 +638,15 @@ Rectangle {
                     '   property bool isPartOfSignal: false; ' +
                     '   Text { ' +
                     '       anchors.centerIn: parent; ' +
-                    '       text: parent.isPartOfSignal ? "1" : "0"; ' +
                     '       font.pixelSize: 11; ' +
-                    '       color: parent.isPartOfSignal ? "#2196F3" : "#aaaaaa"; ' +
                     '   } ' +
                     '}',
                     signalMaskGrid
                 );
+                
+                var text = cell.children[0];
+                text.text = "0";
+                text.color = highlightColor;
                 
                 // Store reference to the cell
                 cell.objectName = "signalMask_" + byteIndex + "_" + bitIndex;
@@ -587,6 +654,9 @@ Rectangle {
                 // Set if this bit is part of the signal
                 var isPartOfSignal = dbcParser.isBitPartOfSignal(root.signalName, byteIndex, bitIndex);
                 cell.isPartOfSignal = isPartOfSignal;
+                if (!isPartOfSignal) {
+                    text.color = themeManager.secondaryTextColor;
+                }
             }
         }
     }
@@ -596,6 +666,9 @@ Rectangle {
         // Get the frame data for display
         var frameData = [];
         var rawValueInt = Math.round(root.rawValue);
+        
+        // Determine highlight color based on theme
+        var highlightColor = themeManager.isDarkTheme ? "#4CAF50" : "#1976D2";
         
         // Update CAN frame data display (hex and binary)
         for (let byteIndex = 7; byteIndex >= 0; byteIndex--) {
@@ -619,7 +692,19 @@ Rectangle {
                 if (bitValueCell) {
                     bitValueCell.isPartOfSignal = isPartOfSignal;
                     bitValueCell.bitValue = bitValue;
-                    bitValueCell.color = isPartOfSignal ? (bitValue ? "#bbdefb" : "#e3f2fd") : "#f0f0f0";
+                    var text = bitValueCell.children[0];
+                    text.text = bitValue ? "1" : "0";
+                    
+                    // Use theme-aware colors: highlight for active bits, subtle for inactive
+                    if (isPartOfSignal) {
+                        // Active signal bits: highlight when set, dim when not set
+                        bitValueCell.color = bitValue ? highlightColor : themeManager.panelColor;
+                        text.color = bitValue ? "white" : themeManager.textColor;
+                    } else {
+                        // Inactive bits: use panel color
+                        bitValueCell.color = themeManager.panelColor;
+                        text.color = themeManager.secondaryTextColor;
+                    }
                 }
             }
             

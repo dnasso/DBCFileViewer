@@ -12,6 +12,9 @@ Dialog {
     height: 700  // Reduced height since we simplified the UI
     padding: 0
 
+    Material.theme: themeManager.isDarkTheme ? Material.Dark : Material.Light
+    Material.accent: Material.Green
+
     property string currentMessageName: ""
     
     // Signal emitted when a signal is successfully added
@@ -29,7 +32,7 @@ Dialog {
         property alias errorText: errorMessage.text
         
         background: Rectangle {
-            color: "#FFFFFF"
+            color: themeManager.backgroundColor
             radius: 12
             border.color: "#D32F2F"
             border.width: 2
@@ -65,7 +68,7 @@ Dialog {
         }
         
         footer: Rectangle {
-            color: "#F8F9FA"
+            color: themeManager.panelColor
             height: 60
             radius: 12
             
@@ -103,9 +106,9 @@ Dialog {
 
 
     background: Rectangle {
-        color: "#FFFFFF"
+        color: themeManager.backgroundColor
         radius: 12
-        border.color: "#E0E0E0"
+        border.color: themeManager.borderColor
         border.width: 1
     }
 
@@ -179,7 +182,7 @@ Dialog {
                     text: "Signal Name:"
                     font.pixelSize: 16
                     font.weight: Font.DemiBold
-                    color: "#2E7D32"
+                    color: themeManager.textColor
                     Layout.alignment: Qt.AlignLeft
                     Layout.leftMargin: 10
                 }
@@ -190,6 +193,7 @@ Dialog {
                     Layout.preferredHeight: 50
                     Layout.alignment: Qt.AlignHCenter
                     font.pixelSize: 16
+                    color: themeManager.textColor
                     selectByMouse: true
                     padding: 16
                     topPadding: 14
@@ -198,12 +202,12 @@ Dialog {
                     rightPadding: 20
 
                     background: Rectangle {
-                        color: parent.enabled ? "#FFFFFF" : "#F5F5F5"
+                        color: themeManager.panelColor
                         radius: 8
                         border.color: {
                             if (parent.activeFocus) return "#4CAF50"
-                            if (parent.text.length === 0) return "#9E9E9E"
-                            return "#CCCCCC"
+                            if (parent.text.length === 0) return themeManager.borderColor
+                            return themeManager.borderColor
                         }
                         border.width: parent.activeFocus ? 2 : 1.5
                         
@@ -213,7 +217,7 @@ Dialog {
                             anchors.topMargin: 2
                             color: "transparent"
                             radius: parent.radius
-                            border.color: "#00000010"
+                            border.color: themeManager.isDarkTheme ? "#FFFFFF10" : "#00000010"
                             border.width: 1
                             z: -1
                         }
@@ -227,7 +231,7 @@ Dialog {
                         width: 6
                         height: 6
                         radius: 3
-                        color: parent.text.length > 0 ? "#4CAF50" : "#9E9E9E"
+                        color: parent.text.length > 0 ? "#4CAF50" : themeManager.borderColor
                         visible: parent.text.length > 0 || parent.activeFocus
                     }
                     
@@ -270,7 +274,7 @@ Dialog {
                                 text: "Start Bit:"
                                 font.pixelSize: 15
                                 font.weight: Font.Medium
-                                color: "#424242"
+                                color: themeManager.textColor
                             }
                             
                             Button {
@@ -345,7 +349,7 @@ Dialog {
                             contentItem: TextField {
                                 text: parent.value
                                 font.pixelSize: 16
-                                color: "#424242"
+                                color: themeManager.textColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 selectByMouse: true
@@ -358,9 +362,9 @@ Dialog {
                             }
 
                             background: Rectangle {
-                                color: "#FAFAFA"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: parent.activeFocus ? 2 : 1.5
                                 implicitHeight: 50  // Taller
                                 implicitWidth: 200  // Wider
@@ -371,7 +375,7 @@ Dialog {
                                 y: 8
                                 width: 35
                                 height: parent.height / 2 - 8
-                                color: parent.up.pressed ? "#E8F5E9" : "#F5F5F5"
+                                color: parent.up.pressed ? "#E8F5E9" : (themeManager.isDarkTheme ? "#444444" : "#F5F5F5")
                                 radius: 4
 
                                 Text {
@@ -387,7 +391,7 @@ Dialog {
                                 y: parent.height / 2
                                 width: 35
                                 height: parent.height / 2 - 8
-                                color: parent.down.pressed ? "#E8F5E9" : "#F5F5F5"
+                                color: parent.down.pressed ? "#E8F5E9" : (themeManager.isDarkTheme ? "#444444" : "#F5F5F5")
                                 radius: 4
 
                                 Text {
@@ -410,7 +414,7 @@ Dialog {
                             text: "Length (bits):"
                             font.pixelSize: 15
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
 
@@ -441,7 +445,7 @@ Dialog {
                             contentItem: TextField {
                                 text: parent.value
                                 font.pixelSize: 16
-                                color: "#424242"
+                                color: themeManager.textColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 selectByMouse: true
@@ -454,9 +458,9 @@ Dialog {
                             }
 
                             background: Rectangle {
-                                color: "#FAFAFA"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: parent.activeFocus ? 2 : 1.5
                                 implicitHeight: 50
                                 implicitWidth: 200
@@ -467,7 +471,7 @@ Dialog {
                                 y: 8
                                 width: 35
                                 height: parent.height / 2 - 8
-                                color: parent.up.pressed ? "#E8F5E9" : "#F5F5F5"
+                                color: parent.up.pressed ? "#E8F5E9" : (themeManager.isDarkTheme ? "#444444" : "#F5F5F5")
                                 radius: 4
 
                                 Text {
@@ -483,7 +487,7 @@ Dialog {
                                 y: parent.height / 2
                                 width: 35
                                 height: parent.height / 2 - 8
-                                color: parent.down.pressed ? "#E8F5E9" : "#F5F5F5"
+                                color: parent.down.pressed ? "#E8F5E9" : (themeManager.isDarkTheme ? "#444444" : "#F5F5F5")
                                 radius: 4
 
                                 Text {
@@ -510,7 +514,7 @@ Dialog {
                     text: "Byte Order:"
                     font.pixelSize: 16
                     font.weight: Font.DemiBold
-                    color: "#2E7D32"
+                    color: themeManager.textColor
                     Layout.alignment: Qt.AlignHCenter
                 }
 
@@ -522,16 +526,16 @@ Dialog {
                     currentIndex: 0
 
                     background: Rectangle {
-                        color: "#FAFAFA"
+                        color: themeManager.panelColor
                         radius: 8
-                        border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                        border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                         border.width: parent.activeFocus ? 2 : 1.5
                         implicitHeight: 50
                     }
 
                         contentItem: Text {
                             text: parent.displayText
-                            color: "#424242"
+                            color: themeManager.textColor
                             font.pixelSize: 15
                             verticalAlignment: Text.AlignVCenter
                             horizontalAlignment: Text.AlignHCenter
@@ -560,20 +564,20 @@ Dialog {
                                         font.pixelSize: 14
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
-                                        color: "#424242"
+                                        color: themeManager.textColor
                                     }
 
                                     background: Rectangle {
-                                        color: highlighted ? "#E8F5E9" : "white"
+                                        color: highlighted ? (themeManager.isDarkTheme ? "#1A472A" : "#E8F5E9") : themeManager.panelColor
                                         radius: 4
                                     }
                                 }
                             }
 
                             background: Rectangle {
-                                color: "white"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: "#E0E0E0"
+                                border.color: themeManager.borderColor
                                 border.width: 1
                             }
                         }                indicator: Canvas {
@@ -590,7 +594,7 @@ Dialog {
                         context.lineTo(width, 0);
                         context.lineTo(width / 2, height);
                         context.closePath();
-                        context.fillStyle = "#666666";
+                        context.fillStyle = themeManager.isDarkTheme ? "#CCCCCC" : "#666666";
                         context.fill();
                     }
                 }
@@ -614,7 +618,7 @@ Dialog {
                             text: "Factor:"
                             font.pixelSize: 15
                             font.weight: Font.DemiBold
-                            color: "#2E7D32"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignLeft
                             Layout.leftMargin: 25
                         }
@@ -626,15 +630,16 @@ Dialog {
                             Layout.alignment: Qt.AlignHCenter
                             text: "1.0"
                             font.pixelSize: 16
+                            color: themeManager.textColor
                             selectByMouse: true
                             padding: 16
                             horizontalAlignment: Text.AlignHCenter
                             validator: DoubleValidator { bottom: -999999; top: 999999; decimals: 6 }
 
                             background: Rectangle {
-                                color: "#FFFFFF"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: parent.activeFocus ? 2 : 1.5
                                 implicitHeight: 50
                             }
@@ -650,7 +655,7 @@ Dialog {
                             text: "Offset:"
                             font.pixelSize: 15
                             font.weight: Font.DemiBold
-                            color: "#2E7D32"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignLeft
                             Layout.leftMargin: 25
                         }
@@ -662,15 +667,16 @@ Dialog {
                             Layout.alignment: Qt.AlignHCenter
                             text: "0.0"
                             font.pixelSize: 16
+                            color: themeManager.textColor
                             selectByMouse: true
                             padding: 16
                             horizontalAlignment: Text.AlignHCenter
                             validator: DoubleValidator { bottom: -999999; top: 999999; decimals: 6 }
 
                             background: Rectangle {
-                                color: "#FFFFFF"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: parent.activeFocus ? 2 : 1.5
                                 implicitHeight: 50
                             }
@@ -695,7 +701,7 @@ Dialog {
                             text: "Minimum:"
                             font.pixelSize: 15
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
 
@@ -705,14 +711,15 @@ Dialog {
                             Layout.alignment: Qt.AlignHCenter
                             text: "0.0"
                             font.pixelSize: 16
+                            color: themeManager.textColor
                             selectByMouse: true
                             padding: 16
                             horizontalAlignment: Text.AlignHCenter
 
                             background: Rectangle {
-                                color: "#FAFAFA"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: parent.activeFocus ? 2 : 1.5
                                 implicitHeight: 50
                             }
@@ -728,7 +735,7 @@ Dialog {
                             text: "Maximum:"
                             font.pixelSize: 15
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
 
@@ -738,14 +745,15 @@ Dialog {
                             Layout.alignment: Qt.AlignHCenter
                             text: "100.0"
                             font.pixelSize: 16
+                            color: themeManager.textColor
                             selectByMouse: true
                             padding: 16
                             horizontalAlignment: Text.AlignHCenter
 
                             background: Rectangle {
-                                color: "#FAFAFA"
+                                color: themeManager.panelColor
                                 radius: 8
-                                border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: parent.activeFocus ? 2 : 1.5
                                 implicitHeight: 50
                             }
@@ -763,7 +771,7 @@ Dialog {
                     text: "Unit (optional):"
                     font.pixelSize: 16
                     font.weight: Font.DemiBold
-                    color: "#2E7D32"
+                    color: themeManager.textColor
                     Layout.alignment: Qt.AlignLeft
                     Layout.leftMargin: 10
                 }
@@ -774,6 +782,7 @@ Dialog {
                     Layout.preferredHeight: 50
                     Layout.alignment: Qt.AlignHCenter
                     font.pixelSize: 16
+                    color: themeManager.textColor
                     selectByMouse: true
                     padding: 16
                     horizontalAlignment: Text.AlignHCenter
@@ -781,9 +790,9 @@ Dialog {
                     rightPadding: 20
 
                     background: Rectangle {
-                        color: "#FFFFFF"
+                        color: themeManager.panelColor
                         radius: 8
-                        border.color: parent.activeFocus ? "#4CAF50" : "#CCCCCC"
+                        border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                         border.width: parent.activeFocus ? 2 : 1.5
                         implicitHeight: 50
                         
@@ -791,7 +800,7 @@ Dialog {
                         Text {
                             anchors.centerIn: parent
                             text: "e.g., km/h, °C, %, rpm, A, V"
-                            color: "#999999"
+                            color: themeManager.secondaryTextColor
                             font.pixelSize: 14
                             font.italic: true
                             visible: parent.parent.text.length === 0 && !parent.parent.activeFocus
@@ -808,9 +817,11 @@ Dialog {
     }
 
     footer: Rectangle {
-        color: "#F8F9FA"
+        color: themeManager.panelColor
         height: 80
         radius: 12
+        border.color: themeManager.borderColor
+        border.width: 1
         
         RowLayout {
             anchors.centerIn: parent
@@ -823,7 +834,7 @@ Dialog {
                 
                 contentItem: Text {
                     text: parent.text
-                    color: "#666666"
+                    color: themeManager.textColor
                     font.pixelSize: 16
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignHCenter
@@ -831,9 +842,9 @@ Dialog {
                 }
 
                 background: Rectangle {
-                    color: parent.hovered ? "#F0F0F0" : "#FFFFFF"
+                    color: parent.hovered ? (themeManager.isDarkTheme ? "#444444" : "#F0F0F0") : themeManager.panelColor
                     radius: 10
-                    border.color: "#CCCCCC"
+                    border.color: themeManager.borderColor
                     border.width: 2
                     
                     // Subtle shadow
@@ -842,7 +853,7 @@ Dialog {
                         anchors.topMargin: 2
                         color: "transparent"
                         radius: parent.radius
-                        border.color: "#00000015"
+                        border.color: themeManager.isDarkTheme ? "#FFFFFF10" : "#00000015"
                         border.width: 1
                         z: -1
                     }
@@ -859,7 +870,7 @@ Dialog {
 
                 contentItem: Text {
                     text: parent.text
-                    color: parent.enabled ? "white" : "#CCCCCC"
+                    color: parent.enabled ? "white" : themeManager.secondaryTextColor
                     font.pixelSize: 16
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignHCenter
@@ -868,7 +879,7 @@ Dialog {
 
                 background: Rectangle {
                     color: {
-                        if (!parent.enabled) return "#E0E0E0"
+                        if (!parent.enabled) return themeManager.borderColor
                         if (parent.pressed) return "#388E3C"
                         if (parent.hovered) return "#66BB6A"
                         return "#4CAF50"

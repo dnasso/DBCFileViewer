@@ -11,10 +11,13 @@ Dialog {
     width: 500
     height: 400
 
+    Material.theme: themeManager.isDarkTheme ? Material.Dark : Material.Light
+    Material.accent: Material.Green
+
     background: Rectangle {
-        color: "white"
+        color: themeManager.backgroundColor
         radius: 8
-        border.color: "#E0E0E0"
+        border.color: themeManager.borderColor
         border.width: 1
     }
 
@@ -62,7 +65,7 @@ Dialog {
                 text: "Message Name:"
                 font.pixelSize: 15
                 font.weight: Font.Medium
-                color: "#424242"
+                color: themeManager.textColor
                 Layout.alignment: Qt.AlignLeft
             }
 
@@ -73,11 +76,12 @@ Dialog {
                 font.pixelSize: 14
                 selectByMouse: true
                 padding: 12
+                color: themeManager.textColor
 
                 background: Rectangle {
-                    color: "white"
+                    color: themeManager.panelColor
                     radius: 6
-                    border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
+                    border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                     border.width: parent.activeFocus ? 2 : 1
                 }
             }
@@ -92,7 +96,7 @@ Dialog {
                 text: "Message ID (hex):"
                 font.pixelSize: 15
                 font.weight: Font.Medium
-                color: "#424242"
+                color: themeManager.textColor
                 Layout.alignment: Qt.AlignLeft
             }
 
@@ -104,11 +108,12 @@ Dialog {
                 selectByMouse: true
                 padding: 12
                 validator: RegularExpressionValidator { regularExpression: /^(0x)?[0-9A-Fa-f]+$/ }
+                color: themeManager.textColor
 
                 background: Rectangle {
-                    color: "white"
+                    color: themeManager.panelColor
                     radius: 6
-                    border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
+                    border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                     border.width: parent.activeFocus ? 2 : 1
                 }
             }
@@ -123,7 +128,7 @@ Dialog {
                 text: "Length (bytes):"
                 font.pixelSize: 15
                 font.weight: Font.Medium
-                color: "#424242"
+                color: themeManager.textColor
                 Layout.alignment: Qt.AlignLeft
             }
 
@@ -139,7 +144,7 @@ Dialog {
                 contentItem: TextField {
                     text: parent.value
                     font.pixelSize: 14
-                    color: "#424242"
+                    color: themeManager.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     selectByMouse: true
@@ -153,9 +158,9 @@ Dialog {
                 }
 
                 background: Rectangle {
-                    color: "white"
+                    color: themeManager.panelColor
                     radius: 6
-                    border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
+                    border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                     border.width: parent.activeFocus ? 2 : 1
                 }
             }
@@ -183,7 +188,7 @@ Dialog {
     footer: DialogButtonBox {
         padding: 15
         background: Rectangle {
-            color: "#FAFAFA"
+            color: themeManager.panelColor
             radius: 8
         }
 
@@ -194,7 +199,7 @@ Dialog {
 
             contentItem: Text {
                 text: parent.text
-                color: "#757575"
+                color: themeManager.secondaryTextColor
                 font.pixelSize: 14
                 font.weight: Font.Medium
             }

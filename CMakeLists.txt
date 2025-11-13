@@ -19,6 +19,7 @@ set(COMMON_SOURCES
     main.cpp
     DbcParser.cpp
     DbcSender.cpp
+    ThemeManager.cpp
 )
 
 # Only add Qtclient.cpp, not the entire DBCClient folder
@@ -44,6 +45,8 @@ qt_add_qml_module(appDBC_Parser
         DbcParser.h
         DbcParser.cpp
         DbcSender.h
+        ThemeManager.h
+        ThemeManager.cpp
         DBCClient/Qtclient.h
     RESOURCES
         DBCClient/README

@@ -7,6 +7,7 @@
 #include <QTimer>
 #include "DBCClient/Qtclient.h"
 #include "DbcParser.h"
+#include "ThemeManager.h"
 #include <QDebug>
 #include <QFile>
 #include <QIcon>
@@ -115,11 +116,17 @@ int main(int argc, char *argv[])
 
     // Create the DBC parser
     DbcParser dbcParser;
+    
+    // Create the Theme manager
+    ThemeManager themeManager;
 
     QQmlApplicationEngine engine;
 
     // Make the parser available to QML
     engine.rootContext()->setContextProperty("dbcParser", &dbcParser);
+    
+    // Make the theme manager available to QML
+    engine.rootContext()->setContextProperty("themeManager", &themeManager);
 
     // Use the previously working URL path
     const QUrl url(u"qrc:/qt/qml/DBC_Parser/Main.qml"_s);

@@ -62,13 +62,13 @@ Dialog {
         }
     }
 
-    Material.theme: Material.Light
+    Material.theme: themeManager.isDarkTheme ? Material.Dark : Material.Light
     Material.accent: Material.Green
 
     background: Rectangle {
-        color: "white"
+        color: themeManager.backgroundColor
         radius: 8
-        border.color: "#E0E0E0"
+        border.color: themeManager.borderColor
         border.width: 1
     }
 
@@ -225,9 +225,9 @@ Dialog {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 160
                 Layout.topMargin: 10
-                color: "#F8F9FA"
+                color: themeManager.panelColor
                 radius: 8
-                border.color: "#E8F5E9"
+                border.color: themeManager.borderColor
                 border.width: 2
 
                 ColumnLayout {
@@ -239,7 +239,7 @@ Dialog {
                         text: "Message Information"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#2E7D32"
+                        color: themeManager.textColor
                         Layout.alignment: Qt.AlignLeft
                     }
 
@@ -253,7 +253,7 @@ Dialog {
                             text: "Message Name:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 120
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -261,7 +261,7 @@ Dialog {
                         Text {
                             text: sendMessageDialog.messageName
                             font.pixelSize: 14
-                            color: "#616161"
+                            color: themeManager.secondaryTextColor
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                             elide: Text.ElideRight
@@ -272,7 +272,7 @@ Dialog {
                             text: "CAN ID:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 120
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -281,7 +281,7 @@ Dialog {
                             text: sendMessageDialog.messageId
                             font.pixelSize: 14
                             font.family: "Monaco"
-                            color: "#616161"
+                            color: themeManager.secondaryTextColor
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -290,7 +290,7 @@ Dialog {
                             text: "Hex Data:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 120
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                         }
@@ -299,9 +299,9 @@ Dialog {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 35
                             Layout.alignment: Qt.AlignLeft | Qt.AlignTop
-                            color: "white"
+                            color: themeManager.backgroundColor
                             radius: 4
-                            border.color: "#E0E0E0"
+                            border.color: themeManager.borderColor
                             border.width: 1
 
                             Text {
@@ -310,7 +310,7 @@ Dialog {
                                 text: sendMessageDialog.hexData
                                 font.family: "Monaco"
                                 font.pixelSize: 12
-                                color: "#424242"
+                                color: themeManager.textColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
                             }
@@ -324,7 +324,7 @@ Dialog {
                 id: statusArea
                 Layout.fillWidth: true
                 Layout.preferredHeight: statusText.hasMessage ? 55 : 0
-                color: statusText.isSuccess ? "#E8F5E8" : "#FFEBEE"
+                color: statusText.isSuccess ? (themeManager.isDarkTheme ? "#1B5E20" : "#E8F5E8") : (themeManager.isDarkTheme ? "#B71C1C" : "#FFEBEE")
                 border.color: statusText.isSuccess ? "#4CAF50" : "#F44336"
                 border.width: statusText.hasMessage ? 1 : 0
                 radius: 8
@@ -359,7 +359,7 @@ Dialog {
                         Layout.fillWidth: true
                         text: ""
                         font.pixelSize: 13
-                        color: isSuccess ? "#2E7D32" : "#C62828"
+                        color: isSuccess ? (themeManager.isDarkTheme ? "#81C784" : "#2E7D32") : (themeManager.isDarkTheme ? "#EF5350" : "#C62828")
                         wrapMode: Text.WordWrap
 
                         property bool hasMessage: text !== ""
@@ -373,13 +373,13 @@ Dialog {
                         visible: statusText.hasMessage
                         
                         background: Rectangle {
-                            color: parent.pressed ? "#FFCDD2" : (parent.hovered ? "#FFEBEE" : "transparent")
+                            color: parent.pressed ? (themeManager.isDarkTheme ? "#404040" : "#FFCDD2") : (parent.hovered ? (themeManager.isDarkTheme ? "#616161" : "#FFEBEE") : "transparent")
                             radius: 15
                         }
                         
                         contentItem: Text {
                             text: parent.text
-                            color: "#666"
+                            color: themeManager.isDarkTheme ? "#CCCCCC" : "#666"
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
@@ -396,9 +396,9 @@ Dialog {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 180
-                color: "#F8F9FA"
+                color: themeManager.panelColor
                 radius: 8
-                border.color: "#E8F5E9"
+                border.color: themeManager.borderColor
                 border.width: 2
 
                 ColumnLayout {
@@ -410,7 +410,7 @@ Dialog {
                         text: "Transmission Settings"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#2E7D32"
+                        color: themeManager.textColor
                         Layout.alignment: Qt.AlignLeft
                     }
 
@@ -424,7 +424,7 @@ Dialog {
                             text: "Rate (ms):"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 100
                             Layout.alignment: Qt.AlignVCenter
                         }
@@ -444,9 +444,9 @@ Dialog {
                             }
 
                             background: Rectangle {
-                                color: "white"
+                                color: themeManager.panelColor
                                 radius: 6
-                                border.color: parent.activeFocus ? "#4CAF50" : "#BDBDBD"
+                                border.color: parent.activeFocus ? "#4CAF50" : themeManager.borderColor
                                 border.width: 1
                             }
                         }
@@ -454,7 +454,7 @@ Dialog {
                         Text {
                             text: "(" + (1000.0 / sendMessageDialog.transmissionRate).toFixed(1) + " Hz)"
                             font.pixelSize: 13
-                            color: "#757575"
+                            color: themeManager.secondaryTextColor
                             Layout.alignment: Qt.AlignVCenter
                         }
 
@@ -470,7 +470,7 @@ Dialog {
                             text: "Quick Presets:"
                             font.pixelSize: 13
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.alignment: Qt.AlignLeft
                         }
 
@@ -486,7 +486,7 @@ Dialog {
                                 enabled: !sendMessageDialog.isSending
 
                                 background: Rectangle {
-                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? "#E8F5E9" : "white")
+                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? (themeManager.isDarkTheme ? "#2D5016" : "#E8F5E9") : themeManager.panelColor)
                                     border.color: "#4CAF50"
                                     border.width: 1
                                     radius: 4
@@ -494,7 +494,7 @@ Dialog {
 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: parent.enabled ? "#4CAF50" : "#CCCCCC"
+                                    color: parent.enabled ? "#4CAF50" : themeManager.secondaryTextColor
                                     font.pixelSize: 11
                                     font.weight: Font.Medium
                                     horizontalAlignment: Text.AlignHCenter
@@ -511,7 +511,7 @@ Dialog {
                                 enabled: !sendMessageDialog.isSending
 
                                 background: Rectangle {
-                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? "#E8F5E9" : "white")
+                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? (themeManager.isDarkTheme ? "#2D5016" : "#E8F5E9") : themeManager.panelColor)
                                     border.color: "#4CAF50"
                                     border.width: 1
                                     radius: 4
@@ -519,7 +519,7 @@ Dialog {
 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: parent.enabled ? "#4CAF50" : "#CCCCCC"
+                                    color: parent.enabled ? "#4CAF50" : themeManager.secondaryTextColor
                                     font.pixelSize: 11
                                     font.weight: Font.Medium
                                     horizontalAlignment: Text.AlignHCenter
@@ -536,7 +536,7 @@ Dialog {
                                 enabled: !sendMessageDialog.isSending
 
                                 background: Rectangle {
-                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? "#E8F5E9" : "white")
+                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? (themeManager.isDarkTheme ? "#2D5016" : "#E8F5E9") : themeManager.panelColor)
                                     border.color: "#4CAF50"
                                     border.width: 1
                                     radius: 4
@@ -544,7 +544,7 @@ Dialog {
 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: parent.enabled ? "#4CAF50" : "#CCCCCC"
+                                    color: parent.enabled ? "#4CAF50" : themeManager.secondaryTextColor
                                     font.pixelSize: 11
                                     font.weight: Font.Medium
                                     horizontalAlignment: Text.AlignHCenter
@@ -561,7 +561,7 @@ Dialog {
                                 enabled: !sendMessageDialog.isSending
 
                                 background: Rectangle {
-                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? "#E8F5E9" : "white")
+                                    color: parent.pressed ? "#C8E6C9" : (parent.hovered ? (themeManager.isDarkTheme ? "#2D5016" : "#E8F5E9") : themeManager.panelColor)
                                     border.color: "#4CAF50"
                                     border.width: 1
                                     radius: 4
@@ -569,7 +569,7 @@ Dialog {
 
                                 contentItem: Text {
                                     text: parent.text
-                                    color: parent.enabled ? "#4CAF50" : "#CCCCCC"
+                                    color: parent.enabled ? "#4CAF50" : themeManager.secondaryTextColor
                                     font.pixelSize: 11
                                     font.weight: Font.Medium
                                     horizontalAlignment: Text.AlignHCenter
@@ -589,9 +589,9 @@ Dialog {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 140
-                color: "#F3E5F5"
+                color: themeManager.panelColor
                 radius: 8
-                border.color: "#9C27B0"
+                border.color: themeManager.borderColor
                 border.width: 2
 
                 ColumnLayout {
@@ -603,7 +603,7 @@ Dialog {
                         text: "CAN Bus Selection"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#7B1FA2"
+                        color: themeManager.textColor
                         Layout.alignment: Qt.AlignLeft
                     }
 
@@ -615,7 +615,7 @@ Dialog {
                             text: "CAN Interface:"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#424242"
+                            color: themeManager.textColor
                             Layout.preferredWidth: 100
                             Layout.alignment: Qt.AlignVCenter
                         }
@@ -638,9 +638,9 @@ Dialog {
                             }
 
                             background: Rectangle {
-                                color: "white"
+                                color: themeManager.panelColor
                                 radius: 6
-                                border.color: parent.activeFocus ? "#9C27B0" : "#BDBDBD"
+                                border.color: parent.activeFocus ? "#9C27B0" : themeManager.borderColor
                                 border.width: 1
                             }
 
@@ -649,7 +649,7 @@ Dialog {
                                 rightPadding: parent.indicator.width + parent.spacing
                                 text: parent.displayText
                                 font.pixelSize: 14
-                                color: parent.enabled ? "#424242" : "#CCCCCC"
+                                color: parent.enabled ? themeManager.textColor : themeManager.secondaryTextColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
                             }
@@ -662,7 +662,7 @@ Dialog {
                             enabled: !sendMessageDialog.isSending
 
                             background: Rectangle {
-                                color: parent.pressed ? "#E1BEE7" : (parent.hovered ? "#F3E5F5" : "white")
+                                color: parent.pressed ? "#E1BEE7" : (parent.hovered ? (themeManager.isDarkTheme ? "#4A148C" : "#F3E5F5") : themeManager.panelColor)
                                 border.color: "#9C27B0"
                                 border.width: 1
                                 radius: 6
@@ -670,7 +670,7 @@ Dialog {
 
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.enabled ? "#9C27B0" : "#CCCCCC"
+                                color: parent.enabled ? "#9C27B0" : themeManager.secondaryTextColor
                                 font.pixelSize: 14
                                 font.weight: Font.Medium
                                 horizontalAlignment: Text.AlignHCenter
@@ -691,9 +691,9 @@ Dialog {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 120
-                color: "#E3F2FD"
+                color: themeManager.panelColor
                 radius: 8
-                border.color: "#2196F3"
+                border.color: themeManager.borderColor
                 border.width: 2
 
                 ColumnLayout {
@@ -705,7 +705,7 @@ Dialog {
                         text: "Server Connection"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#1976D2"
+                        color: themeManager.textColor
                         Layout.alignment: Qt.AlignLeft
                     }
 
@@ -730,9 +730,9 @@ Dialog {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 140
                 Layout.bottomMargin: 25
-                color: "#E8F4FD"
+                color: themeManager.panelColor
                 radius: 8
-                border.color: "#64B5F6"
+                border.color: themeManager.borderColor
                 border.width: 2
 
                 ColumnLayout {
@@ -744,14 +744,14 @@ Dialog {
                         text: "Message Preview"
                         font.pixelSize: 16
                         font.weight: Font.Bold
-                        color: "#1976D2"
+                        color: themeManager.textColor
                         Layout.alignment: Qt.AlignLeft
                     }
 
                     Text {
                         text: "Message to be sent:"
                         font.pixelSize: 13
-                        color: "#1565C0"
+                        color: themeManager.textColor
                         Layout.alignment: Qt.AlignLeft
                         font.weight: Font.Medium
                     }
@@ -759,9 +759,9 @@ Dialog {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 45
-                        color: "white"
+                        color: themeManager.backgroundColor
                         radius: 6
-                        border.color: "#64B5F6"
+                        border.color: themeManager.borderColor
                         border.width: 1
 
                         Text {
@@ -771,7 +771,7 @@ Dialog {
                             font.family: "Monaco"
                             font.pixelSize: 14
                             font.weight: Font.Medium
-                            color: "#1976D2"
+                            color: themeManager.textColor
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                         }
@@ -780,7 +780,7 @@ Dialog {
                     Text {
                         text: "Format: CAN_BUS # CAN_ID # HEX_DATA # RATE_MS"
                         font.pixelSize: 12
-                        color: "#546E7A"
+                        color: themeManager.secondaryTextColor
                         font.italic: true
                         Layout.alignment: Qt.AlignLeft
                     }
@@ -791,13 +791,13 @@ Dialog {
 
     footer: Rectangle {
         height: 70
-        color: "#FAFAFA"
+        color: themeManager.panelColor
 
         Rectangle {
             anchors.top: parent.top
             width: parent.width
             height: 1
-            color: "#E0E0E0"
+            color: themeManager.borderColor
         }
 
         RowLayout {
@@ -812,7 +812,7 @@ Dialog {
             Text {
                 text: sendMessageDialog.isSending ? "Transmission in progress..." : "Ready to transmit message"
                 font.pixelSize: 13
-                color: sendMessageDialog.isSending ? "#FF9800" : "#757575"
+                color: sendMessageDialog.isSending ? "#FF9800" : themeManager.secondaryTextColor
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
 
@@ -834,15 +834,15 @@ Dialog {
                 Layout.alignment: Qt.AlignVCenter
 
                 background: Rectangle {
-                    color: parent.pressed ? "#FFCDD2" : (parent.hovered ? "#FFEBEE" : "white")
-                    border.color: sendMessageDialog.isSending ? "#F44336" : "#BDBDBD"
+                    color: parent.pressed ? (themeManager.isDarkTheme ? "#5E1F1F" : "#FFCDD2") : (parent.hovered ? (themeManager.isDarkTheme ? "#3E2E2E" : "#FFEBEE") : themeManager.panelColor)
+                    border.color: sendMessageDialog.isSending ? "#F44336" : themeManager.borderColor
                     border.width: 1
                     radius: 4
                 }
 
                 contentItem: Text {
                     text: parent.text
-                    color: sendMessageDialog.isSending ? "#F44336" : "#616161"
+                    color: sendMessageDialog.isSending ? "#F44336" : themeManager.textColor
                     font.pixelSize: 13
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignHCenter
@@ -877,8 +877,8 @@ Dialog {
 
                 background: Rectangle {
                     color: parent.enabled ?
-                        (parent.pressed ? "#1976D2" : (parent.hovered ? "#1E88E5" : "#2196F3")) :
-                        "#CCCCCC"
+                        (parent.pressed ? "#1565C0" : (parent.hovered ? "#1976D2" : "#1E88E5")) :
+                        themeManager.secondaryTextColor
                     radius: 4
 
                     Behavior on color {
@@ -958,7 +958,7 @@ Dialog {
                 background: Rectangle {
                     color: parent.enabled ?
                         (parent.pressed ? "#388E3C" : (parent.hovered ? "#43A047" : "#4CAF50")) :
-                        "#CCCCCC"
+                        themeManager.secondaryTextColor
                     radius: 4
 
                     Behavior on color {
