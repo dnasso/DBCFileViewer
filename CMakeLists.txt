@@ -101,6 +101,34 @@ install(TARGETS appDBC_Parser
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Install QML files alongside the binary (required for Qt Quick applications)
+install(FILES
+    Main.qml
+    AddMessageDialog.qml
+    AddSignalDialog.qml
+    SendMessageDialog.qml
+    TcpClientTab.qml
+    BitEditor.qml
+    qmldir
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Install sample DBC files
+install(FILES
+    SimpBMS-2.dbc
+    sample_transmission_config.json
+    simpbms_transmission_config.json
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbc-file-viewer
+)
+
+# Install README and documentation
+install(FILES
+    README_DEVCONTAINER.md
+    InstallationGuide.md
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+    OPTIONAL
+)
+
 # ============================================================================
 # Deployment Targets
 # ============================================================================

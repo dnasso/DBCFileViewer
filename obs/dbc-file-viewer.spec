@@ -26,17 +26,23 @@ BuildRequires:  gcc-c++
 BuildRequires:  qt6-base-devel
 BuildRequires:  qt6-declarative-devel
 BuildRequires:  qt6-quickcontrols2-devel
+BuildRequires:  qt6-tools-devel
 Requires:       libQt6Core6
 Requires:       libQt6Gui6
 Requires:       libQt6Qml6
 Requires:       libQt6Quick6
+Requires:       libQt6Network6
 Requires:       libQt6QuickControls2-6
+Requires:       qt6-declarative-imports
 %endif
 %if 0%{?fedora} || 0%{?rhel_version} || 0%{?centos_version}
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtdeclarative-devel
+BuildRequires:  qt6-qttools-devel
 Requires:       qt6-qtbase
+Requires:       qt6-qtbase-gui
 Requires:       qt6-qtdeclarative
+Requires:       qt6-qtdeclarative-qml
 %endif
 
 %description
@@ -87,7 +93,11 @@ install -m 0644 deploy-assets/dbctrain.png %{buildroot}%{_datadir}/pixmaps/%{nam
 %license LICENSE
 %doc README.md
 %{_bindir}/appDBC_Parser
+%{_bindir}/*.qml
+%{_bindir}/qmldir
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/pixmaps/%{name}.png
+%{_datadir}/dbc-file-viewer/
+%doc %{_docdir}/%{name}/
 
 %changelog

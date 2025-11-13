@@ -27,6 +27,52 @@ This directory contains the configuration files needed to build and distribute D
 
 The spec file now includes distro-specific conditionals.
 
+### ❌ "Package installs but nothing runs - only shortcut appears" (FIXED: Nov 13, 2025)
+**CAUSE**: The compiled binary was only ~500KB because QML files and Qt Quick modules were NOT being installed.
+
+**ROOT ISSUE**: 
+- CMakeLists.txt was only installing the binary, not the QML files
+- QML module dependencies were incomplete in packaging files
+- Qt Quick applications need QML files at runtime to load the UI
+
+**FIXES APPLIED**:
+
+1. **CMakeLists.txt** - Added installation rules for:
+   - All QML files (Main.qml, AddMessageDialog.qml, AddSignalDialog.qml, SendMessageDialog.qml, TcpClientTab.qml, BitEditor.qml)
+   - qmldir file (required for QML module loading)
+   - Sample DBC files and configuration files
+   - Documentation files
+
+2. **dbc-file-viewer.spec** - Updated to:
+   - Include `%{_bindir}/*.qml` and `%{_bindir}/qmldir` in %files section
+   - Add `qt6-declarative-imports` requirement (openSUSE/SUSE)
+   - Add `libQt6Network6` dependency
+   - Include `%{_datadir}/dbc-file-viewer/` for sample files
+   - Include documentation directory
+
+3. **debian.control** - Updated to:
+   - Add ALL required QML module dependencies:
+     - qml6-module-qtquick-layouts
+     - qml6-module-qtquick-dialogs
+     - qml6-module-qtquick-window
+     - qml6-module-qtquick-templates
+     - qml6-module-qtqml-workerscript
+   - Add libqt6network6 dependency
+   - Add qt6-tools-dev for build
+
+**VERIFICATION**: After installing the package, verify these files exist:
+```bash
+ls -la /usr/bin/appDBC_Parser        # The binary
+ls -la /usr/bin/*.qml                 # QML UI files
+ls -la /usr/bin/qmldir                # QML module definition
+ls -la /usr/share/dbc-file-viewer/    # Sample files
+```
+
+**TESTING**: Run with QML import tracing to check for missing modules:
+```bash
+QML_IMPORT_TRACE=1 appDBC_Parser
+```
+
 ## Setting Up OBS Repository
 
 ### 1. Create an Account
