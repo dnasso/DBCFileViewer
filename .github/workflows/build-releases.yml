@@ -12,15 +12,15 @@ on:
       build_flatpak:
         description: "Build Flatpak job"
         type: boolean
-        default: false
+        default: true
       build_windows:
         description: "Build Windows job"
         type: boolean
-        default: false
+        default: true
       build_docker:
         description: "Build Docker job"
         type: boolean
-        default: false
+        default: true
       sign_flatpak:
         description: "Sign Flatpak bundle (requires GPG secrets)"
         type: boolean
