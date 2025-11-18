@@ -10,8 +10,65 @@ permissions:
   packages: write
 
 jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Qt6 on macOS
+        run: |
+          brew install qt@6
+          echo "$(brew --prefix qt@6)/bin" >> $GITHUB_PATH
+      
+      - name: Build project
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6) ..
+          make -j$(sysctl -n hw.ncpu)
+      
+      - name: Create macOS app bundle
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          cd build
+          
+          # Create app bundle structure
+          mkdir -p "DBC File Viewer.app/Contents/MacOS"
+          mkdir -p "DBC File Viewer.app/Contents/Resources"
+          
+          # Copy binary
+          cp appDBC_Parser "DBC File Viewer.app/Contents/MacOS/"
+          
+          # Copy QML files and resources
+          cp ../*.qml "DBC File Viewer.app/Contents/Resources/" || true
+          cp ../qmldir "DBC File Viewer.app/Contents/Resources/" || true
+          cp ../*.dbc "DBC File Viewer.app/Contents/Resources/" || true
+          cp ../*.json "DBC File Viewer.app/Contents/Resources/" || true
+          
+          # Use macdeployqt to bundle Qt libraries
+          macdeployqt "DBC File Viewer.app" -qmldir=..
+          
+          # Create DMG
+          hdiutil create -volname "DBC File Viewer" \
+            -srcfolder "DBC File Viewer.app" \
+            -ov -format UDZO \
+            "dbc-file-viewer-${VERSION}-macos.dmg"
+          
+          echo "Created DMG: dbc-file-viewer-${VERSION}-macos.dmg"
+          ls -lh dbc-file-viewer-${VERSION}-macos.dmg
+      
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: build/dbc-file-viewer-*-macos.dmg
+          retention-days: 7
+
   build-and-release:
     runs-on: ubuntu-latest
+    needs: build-macos
 
     # Add job-level env vars that map secrets -> env to avoid using 'secrets' inside 'if' expressions
     env:
@@ -125,15 +182,27 @@ jobs:
           echo "Signed checksums:"
           cat SHA256SUMS.txt
       
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: ./
+      
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dbc-file-viewer-*.tar.gz
             dbc-file-viewer-*.tar.gz.asc
+            dbc-file-viewer-*-macos.dmg
             SHA256SUMS.txt
           body: |
             ## DBC File Viewer ${{ github.ref_name }}
+            
+            ### Downloads
+            
+            - **macOS**: `dbc-file-viewer-*-macos.dmg` - Disk image with app bundle
+            - **Source**: `dbc-file-viewer-*.tar.gz` - Source code tarball
             
             ### Verification
             
